@@ -5,8 +5,6 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
-
-// Serve the frontend
 app.use(express.static(__dirname));
 
 const products = [];
