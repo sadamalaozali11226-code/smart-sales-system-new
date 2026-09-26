@@ -4,260 +4,265 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>نظام المبيعات الذكي</title>
+
   <style>
-    * { box-sizing: border-box; }
-    body {
+    * {
+      box-sizing: border-box;
       margin: 0;
+      padding: 0;
       font-family: Arial, sans-serif;
-      background: #f5f7fb;
-      color: #1f2937;
     }
+
+    body {
+      background: #f4f6f8;
+      color: #222;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 1100px;
+      margin: auto;
+    }
+
     header {
-      background: #111827;
+      background: #1f2937;
       color: white;
-      padding: 18px 24px;
+      padding: 20px;
+      border-radius: 14px;
+      margin-bottom: 20px;
       display: flex;
       justify-content: space-between;
       align-items: center;
+      gap: 10px;
     }
-    header h1 { margin: 0; font-size: 22px; }
+
+    header h1 {
+      font-size: 24px;
+    }
+
     button {
-      border: 0;
+      border: none;
       border-radius: 8px;
       padding: 10px 16px;
       cursor: pointer;
-      font-size: 14px;
+      font-size: 15px;
     }
-    .lang {
+
+    .language-btn {
       background: white;
-      color: #111827;
+      color: #1f2937;
     }
-    .container {
-      max-width: 1100px;
-      margin: 25px auto;
-      padding: 0 16px;
-    }
+
     .cards {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: 16px;
-      margin-bottom: 25px;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 15px;
+      margin-bottom: 20px;
     }
+
     .card {
       background: white;
       padding: 20px;
       border-radius: 12px;
-      box-shadow: 0 2px 10px rgba(0,0,0,.06);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
     }
+
     .card h3 {
-      margin-top: 0;
-      color: #6b7280;
+      color: #666;
       font-size: 15px;
+      margin-bottom: 10px;
     }
-    .number {
+
+    .card strong {
       font-size: 28px;
-      font-weight: bold;
     }
-    .panel {
+
+    .section {
       background: white;
       padding: 20px;
       border-radius: 12px;
-      box-shadow: 0 2px 10px rgba(0,0,0,.06);
+      margin-bottom: 20px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
     }
-    .panel h2 { margin-top: 0; }
-    form {
+
+    .section h2 {
+      margin-bottom: 15px;
+    }
+
+    .form {
       display: grid;
       grid-template-columns: 1fr 1fr 1fr auto;
       gap: 10px;
       margin-bottom: 20px;
     }
+
     input {
-      padding: 11px;
-      border: 1px solid #d1d5db;
+      width: 100%;
+      padding: 12px;
+      border: 1px solid #ddd;
       border-radius: 8px;
-      font-size: 14px;
+      font-size: 15px;
     }
-    .add {
+
+    .add-btn {
       background: #2563eb;
       color: white;
     }
+
+    .sale-btn {
+      background: #16a34a;
+      color: white;
+    }
+
+    .danger-btn {
+      background: #dc2626;
+      color: white;
+    }
+
     table {
       width: 100%;
       border-collapse: collapse;
     }
-    th, td {
-      padding: 12px 8px;
-      border-bottom: 1px solid #e5e7eb;
-      text-align: right;
-    }
-    th { background: #f9fafb; }
 
-    @media (max-width: 700px) {
-      form { grid-template-columns: 1fr; }
-      header { gap: 10px; }
-      header h1 { font-size: 17px; }
+    th, td {
+      padding: 12px;
+      border-bottom: 1px solid #eee;
+      text-align: center;
+    }
+
+    th {
+      background: #f8fafc;
+    }
+
+    .empty {
+      text-align: center;
+      padding: 20px;
+      color: #777;
+    }
+
+    .message {
+      margin-top: 10px;
+      padding: 10px;
+      border-radius: 8px;
+      display: none;
+    }
+
+    .success {
+      background: #dcfce7;
+      color: #166534;
+    }
+
+    .error {
+      background: #fee2e2;
+      color: #991b1b;
+    }
+
+    @media (max-width: 800px) {
+      .cards {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .form {
+        grid-template-columns: 1fr;
+      }
+
+      header {
+        flex-direction: column;
+        text-align: center;
+      }
+
+      table {
+        font-size: 13px;
+      }
+
+      th, td {
+        padding: 8px 4px;
+      }
+    }
+
+    @media (max-width: 500px) {
+      .cards {
+        grid-template-columns: 1fr;
+      }
+
+      body {
+        padding: 10px;
+      }
     }
   </style>
 </head>
 
 <body>
 
-<header>
-  <h1 id="title">نظام المبيعات الذكي</h1>
-  <button class="lang" onclick="toggleLanguage()" id="langBtn">English</button>
-</header>
-
 <div class="container">
 
+  <header>
+    <h1 id="title">نظام المبيعات الذكي</h1>
+    <button class="language-btn" onclick="toggleLanguage()" id="languageBtn">
+      English
+    </button>
+  </header>
+
   <div class="cards">
+
     <div class="card">
-      <h3 id="productsTitle">المنتجات</h3>
-      <div class="number" id="productsCount">0</div>
+      <h3 id="productsLabel">المنتجات</h3>
+      <strong id="productsCount">0</strong>
     </div>
 
     <div class="card">
-      <h3 id="stockTitle">إجمالي المخزون</h3>
-      <div class="number" id="stockCount">0</div>
+      <h3 id="stockLabel">إجمالي المخزون</h3>
+      <strong id="stockCount">0</strong>
     </div>
 
     <div class="card">
-      <h3 id="salesTitle">المبيعات</h3>
-      <div class="number">0</div>
+      <h3 id="salesLabel">المبيعات</h3>
+      <strong id="salesTotal">0</strong>
     </div>
 
     <div class="card">
-      <h3 id="customersTitle">العملاء</h3>
-      <div class="number">0</div>
+      <h3 id="customersLabel">العملاء</h3>
+      <strong id="customersCount">0</strong>
     </div>
+
   </div>
 
-  <div class="panel">
-    <h2 id="manageTitle">إدارة المنتجات</h2>
+  <div class="section">
 
-    <form id="productForm">
-      <input id="name" type="text" placeholder="اسم المنتج" required>
-      <input id="price" type="number" step="0.01" placeholder="السعر" required>
-      <input id="quantity" type="number" placeholder="الكمية" required>
-      <button class="add" type="submit" id="addBtn">إضافة</button>
-    </form>
+    <h2 id="productsTitle">إدارة المنتجات</h2>
+
+    <div class="form">
+
+      <input
+        type="text"
+        id="productName"
+        placeholder="اسم المنتج"
+      >
+
+      <input
+        type="number"
+        id="productPrice"
+        placeholder="السعر"
+        min="0"
+      >
+
+      <input
+        type="number"
+        id="productQuantity"
+        placeholder="الكمية"
+        min="0"
+      >
+
+      <button class="add-btn" onclick="addProduct()" id="addButton">
+        إضافة
+      </button>
+
+    </div>
+
+    <div id="message" class="message"></div>
 
     <table>
+
       <thead>
         <tr>
-          <th id="nameHead">المنتج</th>
-          <th id="priceHead">السعر</th>
-          <th id="quantityHead">الكمية</th>
-        </tr>
-      </thead>
-      <tbody id="productsTable"></tbody>
-    </table>
-  </div>
-
-</div>
-
-<script>
-  let arabic = true;
-
-  async function loadProducts() {
-    try {
-      const response = await fetch("/api/products");
-      const products = await response.json();
-
-      document.getElementById("productsCount").textContent = products.length;
-
-      let stock = 0;
-      products.forEach(p => stock += Number(p.quantity) || 0);
-      document.getElementById("stockCount").textContent = stock;
-
-      const table = document.getElementById("productsTable");
-      table.innerHTML = "";
-
-      products.forEach(product => {
-        const row = document.createElement("tr");
-        row.innerHTML = `
-          <td>${product.name}</td>
-          <td>${product.price}</td>
-          <td>${product.quantity}</td>
-        `;
-        table.appendChild(row);
-      });
-    } catch (error) {
-      console.error(error);
-    }
-  }
-
-  document.getElementById("productForm").addEventListener("submit", async function(e) {
-    e.preventDefault();
-
-    const product = {
-      name: document.getElementById("name").value,
-      price: document.getElementById("price").value,
-      quantity: document.getElementById("quantity").value
-    };
-
-    await fetch("/api/products", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify(product)
-    });
-
-    this.reset();
-    loadProducts();
-  });
-
-  function toggleLanguage() {
-    arabic = !arabic;
-
-    document.documentElement.lang = arabic ? "ar" : "en";
-    document.documentElement.dir = arabic ? "rtl" : "ltr";
-
-    document.getElementById("title").textContent =
-      arabic ? "نظام المبيعات الذكي" : "Smart Sales System";
-
-    document.getElementById("langBtn").textContent =
-      arabic ? "English" : "العربية";
-
-    document.getElementById("productsTitle").textContent =
-      arabic ? "المنتجات" : "Products";
-
-    document.getElementById("stockTitle").textContent =
-      arabic ? "إجمالي المخزون" : "Total Stock";
-
-    document.getElementById("salesTitle").textContent =
-      arabic ? "المبيعات" : "Sales";
-
-    document.getElementById("customersTitle").textContent =
-      arabic ? "العملاء" : "Customers";
-
-    document.getElementById("manageTitle").textContent =
-      arabic ? "إدارة المنتجات" : "Product Management";
-
-    document.getElementById("name").placeholder =
-      arabic ? "اسم المنتج" : "Product Name";
-
-    document.getElementById("price").placeholder =
-      arabic ? "السعر" : "Price";
-
-    document.getElementById("quantity").placeholder =
-      arabic ? "الكمية" : "Quantity";
-
-    document.getElementById("addBtn").textContent =
-      arabic ? "إضافة" : "Add";
-
-    document.getElementById("nameHead").textContent =
-      arabic ? "المنتج" : "Product";
-
-    document.getElementById("priceHead").textContent =
-      arabic ? "السعر" : "Price";
-
-    document.getElementById("quantityHead").textContent =
-      arabic ? "الكمية" : "Quantity";
-  }
-
-  loadProducts();
-</script>
-
-</body>
-</html>
+          <th
