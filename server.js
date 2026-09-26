@@ -37,7 +37,24 @@ app.post("/api/products", (req, res) => {
 fs.writeFileSync("products.json", JSON.stringify(products));
   res.status(201).json(product);
 });
+app.put("/api/products/:id", (req, res) => {
+  const id = Number(req.params.id);
+  const { quantity } = req.body;
 
+  const product = products.find(p => p.id === id);
+
+  if (!product) {
+    return res.status(404).json({
+      error: "Product not found"
+    });
+  }
+
+  product.quantity = Number(quantity);
+
+  fs.writeFileSync("products.json", JSON.stringify(products));
+
+  res.json(product);
+});
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`Server running on port ${PORT}`);
 });
