@@ -265,4 +265,318 @@
 
       <thead>
         <tr>
-          <th
+          <th id="nameHeader">المنتج</th>
+          <th id="priceHeader">السعر</th>
+          <th id="quantityHeader">الكمية</th>
+          <th id="actionHeader">الإجراء</th>
+        </tr>
+      </thead>
+
+      <tbody id="productsTable">
+      </tbody>
+
+    </table>
+
+    <div class="empty" id="emptyMessage">
+      لا توجد منتجات حاليًا
+    </div>
+
+  </div>
+
+</div>
+
+<script>
+
+let currentLanguage = "ar";
+let products = [];
+
+const translations = {
+
+  ar: {
+    title: "نظام المبيعات الذكي",
+    language: "English",
+    products: "المنتجات",
+    stock: "إجمالي المخزون",
+    sales: "المبيعات",
+    customers: "العملاء",
+    productsTitle: "إدارة المنتجات",
+    namePlaceholder: "اسم المنتج",
+    pricePlaceholder: "السعر",
+    quantityPlaceholder: "الكمية",
+    add: "إضافة",
+    name: "المنتج",
+    price: "السعر",
+    quantity: "الكمية",
+    action: "الإجراء",
+    sell: "بيع",
+    delete: "حذف",
+    empty: "لا توجد منتجات حاليًا",
+    added: "تمت إضافة المنتج بنجاح",
+    sold: "تم تسجيل البيع",
+    deleted: "تم حذف المنتج",
+    invalid: "يرجى إدخال بيانات صحيحة"
+  },
+
+  en: {
+    title: "Smart Sales System",
+    language: "العربية",
+    products: "Products",
+    stock: "Total Stock",
+    sales: "Sales",
+    customers: "Customers",
+    productsTitle: "Product Management",
+    namePlaceholder: "Product name",
+    pricePlaceholder: "Price",
+    quantityPlaceholder: "Quantity",
+    add: "Add",
+    name: "Product",
+    price: "Price",
+    quantity: "Quantity",
+    action: "Action",
+    sell: "Sell",
+    delete: "Delete",
+    empty: "No products currently",
+    added: "Product added successfully",
+    sold: "Sale recorded",
+    deleted: "Product deleted",
+    invalid: "Please enter valid data"
+  }
+
+};
+
+function toggleLanguage() {
+
+  currentLanguage = currentLanguage === "ar" ? "en" : "ar";
+
+  const t = translations[currentLanguage];
+
+  document.documentElement.lang = currentLanguage;
+  document.documentElement.dir = currentLanguage === "ar" ? "rtl" : "ltr";
+
+  document.getElementById("title").textContent = t.title;
+  document.getElementById("languageBtn").textContent = t.language;
+
+  document.getElementById("productsLabel").textContent = t.products;
+  document.getElementById("stockLabel").textContent = t.stock;
+  document.getElementById("salesLabel").textContent = t.sales;
+  document.getElementById("customersLabel").textContent = t.customers;
+
+  document.getElementById("productsTitle").textContent = t.productsTitle;
+
+  document.getElementById("productName").placeholder = t.namePlaceholder;
+  document.getElementById("productPrice").placeholder = t.pricePlaceholder;
+  document.getElementById("productQuantity").placeholder = t.quantityPlaceholder;
+
+  document.getElementById("addButton").textContent = t.add;
+
+  document.getElementById("nameHeader").textContent = t.name;
+  document.getElementById("priceHeader").textContent = t.price;
+  document.getElementById("quantityHeader").textContent = t.quantity;
+  document.getElementById("actionHeader").textContent = t.action;
+
+  renderProducts();
+}
+
+async function loadProducts() {
+
+  try {
+
+    const response = await fetch("/api/products");
+
+    products = await response.json();
+
+    renderProducts();
+
+  } catch (error) {
+
+    console.error(error);
+
+  }
+
+}
+
+async function addProduct() {
+
+  const name = document.getElementById("productName").value.trim();
+  const price = document.getElementById("productPrice").value;
+  const quantity = document.getElementById("productQuantity").value;
+
+  const t = translations[currentLanguage];
+
+  if (!name || price === "" || quantity === "") {
+
+    showMessage(t.invalid, true);
+
+    return;
+  }
+
+  try {
+
+    const response = await fetch("/api/products", {
+
+      method: "POST",
+
+      headers: {
+        "Content-Type": "application/json"
+      },
+
+      body: JSON.stringify({
+        name,
+        price,
+        quantity
+      })
+
+    });
+
+    if (!response.ok) {
+
+      showMessage(t.invalid, true);
+
+      return;
+
+    }
+
+    document.getElementById("productName").value = "";
+    document.getElementById("productPrice").value = "";
+    document.getElementById("productQuantity").value = "";
+
+    showMessage(t.added);
+
+    await loadProducts();
+
+  } catch (error) {
+
+    showMessage("Connection error", true);
+
+  }
+
+}
+
+function renderProducts() {
+
+  const table = document.getElementById("productsTable");
+  const empty = document.getElementById("emptyMessage");
+
+  table.innerHTML = "";
+
+  const t = translations[currentLanguage];
+
+  if (products.length === 0) {
+
+    empty.style.display = "block";
+
+  } else {
+
+    empty.style.display = "none";
+
+  }
+
+  let totalStock = 0;
+
+  products.forEach(product => {
+
+    totalStock += Number(product.quantity);
+
+    const row = document.createElement("tr");
+
+    row.innerHTML = `
+      <td>${escapeHtml(product.name)}</td>
+      <td>${Number(product.price).toFixed(2)}</td>
+      <td>${product.quantity}</td>
+      <td>
+        <button
+          class="sale-btn"
+          onclick="sellProduct(${product.id})">
+          ${t.sell}
+        </button>
+
+        <button
+          class="danger-btn"
+          onclick="deleteProduct(${product.id})">
+          ${t.delete}
+        </button>
+      </td>
+    `;
+
+    table.appendChild(row);
+
+  });
+
+  document.getElementById("productsCount").textContent = products.length;
+  document.getElementById("stockCount").textContent = totalStock;
+}
+
+function sellProduct(id) {
+
+  const product = products.find(p => p.id === id);
+
+  if (!product) return;
+
+  if (Number(product.quantity) <= 0) {
+
+    showMessage(
+      currentLanguage === "ar"
+        ? "المنتج غير متوفر في المخزون"
+        : "Product is out of stock",
+      true
+    );
+
+    return;
+  }
+
+  product.quantity = Number(product.quantity) - 1;
+
+  document.getElementById("salesTotal").textContent =
+    Number(document.getElementById("salesTotal").textContent) + Number(product.price);
+
+  renderProducts();
+
+  showMessage(translations[currentLanguage].sold);
+
+}
+
+function deleteProduct(id) {
+
+  products = products.filter(product => product.id !== id);
+
+  renderProducts();
+
+  showMessage(translations[currentLanguage].deleted);
+
+}
+
+function showMessage(message, isError = false) {
+
+  const element = document.getElementById("message");
+
+  element.textContent = message;
+
+  element.className =
+    "message " + (isError ? "error" : "success");
+
+  element.style.display = "block";
+
+  setTimeout(() => {
+
+    element.style.display = "none";
+
+  }, 2500);
+
+}
+
+function escapeHtml(text) {
+
+  const div = document.createElement("div");
+
+  div.textContent = text;
+
+  return div.innerHTML;
+
+}
+
+loadProducts();
+
+</script>
+
+</body>
+</html>
