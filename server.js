@@ -1,17 +1,18 @@
 const express = require("express");
+const path = require("path");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
 
+// Serve the frontend
+app.use(express.static(__dirname));
+
 const products = [];
 
 app.get("/", (req, res) => {
-  res.json({
-    status: "ok",
-    message: "Smart Sales System is running",
-  });
+  res.sendFile(path.join(__dirname, "index.html"));
 });
 
 app.get("/api/products", (req, res) => {
