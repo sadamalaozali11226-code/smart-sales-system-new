@@ -1,13 +1,13 @@
 const express = require("express");
 const path = require("path");
-
+const fs = require("fs");
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
 app.use(express.static(__dirname));
 
-let products = [];
+let products = fs.existsSync("products.json") ? JSON.parse(fs.readFileSync("products.json")) : [];
 
 app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "index.html"));
@@ -34,7 +34,7 @@ app.post("/api/products", (req, res) => {
   };
 
   products.push(product);
-
+fs.writeFileSync("products.json", JSON.stringify(products));
   res.status(201).json(product);
 });
 
