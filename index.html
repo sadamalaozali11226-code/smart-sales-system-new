@@ -506,36 +506,62 @@ function renderProducts() {
   document.getElementById("stockCount").textContent = totalStock;
 }
 
-function sellProduct(id) {
+async function sellProduct(id) {
 
   const product = products.find(p => p.id === id);
 
   if (!product) return;
 
   if (Number(product.quantity) <= 0) {
-
     showMessage(
       currentLanguage === "ar"
         ? "المنتج غير متوفر في المخزون"
         : "Product is out of stock",
       true
     );
-
     return;
   }
 
-  product.quantity = Number(product.quantity) - 1;
+  const newQuantity = Number(product.quantity) - 1;
 
-  document.getElementById("salesTotal").textContent =
-    Number(document.getElementById("salesTotal").textContent) + Number(product.price);
+  try {
+    const response = await fetch("/api/products/" + id, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        quantity: newQuantity
+      })
+    });
 
-  renderProducts();
+    if (!response.ok) {
+      throw new Error("Failed to update product");
+    }
 
-  showMessage(translations[currentLanguage].sold);
+    product.quantity = newQuantity;
 
+    document.getElementById("salesTotal").textContent =
+      Number(document.getElementById("salesTotal").textContent) +
+      Number(product.price);
+
+    renderProducts();
+
+    showMessage(translations[currentLanguage].sold);
+
+  } catch (error) {
+    console.error(error);
+
+    showMessage(
+      currentLanguage === "ar"
+        ? "حدث خطأ أثناء تسجيل البيع"
+        : "Error recording sale",
+      true
+    );
+  }
 }
 
-function deleteProduct(id) {
+function deleteProduct(id){
 
   products = products.filter(product => product.id !== id);
 
