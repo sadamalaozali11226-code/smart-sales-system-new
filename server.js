@@ -1,6 +1,5 @@
 const express = require("express");
 const path = require("path");
-const fs = require("fs");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -8,23 +7,64 @@ const PORT = process.env.PORT || 3000;
 app.use(express.json());
 app.use(express.static(__dirname));
 
-let products = [];
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-const productsFile = path.join(__dirname, "products.json");
+if (!SUPABASE_URL || !SUPABASE_KEY) {
+  console.error("Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY");
+}
 
-if (fs.existsSync(productsFile)) {
-  products = JSON.parse(fs.readFileSync(productsFile, "utf8"));
+async function supabaseRequest(endpoint, options = {}) {
+  const response = await fetch(`${SUPABASE_URL}/rest/v1/${endpoint}`, {
+    ...options,
+    headers: {
+      apikey: SUPABASE_KEY,
+      Authorization: `Bearer ${SUPABASE_KEY}`,
+      "Content-Type": "application/json",
+      ...options.headers
+    }
+  });
+
+  const text = await response.text();
+
+  let data;
+  try {
+    data = text ? JSON.parse(text) : null;
+  } catch {
+    data = text;
+  }
+
+  if (!response.ok) {
+    throw new Error(
+      typeof data === "object" ? JSON.stringify(data) : data
+    );
+  }
+
+  return data;
 }
 
 app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "index.html"));
 });
 
-app.get("/api/products", (req, res) => {
-  res.json(products);
+// جلب المنتجات
+app.get("/api/products", async (req, res) => {
+  try {
+    const products = await supabaseRequest(
+      "products?select=id,name,price,quantity&order=id.asc"
+    );
+
+    res.json(products);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      error: "Failed to fetch products"
+    });
+  }
 });
 
-app.post("/api/products", (req, res) => {
+// إضافة منتج
+app.post("/api/products", async (req, res) => {
   const { name, price, quantity } = req.body;
 
   if (!name || price === undefined || quantity === undefined) {
@@ -33,43 +73,63 @@ app.post("/api/products", (req, res) => {
     });
   }
 
-  const product = {
-    id: products.length + 1,
-    name,
-    price: Number(price),
-    quantity: Number(quantity)
-  };
+  try {
+    const products = await supabaseRequest("products", {
+      method: "POST",
+      headers: {
+        Prefer: "return=representation"
+      },
+      body: JSON.stringify({
+        name,
+        price: Number(price),
+        quantity: Number(quantity)
+      })
+    });
 
-  products.push(product);
-
-  fs.writeFileSync(
-    productsFile,
-    JSON.stringify(products, null, 2)
-  );
-
-  res.status(201).json(product);
+    res.status(201).json(products[0]);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      error: "Failed to create product"
+    });
+  }
 });
 
-app.put("/api/products/:id", (req, res) => {
+// تعديل كمية المنتج
+app.put("/api/products/:id", async (req, res) => {
   const id = Number(req.params.id);
   const { quantity } = req.body;
 
-  const product = products.find(p => p.id === id);
-
-  if (!product) {
-    return res.status(404).json({
-      error: "Product not found"
+  if (quantity === undefined) {
+    return res.status(400).json({
+      error: "quantity is required"
     });
   }
 
-  product.quantity = Number(quantity);
+  try {
+    const products = await supabaseRequest(`products?id=eq.${id}`, {
+      method: "PATCH",
+      headers: {
+        Prefer: "return=representation"
+      },
+      body: JSON.stringify({
+        quantity: Number(quantity)
+      })
+    });
 
-  fs.writeFileSync(
-    productsFile,
-    JSON.stringify(products, null, 2)
-  );
+    if (!products || products.length === 0) {
+      return res.status(404).json({
+        error: "Product not found"
+      });
+    }
 
-  res.json(product);
+    res.json(products[0]);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      error: "Failed to update product"
+    });
+  }
 });
 
 app.listen(PORT, "0.0.0.0", () => {
