@@ -1,13 +1,20 @@
 const express = require("express");
 const path = require("path");
 const fs = require("fs");
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
 app.use(express.static(__dirname));
 
-let products = fs.existsSync("products.json") ? JSON.parse(fs.readFileSync("products.json")) : [];
+let products = [];
+
+const productsFile = path.join(__dirname, "products.json");
+
+if (fs.existsSync(productsFile)) {
+  products = JSON.parse(fs.readFileSync(productsFile, "utf8"));
+}
 
 app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "index.html"));
@@ -22,7 +29,7 @@ app.post("/api/products", (req, res) => {
 
   if (!name || price === undefined || quantity === undefined) {
     return res.status(400).json({
-      error: "name, price and quantity are required",
+      error: "name, price and quantity are required"
     });
   }
 
@@ -30,13 +37,19 @@ app.post("/api/products", (req, res) => {
     id: products.length + 1,
     name,
     price: Number(price),
-    quantity: Number(quantity),
+    quantity: Number(quantity)
   };
 
   products.push(product);
-fs.writeFileSync("products.json", JSON.stringify(products));
+
+  fs.writeFileSync(
+    productsFile,
+    JSON.stringify(products, null, 2)
+  );
+
   res.status(201).json(product);
 });
+
 app.put("/api/products/:id", (req, res) => {
   const id = Number(req.params.id);
   const { quantity } = req.body;
@@ -51,10 +64,14 @@ app.put("/api/products/:id", (req, res) => {
 
   product.quantity = Number(quantity);
 
-  fs.writeFileSync("products.json", JSON.stringify(products));
+  fs.writeFileSync(
+    productsFile,
+    JSON.stringify(products, null, 2)
+  );
 
   res.json(product);
 });
+
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`Server running on port ${PORT}`);
 });
