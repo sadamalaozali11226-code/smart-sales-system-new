@@ -97,6 +97,10 @@ app.post("/api/products", async (req, res) => {
 
 // تعديل كمية المنتج + تسجيل البيع
 app.put("/api/products/:id", async (req, res) => {
+console.log("SALE PUT RECEIVED", {
+  id: req.params.id,
+  body: req.body
+}); 
   const id = Number(req.params.id);
   const { quantity } = req.body;
 
