@@ -95,7 +95,7 @@ app.post("/api/products", async (req, res) => {
   }
 });
 
-// تعديل كمية المنتج
+// تعديل كمية المنتج + تسجيل البيع
 app.put("/api/products/:id", async (req, res) => {
   const id = Number(req.params.id);
   const { quantity } = req.body;
@@ -107,13 +107,55 @@ app.put("/api/products/:id", async (req, res) => {
   }
 
   try {
+    // جلب بيانات المنتج الحالية
+    const currentProducts = await supabaseRequest(
+      `products?id=eq.${id}&select=id,name,price,quantity`
+    );
+
+    if (!currentProducts || currentProducts.length === 0) {
+      return res.status(404).json({
+        error: "Product not found"
+      });
+    }
+
+    const currentProduct = currentProducts[0];
+    const currentQuantity = Number(currentProduct.quantity);
+    const newQuantity = Number(quantity);
+
+    // إذا نقص المخزون بمقدار 1 فهذا يعني تنفيذ عملية بيع
+    if (newQuantity === currentQuantity - 1) {
+      const invoiceNumber = `INV-${Date.now()}`;
+
+      const sale = await supabaseRequest("rpc/create_sale", {
+        method: "POST",
+        body: JSON.stringify({
+          p_invoice_number: invoiceNumber,
+          p_customer_id: null,
+          p_product_id: id,
+          p_quantity: 1,
+          p_payment_method: "cash"
+        })
+      });
+
+      // جلب المنتج بعد البيع
+      const updatedProducts = await supabaseRequest(
+        `products?id=eq.${id}&select=id,name,price,quantity`
+      );
+
+      return res.json({
+        ...updatedProducts[0],
+        sale: sale
+      });
+    }
+
+    // في حالة تعديل الكمية بطريقة عادية
     const products = await supabaseRequest(`products?id=eq.${id}`, {
       method: "PATCH",
       headers: {
         Prefer: "return=representation"
       },
       body: JSON.stringify({
-        quantity: Number(quantity)
+        quantity: newQuantity
       })
     });
 
@@ -124,10 +166,13 @@ app.put("/api/products/:id", async (req, res) => {
     }
 
     res.json(products[0]);
+
   } catch (error) {
     console.error(error);
+
     res.status(500).json({
-      error: "Failed to update product"
+      error: "Failed to update product",
+      details: error.message
     });
   }
 });
