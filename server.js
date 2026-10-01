@@ -53,7 +53,9 @@ app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "index.html"));
 });
 
+// ===============================
 // جلب المنتجات
+// ===============================
 app.get("/api/products", async (req, res) => {
   try {
     const products = await supabaseRequest(
@@ -71,7 +73,9 @@ app.get("/api/products", async (req, res) => {
   }
 });
 
+// ===============================
 // إضافة منتج
+// ===============================
 app.post("/api/products", async (req, res) => {
   const { name, price, quantity } = req.body;
 
@@ -280,6 +284,9 @@ app.put("/api/products/:id", async (req, res) => {
   }
 });
 
+// ===============================
+// تشغيل السيرفر
+// ===============================
 app.listen(PORT, "0.0.0.0", () => {
   console.log(
     `Server running on port ${PORT}`
