@@ -224,7 +224,7 @@
 
       <div class="card">
         <h3 id="salesLabel">المبيعات</h3>
-        <strong id="salesTotal">0</strong>
+        <strong id="salesTotal">0.00</strong>
       </div>
 
       <div class="card">
@@ -446,6 +446,36 @@
             : "Error loading products",
           true
         );
+      }
+    }
+
+    async function loadSales() {
+
+      try {
+
+        const response =
+          await fetch("/api/sales");
+
+        if (!response.ok) {
+          throw new Error("Failed to load sales");
+        }
+
+        const data =
+          await response.json();
+
+        document.getElementById(
+          "salesTotal"
+        ).textContent =
+          Number(data.total || 0).toFixed(2);
+
+      } catch (error) {
+
+        console.error(error);
+
+        document.getElementById(
+          "salesTotal"
+        ).textContent =
+          "0.00";
       }
     }
 
@@ -688,33 +718,9 @@
               data.product;
           }
 
-        } else {
-
-          product.quantity =
-            Number(product.quantity) - 1;
         }
 
-        const currentSales =
-          Number(
-            document.getElementById(
-              "salesTotal"
-            ).textContent
-          );
-
-        const saleTotal =
-          Number(
-            data.total !== undefined
-              ? data.total
-              : product.price
-          );
-
-        document.getElementById(
-          "salesTotal"
-        ).textContent =
-          (
-            currentSales +
-            saleTotal
-          ).toFixed(2);
+        await loadSales();
 
         renderProducts();
 
@@ -728,9 +734,12 @@
         console.error(error);
 
         showMessage(
-          currentLanguage === "ar"
-            ? "حدث خطأ أثناء تسجيل البيع"
-            : "Error recording sale",
+          error.message ||
+          (
+            currentLanguage === "ar"
+              ? "حدث خطأ أثناء تسجيل البيع"
+              : "Error recording sale"
+          ),
           true
         );
       }
@@ -851,7 +860,16 @@
       return div.innerHTML;
     }
 
-    loadProducts();
+    async function initializeApp() {
+
+      await Promise.all([
+        loadProducts(),
+        loadSales()
+      ]);
+
+    }
+
+    initializeApp();
 
   </script>
 
