@@ -23,113 +23,86 @@ export default async function handler(req, res) {
   }
 
   try {
-    // جلب المنتج الحالي
-    const productResponse = await fetch(
-      `${SUPABASE_URL}/rest/v1/products?id=eq.${id}&select=id,name,price,quantity`,
+    const response = await fetch(
+      `${SUPABASE_URL}/rest/v1/rpc/record_product_sale`,
       {
-        method: "GET",
+        method: "POST",
         headers: {
           apikey: SUPABASE_KEY,
           Authorization: `Bearer ${SUPABASE_KEY}`,
           "Content-Type": "application/json"
-        }
-      }
-    );
-
-    const productText = await productResponse.text();
-
-    let products;
-
-    try {
-      products = productText
-        ? JSON.parse(productText)
-        : [];
-    } catch {
-      products = [];
-    }
-
-    if (!productResponse.ok) {
-      throw new Error(
-        typeof products === "object"
-          ? JSON.stringify(products)
-          : productText
-      );
-    }
-
-    if (!products || products.length === 0) {
-      return res.status(404).json({
-        error: "Product not found"
-      });
-    }
-
-    const product = products[0];
-
-    const currentQuantity = Number(product.quantity);
-
-    if (
-      !Number.isFinite(currentQuantity) ||
-      currentQuantity <= 0
-    ) {
-      return res.status(400).json({
-        error: "Product is out of stock"
-      });
-    }
-
-    const newQuantity = currentQuantity - 1;
-
-    // تحديث كمية المنتج
-    const updateResponse = await fetch(
-      `${SUPABASE_URL}/rest/v1/products?id=eq.${id}`,
-      {
-        method: "PATCH",
-        headers: {
-          apikey: SUPABASE_KEY,
-          Authorization: `Bearer ${SUPABASE_KEY}`,
-          "Content-Type": "application/json",
-          Prefer: "return=representation"
         },
         body: JSON.stringify({
-          quantity: newQuantity
+          p_product_id: id
         })
       }
     );
 
-    const updateText = await updateResponse.text();
+    const text = await response.text();
 
-    let updatedProducts;
+    let data;
 
     try {
-      updatedProducts = updateText
-        ? JSON.parse(updateText)
-        : [];
+      data = text ? JSON.parse(text) : null;
     } catch {
-      updatedProducts = [];
+      data = text;
     }
 
-    if (!updateResponse.ok) {
-      throw new Error(
-        typeof updatedProducts === "object"
-          ? JSON.stringify(updatedProducts)
-          : updateText
-      );
-    }
+    if (!response.ok) {
+      console.error("SUPABASE SALE ERROR:", data);
 
-    if (
-      !updatedProducts ||
-      updatedProducts.length === 0
-    ) {
+      const errorMessage =
+        typeof data === "object" && data !== null
+          ? data.message ||
+            data.error ||
+            data.hint ||
+            JSON.stringify(data)
+          : String(data);
+
+      if (
+        errorMessage
+          .toLowerCase()
+          .includes("product not found")
+      ) {
+        return res.status(404).json({
+          error: "Product not found"
+        });
+      }
+
+      if (
+        errorMessage
+          .toLowerCase()
+          .includes("out of stock")
+      ) {
+        return res.status(400).json({
+          error: "Product is out of stock"
+        });
+      }
+
       return res.status(500).json({
-        error: "Product quantity was not updated"
+        error: "Failed to record sale",
+        details: errorMessage
       });
     }
 
-    const updatedProduct = updatedProducts[0];
+    if (!data || data.success !== true) {
+      return res.status(500).json({
+        error: "Sale was not recorded correctly"
+      });
+    }
 
     return res.status(200).json({
       success: true,
-      product: updatedProduct,
+      saleId: data.sale_id,
+      invoiceNumber: data.invoice_number,
+      product: {
+        id: data.product_id,
+        name: data.product_name,
+        price: Number(data.price),
+        quantity: Number(data.quantity)
+      },
       soldQuantity: 1,
-      total: Number(product.price)
+      total: Number(data.total)
     });
 
   } catch (error) {
