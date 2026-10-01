@@ -125,18 +125,28 @@ console.log("SALE PUT RECEIVED", {
     const currentProduct = currentProducts[0];
     const currentQuantity = Number(currentProduct.quantity);
     const newQuantity = Number(quantity);
+const soldQuantity = currentQuantity - newQuantity;
 
+console.log("SALE CHECK", {
+  id,
+  currentQuantity,
+  newQuantity,
+  soldQuantity
+});
     // إذا نقص المخزون بمقدار 1 فهذا يعني تنفيذ عملية بيع
-    if (newQuantity === currentQuantity - 1) {
+if (newQuantity < currentQuantity) {
       const invoiceNumber = `INV-${Date.now()}`;
-
+console.log("CREATING SALE", {
+  productId: id,
+  soldQuantity
+});
       const sale = await supabaseRequest("rpc/create_sale", {
         method: "POST",
         body: JSON.stringify({
           p_invoice_number: invoiceNumber,
           p_customer_id: null,
           p_product_id: id,
-          p_quantity: 1,
+          p_quantity: soldQuantity,
           p_payment_method: "cash"
         })
       });
@@ -184,3 +194,4 @@ console.log("SALE PUT RECEIVED", {
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`Server running on port ${PORT}`);
 });
+  
