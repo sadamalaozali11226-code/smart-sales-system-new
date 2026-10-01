@@ -96,6 +96,28 @@
       margin-bottom: 20px;
     }
 
+    .customer-form {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+
+    .customer-form textarea {
+      width: 100%;
+      min-height: 45px;
+      padding: 12px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      font-size: 15px;
+      resize: vertical;
+      font-family: Arial, sans-serif;
+    }
+
+    .customer-form .full-width {
+      grid-column: 1 / -1;
+    }
+
     input {
       width: 100%;
       padding: 12px;
@@ -106,6 +128,11 @@
 
     .add-btn {
       background: #2563eb;
+      color: white;
+    }
+
+    .customer-add-btn {
+      background: #7c3aed;
       color: white;
     }
 
@@ -165,6 +192,14 @@
 
       .form {
         grid-template-columns: 1fr;
+      }
+
+      .customer-form {
+        grid-template-columns: 1fr;
+      }
+
+      .customer-form .full-width {
+        grid-column: auto;
       }
 
       header {
@@ -293,6 +328,68 @@
 
     </div>
 
+    <div class="section">
+
+      <h2 id="customersTitle">إدارة العملاء</h2>
+
+      <div class="customer-form">
+
+        <input
+          type="text"
+          id="customerName"
+          placeholder="اسم العميل"
+        >
+
+        <input
+          type="text"
+          id="customerPhone"
+          placeholder="رقم الهاتف"
+        >
+
+        <input
+          type="text"
+          id="customerAddress"
+          class="full-width"
+          placeholder="العنوان"
+        >
+
+        <textarea
+          id="customerNotes"
+          class="full-width"
+          placeholder="ملاحظات"
+        ></textarea>
+
+        <button
+          class="customer-add-btn"
+          onclick="addCustomer()"
+          id="customerAddButton"
+        >
+          إضافة عميل
+        </button>
+
+      </div>
+
+      <table>
+
+        <thead>
+          <tr>
+            <th id="customerNameHeader">الاسم</th>
+            <th id="customerPhoneHeader">الهاتف</th>
+            <th id="customerAddressHeader">العنوان</th>
+            <th id="customerNotesHeader">الملاحظات</th>
+          </tr>
+        </thead>
+
+        <tbody id="customersTable"></tbody>
+
+      </table>
+
+      <div class="empty" id="customersEmptyMessage">
+        لا يوجد عملاء حاليًا
+      </div>
+
+    </div>
+
   </div>
 
   <script>
@@ -310,21 +407,37 @@
         sales: "المبيعات",
         customers: "العملاء",
         productsTitle: "إدارة المنتجات",
+        customersTitle: "إدارة العملاء",
         namePlaceholder: "اسم المنتج",
         pricePlaceholder: "السعر",
         quantityPlaceholder: "الكمية",
+        customerNamePlaceholder: "اسم العميل",
+        customerPhonePlaceholder: "رقم الهاتف",
+        customerAddressPlaceholder: "العنوان",
+        customerNotesPlaceholder: "ملاحظات",
         add: "إضافة",
+        addCustomer: "إضافة عميل",
         name: "المنتج",
         price: "السعر",
         quantity: "الكمية",
         action: "الإجراء",
+        customerName: "الاسم",
+        customerPhone: "الهاتف",
+        customerAddress: "العنوان",
+        customerNotes: "الملاحظات",
         sell: "بيع",
         delete: "حذف",
         empty: "لا توجد منتجات حاليًا",
+        customersEmpty: "لا يوجد عملاء حاليًا",
         added: "تمت إضافة المنتج بنجاح",
+        customerAdded: "تمت إضافة العميل بنجاح",
         sold: "تم تسجيل البيع",
         deleted: "تم حذف المنتج",
-        invalid: "يرجى إدخال بيانات صحيحة"
+        invalid: "يرجى إدخال بيانات صحيحة",
+        customerNameRequired: "يرجى إدخال اسم العميل",
+        productsLoadError: "حدث خطأ أثناء تحميل المنتجات",
+        customersLoadError: "حدث خطأ أثناء تحميل العملاء",
+        connectionError: "حدث خطأ في الاتصال"
       },
 
       en: {
@@ -335,21 +448,37 @@
         sales: "Sales",
         customers: "Customers",
         productsTitle: "Product Management",
+        customersTitle: "Customer Management",
         namePlaceholder: "Product name",
         pricePlaceholder: "Price",
         quantityPlaceholder: "Quantity",
+        customerNamePlaceholder: "Customer name",
+        customerPhonePlaceholder: "Phone number",
+        customerAddressPlaceholder: "Address",
+        customerNotesPlaceholder: "Notes",
         add: "Add",
+        addCustomer: "Add Customer",
         name: "Product",
         price: "Price",
         quantity: "Quantity",
         action: "Action",
+        customerName: "Name",
+        customerPhone: "Phone",
+        customerAddress: "Address",
+        customerNotes: "Notes",
         sell: "Sell",
         delete: "Delete",
         empty: "No products currently",
+        customersEmpty: "No customers currently",
         added: "Product added successfully",
+        customerAdded: "Customer added successfully",
         sold: "Sale recorded",
         deleted: "Product deleted",
-        invalid: "Please enter valid data"
+        invalid: "Please enter valid data",
+        customerNameRequired: "Please enter customer name",
+        productsLoadError: "Error loading products",
+        customersLoadError: "Error loading customers",
+        connectionError: "Connection error"
       }
 
     };
@@ -393,6 +522,9 @@
       document.getElementById("productsTitle").textContent =
         t.productsTitle;
 
+      document.getElementById("customersTitle").textContent =
+        t.customersTitle;
+
       document.getElementById("productName").placeholder =
         t.namePlaceholder;
 
@@ -402,8 +534,23 @@
       document.getElementById("productQuantity").placeholder =
         t.quantityPlaceholder;
 
+      document.getElementById("customerName").placeholder =
+        t.customerNamePlaceholder;
+
+      document.getElementById("customerPhone").placeholder =
+        t.customerPhonePlaceholder;
+
+      document.getElementById("customerAddress").placeholder =
+        t.customerAddressPlaceholder;
+
+      document.getElementById("customerNotes").placeholder =
+        t.customerNotesPlaceholder;
+
       document.getElementById("addButton").textContent =
         t.add;
+
+      document.getElementById("customerAddButton").textContent =
+        t.addCustomer;
 
       document.getElementById("nameHeader").textContent =
         t.name;
@@ -417,7 +564,26 @@
       document.getElementById("actionHeader").textContent =
         t.action;
 
+      document.getElementById("customerNameHeader").textContent =
+        t.customerName;
+
+      document.getElementById("customerPhoneHeader").textContent =
+        t.customerPhone;
+
+      document.getElementById("customerAddressHeader").textContent =
+        t.customerAddress;
+
+      document.getElementById("customerNotesHeader").textContent =
+        t.customerNotes;
+
+      document.getElementById("emptyMessage").textContent =
+        t.empty;
+
+      document.getElementById("customersEmptyMessage").textContent =
+        t.customersEmpty;
+
       renderProducts();
+      renderCustomers();
     }
 
     async function loadProducts() {
@@ -441,9 +607,8 @@
         console.error(error);
 
         showMessage(
-          currentLanguage === "ar"
-            ? "حدث خطأ أثناء تحميل المنتجات"
-            : "Error loading products",
+          translations[currentLanguage]
+            .productsLoadError,
           true
         );
       }
@@ -476,6 +641,38 @@
           "salesTotal"
         ).textContent =
           "0.00";
+      }
+    }
+
+    async function loadCustomers() {
+
+      try {
+
+        const response =
+          await fetch("/api/customers");
+
+        if (!response.ok) {
+          throw new Error("Failed to load customers");
+        }
+
+        customers =
+          await response.json();
+
+        renderCustomers();
+
+      } catch (error) {
+
+        console.error(error);
+
+        customers = [];
+
+        renderCustomers();
+
+        showMessage(
+          translations[currentLanguage]
+            .customersLoadError,
+          true
+        );
       }
     }
 
@@ -564,9 +761,111 @@
         console.error(error);
 
         showMessage(
-          currentLanguage === "ar"
-            ? "حدث خطأ في الاتصال"
-            : "Connection error",
+          t.connectionError,
+          true
+        );
+      }
+    }
+
+    async function addCustomer() {
+
+      const name =
+        document
+          .getElementById("customerName")
+          .value
+          .trim();
+
+      const phone =
+        document
+          .getElementById("customerPhone")
+          .value
+          .trim();
+
+      const address =
+        document
+          .getElementById("customerAddress")
+          .value
+          .trim();
+
+      const notes =
+        document
+          .getElementById("customerNotes")
+          .value
+          .trim();
+
+      const t =
+        translations[currentLanguage];
+
+      if (!name) {
+
+        showMessage(
+          t.customerNameRequired,
+          true
+        );
+
+        return;
+      }
+
+      try {
+
+        const response =
+          await fetch(
+            "/api/customers",
+            {
+              method: "POST",
+              headers: {
+                "Content-Type":
+                  "application/json"
+              },
+              body: JSON.stringify({
+                name,
+                phone,
+                address,
+                notes
+              })
+            }
+          );
+
+        const data =
+          await response.json();
+
+        if (!response.ok) {
+
+          throw new Error(
+            data.error ||
+            "Failed to add customer"
+          );
+        }
+
+        document
+          .getElementById("customerName")
+          .value = "";
+
+        document
+          .getElementById("customerPhone")
+          .value = "";
+
+        document
+          .getElementById("customerAddress")
+          .value = "";
+
+        document
+          .getElementById("customerNotes")
+          .value = "";
+
+        showMessage(
+          t.customerAdded
+        );
+
+        await loadCustomers();
+
+      } catch (error) {
+
+        console.error(error);
+
+        showMessage(
+          error.message ||
+          t.connectionError,
           true
         );
       }
@@ -648,6 +947,55 @@
         "stockCount"
       ).textContent =
         totalStock;
+    }
+
+    function renderCustomers() {
+
+      const table =
+        document.getElementById(
+          "customersTable"
+        );
+
+      const empty =
+        document.getElementById(
+          "customersEmptyMessage"
+        );
+
+      table.innerHTML = "";
+
+      if (customers.length === 0) {
+
+        empty.style.display =
+          "block";
+
+      } else {
+
+        empty.style.display =
+          "none";
+      }
+
+      customers.forEach(customer => {
+
+        const row =
+          document.createElement("tr");
+
+        row.innerHTML = `
+          <td>${escapeHtml(customer.name || "")}</td>
+
+          <td>${escapeHtml(customer.phone || "")}</td>
+
+          <td>${escapeHtml(customer.address || "")}</td>
+
+          <td>${escapeHtml(customer.notes || "")}</td>
+        `;
+
+        table.appendChild(row);
+      });
+
+      document.getElementById(
+        "customersCount"
+      ).textContent =
+        customers.length;
     }
 
     async function sellProduct(id) {
@@ -864,7 +1212,8 @@
 
       await Promise.all([
         loadProducts(),
-        loadSales()
+        loadSales(),
+        loadCustomers()
       ]);
 
     }
