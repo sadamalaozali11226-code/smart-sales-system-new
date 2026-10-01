@@ -1,11 +1,8 @@
-<!DOCTYPE html>
-<html lang="ar" dir="rtl">
+<!DOCTYPE html><html lang="ar" dir="rtl">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>نظام المبيعات الذكي</title>
-
-  <style>
+  <title>نظام المبيعات الذكي</title>  <style>
     * {
       box-sizing: border-box;
       margin: 0;
@@ -118,12 +115,14 @@
       grid-column: 1 / -1;
     }
 
-    input {
+    input,
+    select {
       width: 100%;
       padding: 12px;
       border: 1px solid #ddd;
       border-radius: 8px;
       font-size: 15px;
+      background: white;
     }
 
     .add-btn {
@@ -185,6 +184,53 @@
       color: #991b1b;
     }
 
+    .customer-select {
+      margin-top: 10px;
+      margin-bottom: 10px;
+    }
+
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.45);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      z-index: 1000;
+    }
+
+    .modal {
+      width: 100%;
+      max-width: 420px;
+      background: white;
+      border-radius: 14px;
+      padding: 20px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+    }
+
+    .modal h3 {
+      margin-bottom: 15px;
+    }
+
+    .modal-buttons {
+      display: flex;
+      gap: 10px;
+      margin-top: 15px;
+    }
+
+    .modal-confirm {
+      background: #16a34a;
+      color: white;
+      flex: 1;
+    }
+
+    .modal-cancel {
+      background: #6b7280;
+      color: white;
+      flex: 1;
+    }
+
     @media (max-width: 800px) {
       .cards {
         grid-template-columns: repeat(2, 1fr);
@@ -226,176 +272,203 @@
         padding: 10px;
       }
     }
-  </style>
-</head>
+  </style></head><body>  <div class="container"><header>
+  <h1 id="title">نظام المبيعات الذكي</h1>
 
-<body>
+  <button
+    class="language-btn"
+    onclick="toggleLanguage()"
+    id="languageBtn"
+  >
+    English
+  </button>
+</header>
 
-  <div class="container">
+<div class="cards">
 
-    <header>
-      <h1 id="title">نظام المبيعات الذكي</h1>
+  <div class="card">
+    <h3 id="productsLabel">المنتجات</h3>
+    <strong id="productsCount">0</strong>
+  </div>
 
-      <button
-        class="language-btn"
-        onclick="toggleLanguage()"
-        id="languageBtn"
-      >
-        English
-      </button>
-    </header>
+  <div class="card">
+    <h3 id="stockLabel">إجمالي المخزون</h3>
+    <strong id="stockCount">0</strong>
+  </div>
 
-    <div class="cards">
+  <div class="card">
+    <h3 id="salesLabel">المبيعات</h3>
+    <strong id="salesTotal">0.00</strong>
+  </div>
 
-      <div class="card">
-        <h3 id="productsLabel">المنتجات</h3>
-        <strong id="productsCount">0</strong>
-      </div>
+  <div class="card">
+    <h3 id="customersLabel">العملاء</h3>
+    <strong id="customersCount">0</strong>
+  </div>
 
-      <div class="card">
-        <h3 id="stockLabel">إجمالي المخزون</h3>
-        <strong id="stockCount">0</strong>
-      </div>
+</div>
 
-      <div class="card">
-        <h3 id="salesLabel">المبيعات</h3>
-        <strong id="salesTotal">0.00</strong>
-      </div>
+<div class="section">
 
-      <div class="card">
-        <h3 id="customersLabel">العملاء</h3>
-        <strong id="customersCount">0</strong>
-      </div>
+  <h2 id="productsTitle">إدارة المنتجات</h2>
 
-    </div>
+  <div class="form">
 
-    <div class="section">
+    <input
+      type="text"
+      id="productName"
+      placeholder="اسم المنتج"
+    >
 
-      <h2 id="productsTitle">إدارة المنتجات</h2>
+    <input
+      type="number"
+      id="productPrice"
+      placeholder="السعر"
+      min="0"
+    >
 
-      <div class="form">
+    <input
+      type="number"
+      id="productQuantity"
+      placeholder="الكمية"
+      min="0"
+    >
 
-        <input
-          type="text"
-          id="productName"
-          placeholder="اسم المنتج"
-        >
-
-        <input
-          type="number"
-          id="productPrice"
-          placeholder="السعر"
-          min="0"
-        >
-
-        <input
-          type="number"
-          id="productQuantity"
-          placeholder="الكمية"
-          min="0"
-        >
-
-        <button
-          class="add-btn"
-          onclick="addProduct()"
-          id="addButton"
-        >
-          إضافة
-        </button>
-
-      </div>
-
-      <div id="message" class="message"></div>
-
-      <table>
-
-        <thead>
-          <tr>
-            <th id="nameHeader">المنتج</th>
-            <th id="priceHeader">السعر</th>
-            <th id="quantityHeader">الكمية</th>
-            <th id="actionHeader">الإجراء</th>
-          </tr>
-        </thead>
-
-        <tbody id="productsTable"></tbody>
-
-      </table>
-
-      <div class="empty" id="emptyMessage">
-        لا توجد منتجات حاليًا
-      </div>
-
-    </div>
-
-    <div class="section">
-
-      <h2 id="customersTitle">إدارة العملاء</h2>
-
-      <div class="customer-form">
-
-        <input
-          type="text"
-          id="customerName"
-          placeholder="اسم العميل"
-        >
-
-        <input
-          type="text"
-          id="customerPhone"
-          placeholder="رقم الهاتف"
-        >
-
-        <input
-          type="text"
-          id="customerAddress"
-          class="full-width"
-          placeholder="العنوان"
-        >
-
-        <textarea
-          id="customerNotes"
-          class="full-width"
-          placeholder="ملاحظات"
-        ></textarea>
-
-        <button
-          class="customer-add-btn"
-          onclick="addCustomer()"
-          id="customerAddButton"
-        >
-          إضافة عميل
-        </button>
-
-      </div>
-
-      <table>
-
-        <thead>
-          <tr>
-            <th id="customerNameHeader">الاسم</th>
-            <th id="customerPhoneHeader">الهاتف</th>
-            <th id="customerAddressHeader">العنوان</th>
-            <th id="customerNotesHeader">الملاحظات</th>
-          </tr>
-        </thead>
-
-        <tbody id="customersTable"></tbody>
-
-      </table>
-
-      <div class="empty" id="customersEmptyMessage">
-        لا يوجد عملاء حاليًا
-      </div>
-
-    </div>
+    <button
+      class="add-btn"
+      onclick="addProduct()"
+      id="addButton"
+    >
+      إضافة
+    </button>
 
   </div>
 
-  <script>
+  <div id="message" class="message"></div>
+
+  <table>
+
+    <thead>
+      <tr>
+        <th id="nameHeader">المنتج</th>
+        <th id="priceHeader">السعر</th>
+        <th id="quantityHeader">الكمية</th>
+        <th id="actionHeader">الإجراء</th>
+      </tr>
+    </thead>
+
+    <tbody id="productsTable"></tbody>
+
+  </table>
+
+  <div class="empty" id="emptyMessage">
+    لا توجد منتجات حاليًا
+  </div>
+
+</div>
+
+<div class="section">
+
+  <h2 id="customersTitle">إدارة العملاء</h2>
+
+  <div class="customer-form">
+
+    <input
+      type="text"
+      id="customerName"
+      placeholder="اسم العميل"
+    >
+
+    <input
+      type="text"
+      id="customerPhone"
+      placeholder="رقم الهاتف"
+    >
+
+    <input
+      type="text"
+      id="customerAddress"
+      class="full-width"
+      placeholder="العنوان"
+    >
+
+    <textarea
+      id="customerNotes"
+      class="full-width"
+      placeholder="ملاحظات"
+    ></textarea>
+
+    <button
+      class="customer-add-btn"
+      onclick="addCustomer()"
+      id="customerAddButton"
+    >
+      إضافة عميل
+    </button>
+
+  </div>
+
+  <table>
+
+    <thead>
+      <tr>
+        <th id="customerNameHeader">الاسم</th>
+        <th id="customerPhoneHeader">الهاتف</th>
+        <th id="customerAddressHeader">العنوان</th>
+        <th id="customerNotesHeader">الملاحظات</th>
+      </tr>
+    </thead>
+
+    <tbody id="customersTable"></tbody>
+
+  </table>
+
+  <div class="empty" id="customersEmptyMessage">
+    لا يوجد عملاء حاليًا
+  </div>
+
+</div>
+
+  </div>  <div
+    class="modal-overlay"
+    id="saleModal"
+  ><div class="modal">
+
+  <h3 id="saleModalTitle">
+    اختيار العميل
+  </h3>
+
+  <select
+    id="saleCustomerSelect"
+  ></select>
+
+  <div class="modal-buttons">
+
+    <button
+      class="modal-confirm"
+      onclick="confirmSale()"
+      id="confirmSaleButton"
+    >
+      تأكيد البيع
+    </button>
+
+    <button
+      class="modal-cancel"
+      onclick="closeSaleModal()"
+      id="cancelSaleButton"
+    >
+      إلغاء
+    </button>
+
+  </div>
+
+</div>
+
+  </div>  <script>
     let currentLanguage = "ar";
     let products = [];
     let customers = [];
+    let selectedProductId = null;
 
     const translations = {
 
@@ -437,7 +510,13 @@
         customerNameRequired: "يرجى إدخال اسم العميل",
         productsLoadError: "حدث خطأ أثناء تحميل المنتجات",
         customersLoadError: "حدث خطأ أثناء تحميل العملاء",
-        connectionError: "حدث خطأ في الاتصال"
+        connectionError: "حدث خطأ في الاتصال",
+        selectCustomer: "اختر العميل",
+        noCustomer: "بيع بدون عميل",
+        saleModalTitle: "اختيار العميل",
+        confirmSale: "تأكيد البيع",
+        cancel: "إلغاء",
+        noCustomers: "لا يوجد عملاء. سيتم تسجيل البيع بدون عميل."
       },
 
       en: {
@@ -478,7 +557,13 @@
         customerNameRequired: "Please enter customer name",
         productsLoadError: "Error loading products",
         customersLoadError: "Error loading customers",
-        connectionError: "Connection error"
+        connectionError: "Connection error",
+        selectCustomer: "Select customer",
+        noCustomer: "Sell without customer",
+        saleModalTitle: "Select Customer",
+        confirmSale: "Confirm Sale",
+        cancel: "Cancel",
+        noCustomers: "No customers. The sale will be recorded without a customer."
       }
 
     };
@@ -582,8 +667,21 @@
       document.getElementById("customersEmptyMessage").textContent =
         t.customersEmpty;
 
+      document.getElementById("saleModalTitle").textContent =
+        t.saleModalTitle;
+
+      document.getElementById("confirmSaleButton").textContent =
+        t.confirmSale;
+
+      document.getElementById("cancelSaleButton").textContent =
+        t.cancel;
+
       renderProducts();
       renderCustomers();
+
+      if (selectedProductId !== null) {
+        renderSaleCustomerOptions();
+      }
     }
 
     async function loadProducts() {
@@ -998,11 +1096,52 @@
         customers.length;
     }
 
-    async function sellProduct(id) {
+    function renderSaleCustomerOptions() {
+
+      const select =
+        document.getElementById(
+          "saleCustomerSelect"
+        );
+
+      const t =
+        translations[currentLanguage];
+
+      select.innerHTML = "";
+
+      const noCustomerOption =
+        document.createElement("option");
+
+      noCustomerOption.value = "";
+
+      noCustomerOption.textContent =
+        t.noCustomer;
+
+      select.appendChild(
+        noCustomerOption
+      );
+
+      customers.forEach(customer => {
+
+        const option =
+          document.createElement("option");
+
+        option.value =
+          customer.id;
+
+        option.textContent =
+          customer.name;
+
+        select.appendChild(option);
+      });
+    }
+
+    function openSaleModal(id) {
 
       const product =
         products.find(
-          p => Number(p.id) === Number(id)
+          p =>
+            Number(p.id) ===
+            Number(id)
         );
 
       if (!product) {
@@ -1023,6 +1162,48 @@
         return;
       }
 
+      selectedProductId =
+        Number(id);
+
+      renderSaleCustomerOptions();
+
+      document.getElementById(
+        "saleCustomerSelect"
+      ).value = "";
+
+      document.getElementById(
+        "saleModal"
+      ).style.display = "flex";
+    }
+
+    function closeSaleModal() {
+
+      selectedProductId = null;
+
+      document.getElementById(
+        "saleModal"
+      ).style.display = "none";
+    }
+
+    async function confirmSale() {
+
+      if (selectedProductId === null) {
+        return;
+      }
+
+      const select =
+        document.getElementById(
+          "saleCustomerSelect"
+        );
+
+      const selectedCustomerId =
+        select.value === ""
+          ? null
+          : Number(select.value);
+
+      const productId =
+        selectedProductId;
+
       try {
 
         const response =
@@ -1035,7 +1216,9 @@
                   "application/json"
               },
               body: JSON.stringify({
-                id: Number(id)
+                id: productId,
+                customerId:
+                  selectedCustomerId
               })
             }
           );
@@ -1057,7 +1240,7 @@
             products.findIndex(
               p =>
                 Number(p.id) ===
-                Number(id)
+                Number(productId)
             );
 
           if (index !== -1) {
@@ -1065,8 +1248,9 @@
             products[index] =
               data.product;
           }
-
         }
+
+        closeSaleModal();
 
         await loadSales();
 
@@ -1090,7 +1274,13 @@
           ),
           true
         );
+
+        closeSaleModal();
       }
+    }
+
+    function sellProduct(id) {
+      openSaleModal(id);
     }
 
     async function deleteProduct(id) {
@@ -1220,7 +1410,5 @@
 
     initializeApp();
 
-  </script>
-
-</body>
+  </script></body>
 </html>
