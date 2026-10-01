@@ -507,7 +507,7 @@ function renderProducts() {
 }
 
 async function sellProduct(id) {
-
+console.log("SELL BUTTON CLICKED", id);
   const product = products.find(p => p.id === id);
 
   if (!product) return;
