@@ -16,9 +16,25 @@ export default async function handler(req, res) {
 
   const id = Number(req.body?.id);
 
+  const customerId =
+    req.body?.customerId === undefined ||
+    req.body?.customerId === null ||
+    req.body?.customerId === ""
+      ? null
+      : Number(req.body.customerId);
+
   if (!Number.isInteger(id)) {
     return res.status(400).json({
       error: "Invalid product id"
+    });
+  }
+
+  if (
+    customerId !== null &&
+    !Number.isInteger(customerId)
+  ) {
+    return res.status(400).json({
+      error: "Invalid customer id"
     });
   }
 
@@ -33,7 +49,8 @@ export default async function handler(req, res) {
           "Content-Type": "application/json"
         },
         body: JSON.stringify({
-          p_product_id: id
+          p_product_id: id,
+          p_customer_id: customerId
         })
       }
     );
@@ -49,7 +66,10 @@ export default async function handler(req, res) {
     }
 
     if (!response.ok) {
-      console.error("SUPABASE SALE ERROR:", data);
+      console.error(
+        "SUPABASE SALE ERROR:",
+        data
+      );
 
       const errorMessage =
         typeof data === "object" && data !== null
@@ -79,13 +99,26 @@ export default async function handler(req, res) {
         });
       }
 
+      if (
+        errorMessage
+          .toLowerCase()
+          .includes("customer not found")
+      ) {
+        return res.status(404).json({
+          error: "Customer not found"
+        });
+      }
+
       return res.status(500).json({
         error: "Failed to record sale",
         details: errorMessage
       });
     }
 
-    if (!data || data.success !== true) {
+    if (
+      !data ||
+      data.success !== true
+    ) {
       return res.status(500).json({
         error: "Sale was not recorded correctly"
       });
@@ -95,6 +128,11 @@ export default async function handler(req, res) {
       success: true,
       saleId: data.sale_id,
       invoiceNumber: data.invoice_number,
+      customerId:
+        data.customer_id === null ||
+        data.customer_id === undefined
+          ? null
+          : Number(data.customer_id),
       product: {
         id: data.product_id,
         name: data.product_name,
@@ -106,7 +144,10 @@ export default async function handler(req, res) {
     });
 
   } catch (error) {
-    console.error("SELL ERROR:", error);
+    console.error(
+      "SELL ERROR:",
+      error
+    );
 
     return res.status(500).json({
       error: "Failed to record sale",
