@@ -11,7 +11,9 @@ const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 if (!SUPABASE_URL || !SUPABASE_KEY) {
-  console.error("Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY");
+  console.error(
+    "Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY"
+  );
 }
 
 async function supabaseRequest(endpoint, options = {}) {
@@ -49,13 +51,22 @@ async function supabaseRequest(endpoint, options = {}) {
   return data;
 }
 
+
+// ===============================
+// الصفحة الرئيسية
+// ===============================
+
 app.get("/", (req, res) => {
-  res.sendFile(path.join(__dirname, "index.html"));
+  res.sendFile(
+    path.join(__dirname, "index.html")
+  );
 });
+
 
 // ===============================
 // جلب المنتجات
 // ===============================
+
 app.get("/api/products", async (req, res) => {
   try {
     const products = await supabaseRequest(
@@ -63,8 +74,13 @@ app.get("/api/products", async (req, res) => {
     );
 
     res.json(products);
+
   } catch (error) {
-    console.error("GET PRODUCTS ERROR:", error);
+
+    console.error(
+      "GET PRODUCTS ERROR:",
+      error
+    );
 
     res.status(500).json({
       error: "Failed to fetch products",
@@ -73,39 +89,63 @@ app.get("/api/products", async (req, res) => {
   }
 });
 
+
 // ===============================
 // إضافة منتج
 // ===============================
+
 app.post("/api/products", async (req, res) => {
-  const { name, price, quantity } = req.body;
+
+  const {
+    name,
+    price,
+    quantity
+  } = req.body;
 
   if (
     !name ||
     price === undefined ||
     quantity === undefined
   ) {
+
     return res.status(400).json({
-      error: "name, price and quantity are required"
+      error:
+        "name, price and quantity are required"
     });
   }
 
   try {
-    const products = await supabaseRequest("products", {
-      method: "POST",
-      headers: {
-        Prefer: "return=representation"
-      },
-      body: JSON.stringify({
-        name: String(name).trim(),
-        price: Number(price),
-        quantity: Number(quantity)
-      })
+
+    const products =
+      await supabaseRequest(
+        "products",
+        {
+          method: "POST",
+
+          headers: {
+            Prefer:
+              "return=representation"
+          },
+
+          body: JSON.stringify({
+            name: String(name).trim(),
+            price: Number(price),
+            quantity: Number(quantity)
+          })
+        }
+      );
+
+    res.status(201).json({
+      success: true,
+      product: products[0]
     });
 
-    res.status(201).json(products[0]);
-
   } catch (error) {
-    console.error("CREATE PRODUCT ERROR:", error);
+
+    console.error(
+      "CREATE PRODUCT ERROR:",
+      error
+    );
 
     res.status(500).json({
       error: "Failed to create product",
@@ -114,16 +154,22 @@ app.post("/api/products", async (req, res) => {
   }
 });
 
+
 // ===============================
 // تسجيل البيع
 // ===============================
+
 app.post("/api/sell", async (req, res) => {
 
-  console.log("SELL REQUEST RECEIVED:", req.body);
+  console.log(
+    "SELL REQUEST RECEIVED:",
+    req.body
+  );
 
   const id = Number(req.body.id);
 
   if (!Number.isInteger(id)) {
+
     return res.status(400).json({
       error: "Invalid product id"
     });
@@ -132,68 +178,89 @@ app.post("/api/sell", async (req, res) => {
   try {
 
     // جلب المنتج الحالي
-    const currentProducts = await supabaseRequest(
-      `products?id=eq.${id}&select=id,name,price,quantity`
-    );
+    const currentProducts =
+      await supabaseRequest(
+        `products?id=eq.${id}&select=id,name,price,quantity`
+      );
 
     if (
       !currentProducts ||
       currentProducts.length === 0
     ) {
+
       return res.status(404).json({
         error: "Product not found"
       });
     }
 
-    const product = currentProducts[0];
+    const product =
+      currentProducts[0];
 
-    const currentQuantity = Number(product.quantity);
+    const currentQuantity =
+      Number(product.quantity);
 
     if (currentQuantity <= 0) {
+
       return res.status(400).json({
         error: "Product is out of stock"
       });
     }
 
-    const newQuantity = currentQuantity - 1;
+    const newQuantity =
+      currentQuantity - 1;
 
-    console.log("SELL UPDATE:", {
-      id,
-      currentQuantity,
-      newQuantity
-    });
-
-    // تحديث المخزون
-    const updatedProducts = await supabaseRequest(
-      `products?id=eq.${id}`,
+    console.log(
+      "SELL UPDATE:",
       {
-        method: "PATCH",
-        headers: {
-          Prefer: "return=representation"
-        },
-        body: JSON.stringify({
-          quantity: newQuantity
-        })
+        id,
+        currentQuantity,
+        newQuantity
       }
     );
+
+    // تحديث المخزون
+    const updatedProducts =
+      await supabaseRequest(
+        `products?id=eq.${id}`,
+        {
+          method: "PATCH",
+
+          headers: {
+            Prefer:
+              "return=representation"
+          },
+
+          body: JSON.stringify({
+            quantity: newQuantity
+          })
+        }
+      );
 
     if (
       !updatedProducts ||
       updatedProducts.length === 0
     ) {
+
       return res.status(500).json({
-        error: "Product quantity was not updated"
+        error:
+          "Product quantity was not updated"
       });
     }
 
-    const updatedProduct = updatedProducts[0];
+    const updatedProduct =
+      updatedProducts[0];
 
-    console.log("SELL SUCCESS:", {
-      id,
-      quantity: updatedProduct.quantity
-    });
+    console.log(
+      "SELL SUCCESS:",
+      {
+        id,
+        oldQuantity: currentQuantity,
+        newQuantity,
+        price: product.price
+      }
+    );
 
-    res.json({
+    return res.json({
       success: true,
       product: updatedProduct,
       soldQuantity: 1,
@@ -202,93 +269,124 @@ app.post("/api/sell", async (req, res) => {
 
   } catch (error) {
 
-    console.error("SELL ERROR:", error);
+    console.error(
+      "SELL ERROR:",
+      error
+    );
 
-    res.status(500).json({
+    return res.status(500).json({
       error: "Failed to record sale",
       details: error.message
     });
   }
 });
 
+
 // ===============================
-// تعديل كمية المنتج
+// تحديث كمية المنتج
 // ===============================
-app.put("/api/products/:id", async (req, res) => {
 
-  console.log("PUT PRODUCT RECEIVED:", {
-    id: req.params.id,
-    body: req.body
-  });
+app.put(
+  "/api/products/:id",
+  async (req, res) => {
 
-  const id = Number(req.params.id);
-  const { quantity } = req.body;
+    const id =
+      Number(req.params.id);
 
-  if (!Number.isInteger(id)) {
-    return res.status(400).json({
-      error: "Invalid product id"
-    });
-  }
+    const {
+      quantity
+    } = req.body;
 
-  if (quantity === undefined) {
-    return res.status(400).json({
-      error: "quantity is required"
-    });
-  }
+    if (!Number.isInteger(id)) {
 
-  const newQuantity = Number(quantity);
-
-  if (
-    !Number.isFinite(newQuantity) ||
-    newQuantity < 0
-  ) {
-    return res.status(400).json({
-      error: "Invalid quantity"
-    });
-  }
-
-  try {
-
-    const updatedProducts = await supabaseRequest(
-      `products?id=eq.${id}`,
-      {
-        method: "PATCH",
-        headers: {
-          Prefer: "return=representation"
-        },
-        body: JSON.stringify({
-          quantity: newQuantity
-        })
-      }
-    );
-
-    if (
-      !updatedProducts ||
-      updatedProducts.length === 0
-    ) {
-      return res.status(404).json({
-        error: "Product not found"
+      return res.status(400).json({
+        error: "Invalid product id"
       });
     }
 
-    res.json(updatedProducts[0]);
+    if (quantity === undefined) {
 
-  } catch (error) {
+      return res.status(400).json({
+        error: "quantity is required"
+      });
+    }
 
-    console.error("UPDATE PRODUCT ERROR:", error);
+    const newQuantity =
+      Number(quantity);
 
-    res.status(500).json({
-      error: "Failed to update product",
-      details: error.message
-    });
+    if (
+      !Number.isFinite(newQuantity) ||
+      newQuantity < 0
+    ) {
+
+      return res.status(400).json({
+        error: "Invalid quantity"
+      });
+    }
+
+    try {
+
+      const updatedProducts =
+        await supabaseRequest(
+          `products?id=eq.${id}`,
+          {
+            method: "PATCH",
+
+            headers: {
+              Prefer:
+                "return=representation"
+            },
+
+            body: JSON.stringify({
+              quantity: newQuantity
+            })
+          }
+        );
+
+      if (
+        !updatedProducts ||
+        updatedProducts.length === 0
+      ) {
+
+        return res.status(404).json({
+          error: "Product not found"
+        });
+      }
+
+      res.json({
+        success: true,
+        product: updatedProducts[0]
+      });
+
+    } catch (error) {
+
+      console.error(
+        "UPDATE PRODUCT ERROR:",
+        error
+      );
+
+      res.status(500).json({
+        error:
+          "Failed to update product",
+        details: error.message
+      });
+    }
   }
-});
+);
+
 
 // ===============================
 // تشغيل السيرفر
 // ===============================
-app.listen(PORT, "0.0.0.0", () => {
-  console.log(
-    `Server running on port ${PORT}`
-  );
-});
+
+app.listen(
+  PORT,
+  "0.0.0.0",
+  () => {
+
+    console.log(
+      `Server running on port ${PORT}`
+    );
+
+  }
+);
