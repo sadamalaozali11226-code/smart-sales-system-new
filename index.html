@@ -524,16 +524,20 @@
       <div id="message" class="message"></div>
 
       <table>
+
         <thead>
+
           <tr>
             <th id="nameHeader">المنتج</th>
             <th id="priceHeader">السعر</th>
             <th id="quantityHeader">الكمية</th>
             <th id="actionHeader">الإجراء</th>
           </tr>
+
         </thead>
 
         <tbody id="productsTable"></tbody>
+
       </table>
 
       <div class="empty" id="emptyMessage">
@@ -586,6 +590,7 @@
       <table>
 
         <thead>
+
           <tr>
             <th id="customerNameHeader">الاسم</th>
             <th id="customerPhoneHeader">الهاتف</th>
@@ -593,6 +598,7 @@
             <th id="customerNotesHeader">الملاحظات</th>
             <th id="customerActionHeader">الإجراء</th>
           </tr>
+
         </thead>
 
         <tbody id="customersTable"></tbody>
@@ -778,7 +784,9 @@
         <table class="invoice-table">
 
           <thead>
+
             <tr>
+
               <th id="invoiceProductHeader">
                 المنتج
               </th>
@@ -794,7 +802,9 @@
               <th id="invoiceTotalHeader">
                 الإجمالي
               </th>
+
             </tr>
+
           </thead>
 
           <tbody>
@@ -871,154 +881,103 @@
   <script>
 
     let currentLanguage = "ar";
-
     let products = [];
-
     let customers = [];
-
     let selectedProductId = null;
-
     let selectedCustomerId = null;
-
 
     const translations = {
 
       ar: {
 
         title: "نظام المبيعات الذكي",
-
         language: "English",
 
         products: "المنتجات",
-
         stock: "إجمالي المخزون",
-
         sales: "المبيعات",
-
         customers: "العملاء",
 
         productsTitle: "إدارة المنتجات",
-
         customersTitle: "إدارة العملاء",
 
         namePlaceholder: "اسم المنتج",
-
         pricePlaceholder: "السعر",
-
         quantityPlaceholder: "الكمية",
 
         customerNamePlaceholder: "اسم العميل",
-
         customerPhonePlaceholder: "رقم الهاتف",
-
         customerAddressPlaceholder: "العنوان",
-
         customerNotesPlaceholder: "ملاحظات",
 
         add: "إضافة",
-
         addCustomer: "إضافة عميل",
 
         name: "المنتج",
-
         price: "السعر",
-
         quantity: "الكمية",
-
         action: "الإجراء",
 
         customerName: "الاسم",
-
         customerPhone: "الهاتف",
-
         customerAddress: "العنوان",
-
         customerNotes: "الملاحظات",
-
         customerAction: "الإجراء",
 
         sell: "بيع",
-
         delete: "حذف",
-
         edit: "تعديل",
 
         empty: "لا توجد منتجات حاليًا",
-
         customersEmpty: "لا يوجد عملاء حاليًا",
 
         added: "تمت إضافة المنتج بنجاح",
-
         customerAdded: "تمت إضافة العميل بنجاح",
-
         sold: "تم تسجيل البيع",
-
         deleted: "تم حذف المنتج",
-
         customerDeleted: "تم حذف العميل",
-
         customerUpdated: "تم تعديل بيانات العميل بنجاح",
 
         invalid: "يرجى إدخال بيانات صحيحة",
-
         customerNameRequired: "يرجى إدخال اسم العميل",
 
         productsLoadError: "حدث خطأ أثناء تحميل المنتجات",
-
         customersLoadError: "حدث خطأ أثناء تحميل العملاء",
-
         connectionError: "حدث خطأ في الاتصال",
 
         selectCustomer: "اختر العميل",
-
         noCustomer: "بيع بدون عميل",
 
         saleModalTitle: "اختيار العميل",
-
         confirmSale: "تأكيد البيع",
-
         cancel: "إلغاء",
 
         noCustomers: "لا يوجد عملاء. سيتم تسجيل البيع بدون عميل.",
 
         customerEditModalTitle: "تعديل العميل",
-
         saveCustomerEdit: "حفظ التعديل",
-
         cancelCustomerEdit: "إلغاء",
 
         deleteCustomerConfirm: "هل أنت متأكد من حذف العميل؟",
 
         customerDeleteError: "حدث خطأ أثناء حذف العميل",
-
         customerUpdateError: "حدث خطأ أثناء تعديل العميل",
 
         invoiceTitle: "فاتورة بيع",
-
         invoiceNumber: "رقم الفاتورة:",
-
         invoiceDate: "التاريخ:",
-
         invoiceCustomer: "العميل:",
-
         invoicePayment: "حالة الدفع:",
 
         invoiceProduct: "المنتج",
-
         invoiceQuantity: "الكمية",
-
         invoiceUnitPrice: "سعر الوحدة",
-
         invoiceTotal: "الإجمالي",
-
         invoiceGrandTotal: "الإجمالي",
 
         paid: "مدفوع",
-
         printInvoice: "طباعة الفاتورة",
-
         closeInvoice: "إغلاق",
-
         withoutCustomer: "بدون عميل"
 
       },
@@ -1026,145 +985,98 @@
       en: {
 
         title: "Smart Sales System",
-
         language: "العربية",
 
         products: "Products",
-
         stock: "Total Stock",
-
         sales: "Sales",
-
         customers: "Customers",
 
         productsTitle: "Product Management",
-
         customersTitle: "Customer Management",
 
         namePlaceholder: "Product name",
-
         pricePlaceholder: "Price",
-
         quantityPlaceholder: "Quantity",
 
         customerNamePlaceholder: "Customer name",
-
         customerPhonePlaceholder: "Phone number",
-
         customerAddressPlaceholder: "Address",
-
         customerNotesPlaceholder: "Notes",
 
         add: "Add",
-
         addCustomer: "Add Customer",
 
         name: "Product",
-
         price: "Price",
-
         quantity: "Quantity",
-
         action: "Action",
 
         customerName: "Name",
-
         customerPhone: "Phone",
-
         customerAddress: "Address",
-
         customerNotes: "Notes",
-
         customerAction: "Action",
 
         sell: "Sell",
-
         delete: "Delete",
-
         edit: "Edit",
 
         empty: "No products currently",
-
         customersEmpty: "No customers currently",
 
         added: "Product added successfully",
-
         customerAdded: "Customer added successfully",
-
         sold: "Sale recorded",
-
         deleted: "Product deleted",
-
         customerDeleted: "Customer deleted",
-
         customerUpdated: "Customer updated successfully",
 
         invalid: "Please enter valid data",
-
         customerNameRequired: "Please enter customer name",
 
         productsLoadError: "Error loading products",
-
         customersLoadError: "Error loading customers",
-
         connectionError: "Connection error",
 
         selectCustomer: "Select customer",
-
         noCustomer: "Sell without customer",
 
         saleModalTitle: "Select Customer",
-
         confirmSale: "Confirm Sale",
-
         cancel: "Cancel",
 
         noCustomers: "No customers. The sale will be recorded without a customer.",
 
         customerEditModalTitle: "Edit Customer",
-
         saveCustomerEdit: "Save Changes",
-
         cancelCustomerEdit: "Cancel",
 
         deleteCustomerConfirm: "Are you sure you want to delete this customer?",
 
         customerDeleteError: "Error deleting customer",
-
         customerUpdateError: "Error updating customer",
 
         invoiceTitle: "Sales Invoice",
-
         invoiceNumber: "Invoice Number:",
-
         invoiceDate: "Date:",
-
         invoiceCustomer: "Customer:",
-
         invoicePayment: "Payment Status:",
 
         invoiceProduct: "Product",
-
         invoiceQuantity: "Quantity",
-
         invoiceUnitPrice: "Unit Price",
-
         invoiceTotal: "Total",
-
         invoiceGrandTotal: "Total",
 
         paid: "Paid",
-
         printInvoice: "Print Invoice",
-
         closeInvoice: "Close",
-
         withoutCustomer: "Without customer"
 
       }
 
     };
-
 
     function toggleLanguage() {
 
@@ -1342,7 +1254,6 @@
       }
 
       renderProducts();
-
       renderCustomers();
 
       if (selectedProductId !== null) {
@@ -1350,7 +1261,6 @@
       }
 
     }
-
 
     function updateInvoiceStaticTexts() {
 
@@ -1395,7 +1305,6 @@
 
     }
 
-
     async function loadProducts() {
 
       try {
@@ -1425,7 +1334,6 @@
       }
 
     }
-
 
     async function loadSales() {
 
@@ -1458,7 +1366,6 @@
       }
 
     }
-
 
     async function loadCustomers() {
 
@@ -1493,7 +1400,6 @@
       }
 
     }
-
 
     async function addProduct() {
 
@@ -1589,7 +1495,6 @@
       }
 
     }
-
 
     async function addCustomer() {
 
@@ -1700,7 +1605,6 @@
 
     }
 
-
     function renderProducts() {
 
       const table =
@@ -1741,17 +1645,24 @@
           document.createElement("tr");
 
         row.innerHTML = `
-          <td>${escapeHtml(product.name)}</td>
 
-          <td>${Number(product.price).toFixed(2)}</td>
+          <td>
+            ${escapeHtml(product.name)}
+          </td>
 
-          <td>${product.quantity}</td>
+          <td>
+            ${Number(product.price).toFixed(2)}
+          </td>
+
+          <td>
+            ${product.quantity}
+          </td>
 
           <td>
 
             <button
               class="sale-btn"
-              onclick="sellProduct(${product.id})"
+              onclick="openSaleModal(${product.id})"
             >
               ${t.sell}
             </button>
@@ -1764,6 +1675,7 @@
             </button>
 
           </td>
+
         `;
 
         table.appendChild(row);
@@ -1781,7 +1693,6 @@
         totalStock;
 
     }
-
 
     function renderCustomers() {
 
@@ -1818,6 +1729,7 @@
           document.createElement("tr");
 
         row.innerHTML = `
+
           <td>
             ${escapeHtml(customer.name || "")}
           </td>
@@ -1855,6 +1767,7 @@
             </div>
 
           </td>
+
         `;
 
         table.appendChild(row);
@@ -1867,7 +1780,6 @@
         customers.length;
 
     }
-
 
     function renderSaleCustomerOptions() {
 
@@ -1909,7 +1821,6 @@
       });
 
     }
-
 
     function openSaleModal(id) {
 
@@ -1953,7 +1864,6 @@
 
     }
 
-
     function closeSaleModal() {
 
       selectedProductId = null;
@@ -1963,7 +1873,6 @@
       ).style.display = "none";
 
     }
-
 
     async function confirmSale() {
 
@@ -2064,6 +1973,7 @@
         );
 
         openInvoiceModal({
+
           invoiceNumber:
             data.invoiceNumber || "-",
 
@@ -2091,6 +2001,7 @@
 
           paymentStatus:
             "paid"
+
         });
 
       } catch (error) {
@@ -2112,7 +2023,6 @@
       }
 
     }
-
 
     function openInvoiceModal(invoiceData) {
 
@@ -2188,7 +2098,6 @@
 
     }
 
-
     function closeInvoiceModal() {
 
       document.getElementById(
@@ -2197,13 +2106,11 @@
 
     }
 
-
     function printInvoice() {
 
       window.print();
 
     }
-
 
     function formatInvoiceDate(date) {
 
@@ -2236,7 +2143,6 @@
       );
 
     }
-
 
     async function deleteProduct(id) {
 
@@ -2313,7 +2219,6 @@
 
     }
 
-
     function openCustomerEditModal(id) {
 
       const customer =
@@ -2356,7 +2261,6 @@
 
     }
 
-
     function closeCustomerEditModal() {
 
       selectedCustomerId = null;
@@ -2366,7 +2270,6 @@
       ).style.display = "none";
 
     }
-
 
     async function saveCustomerEdit() {
 
@@ -2487,7 +2390,6 @@
 
     }
 
-
     async function deleteCustomer(id) {
 
       const customer =
@@ -2566,7 +2468,6 @@
 
     }
 
-
     function showMessage(
       message,
       isError = false
@@ -2600,7 +2501,6 @@
 
     }
 
-
     function escapeHtml(text) {
 
       const div =
@@ -2613,21 +2513,15 @@
 
     }
 
-
     async function initializeApp() {
 
       await Promise.all([
-
         loadProducts(),
-
         loadSales(),
-
         loadCustomers()
-
       ]);
 
     }
-
 
     initializeApp();
 
