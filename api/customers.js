@@ -116,6 +116,143 @@ export default async function handler(req, res) {
       });
     }
 
+    // PUT /api/customers?id=1
+    if (req.method === "PUT") {
+      const id = Number(req.query?.id);
+
+      if (!Number.isInteger(id)) {
+        return res.status(400).json({
+          error: "Invalid customer id"
+        });
+      }
+
+      const {
+        name,
+        phone,
+        address,
+        notes
+      } = req.body || {};
+
+      if (!name || !String(name).trim()) {
+        return res.status(400).json({
+          error: "Customer name is required"
+        });
+      }
+
+      const response = await fetch(
+        `${SUPABASE_URL}/rest/v1/customers?id=eq.${id}`,
+        {
+          method: "PATCH",
+          headers: {
+            apikey: SUPABASE_KEY,
+            Authorization: `Bearer ${SUPABASE_KEY}`,
+            "Content-Type": "application/json",
+            Prefer: "return=representation"
+          },
+          body: JSON.stringify({
+            name: String(name).trim(),
+            phone:
+              phone === undefined ||
+              phone === null
+                ? null
+                : String(phone).trim(),
+            address:
+              address === undefined ||
+              address === null
+                ? null
+                : String(address).trim(),
+            notes:
+              notes === undefined ||
+              notes === null
+                ? null
+                : String(notes).trim()
+          })
+        }
+      );
+
+      const text = await response.text();
+
+      let data;
+
+      try {
+        data = text ? JSON.parse(text) : [];
+      } catch {
+        data = [];
+      }
+
+      if (!response.ok) {
+        throw new Error(
+          typeof data === "object"
+            ? JSON.stringify(data)
+            : text
+        );
+      }
+
+      if (!Array.isArray(data) || data.length === 0) {
+        return res.status(404).json({
+          error: "Customer not found"
+        });
+      }
+
+      return res.status(200).json({
+        success: true,
+        customer: data[0]
+      });
+    }
+
+    // DELETE /api/customers?id=1
+    if (req.method === "DELETE") {
+      const id = Number(req.query?.id);
+
+      if (!Number.isInteger(id)) {
+        return res.status(400).json({
+          error: "Invalid customer id"
+        });
+      }
+
+      const response = await fetch(
+        `${SUPABASE_URL}/rest/v1/customers?id=eq.${id}`,
+        {
+          method: "DELETE",
+          headers: {
+            apikey: SUPABASE_KEY,
+            Authorization: `Bearer ${SUPABASE_KEY}`,
+            "Content-Type": "application/json",
+            Prefer: "return=representation"
+          }
+        }
+      );
+
+      const text = await response.text();
+
+      let data;
+
+      try {
+        data = text ? JSON.parse(text) : [];
+      } catch {
+        data = [];
+      }
+
+      if (!response.ok) {
+        throw new Error(
+          typeof data === "object"
+            ? JSON.stringify(data)
+            : text
+        );
+      }
+
+      if (!Array.isArray(data) || data.length === 0) {
+        return res.status(404).json({
+          error: "Customer not found"
+        });
+      }
+
+      return res.status(200).json({
+        success: true,
+        customer: data[0]
+      });
+    }
+
     return res.status(405).json({
       error: "Method not allowed"
     });
