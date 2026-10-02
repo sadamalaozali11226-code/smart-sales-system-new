@@ -213,6 +213,7 @@
       justify-content: center;
       padding: 20px;
       z-index: 1000;
+      overflow-y: auto;
     }
 
     .modal {
@@ -262,6 +263,128 @@
       flex: 1;
     }
 
+    /* Invoice */
+
+    .invoice-modal {
+      max-width: 600px;
+    }
+
+    .invoice {
+      background: white;
+      color: #111;
+    }
+
+    .invoice-header {
+      text-align: center;
+      border-bottom: 2px solid #222;
+      padding-bottom: 15px;
+      margin-bottom: 15px;
+    }
+
+    .invoice-header h2 {
+      margin-bottom: 8px;
+      font-size: 24px;
+    }
+
+    .invoice-meta {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-bottom: 15px;
+      font-size: 14px;
+    }
+
+    .invoice-meta div {
+      padding: 8px;
+      background: #f8fafc;
+      border-radius: 6px;
+    }
+
+    .invoice-table {
+      margin-top: 10px;
+      margin-bottom: 15px;
+    }
+
+    .invoice-table th,
+    .invoice-table td {
+      border: 1px solid #ddd;
+      padding: 10px;
+    }
+
+    .invoice-total {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 20px;
+      font-weight: bold;
+      border-top: 2px solid #222;
+      padding-top: 12px;
+      margin-top: 10px;
+    }
+
+    .payment-status {
+      margin-top: 10px;
+      text-align: center;
+      padding: 8px;
+      border-radius: 8px;
+      background: #dcfce7;
+      color: #166534;
+      font-weight: bold;
+    }
+
+    .invoice-buttons {
+      display: flex;
+      gap: 10px;
+      margin-top: 20px;
+    }
+
+    .print-btn {
+      background: #2563eb;
+      color: white;
+      flex: 1;
+    }
+
+    .invoice-close-btn {
+      background: #6b7280;
+      color: white;
+      flex: 1;
+    }
+
+    @media print {
+      body * {
+        visibility: hidden;
+      }
+
+      #invoiceModal,
+      #invoiceModal * {
+        visibility: visible;
+      }
+
+      #invoiceModal {
+        position: absolute;
+        inset: 0;
+        display: block !important;
+        background: white;
+        padding: 0;
+      }
+
+      #invoiceModal .modal {
+        max-width: 100%;
+        width: 100%;
+        box-shadow: none;
+        border-radius: 0;
+        padding: 20px;
+      }
+
+      #invoiceModal .invoice-buttons {
+        display: none;
+      }
+
+      .invoice {
+        width: 100%;
+      }
+    }
+
     @media (max-width: 800px) {
       .cards {
         grid-template-columns: repeat(2, 1fr);
@@ -292,6 +415,10 @@
       td {
         padding: 8px 4px;
       }
+
+      .invoice-meta {
+        grid-template-columns: 1fr;
+      }
     }
 
     @media (max-width: 500px) {
@@ -309,6 +436,10 @@
 
       .customer-actions button {
         width: 100%;
+      }
+
+      .invoice-buttons {
+        flex-direction: column;
       }
     }
   </style>
@@ -577,6 +708,166 @@
 
   </div>
 
+  <!-- Invoice Modal -->
+
+  <div
+    class="modal-overlay"
+    id="invoiceModal"
+  >
+
+    <div class="modal invoice-modal">
+
+      <div class="invoice" id="invoiceContent">
+
+        <div class="invoice-header">
+
+          <h2 id="invoiceTitle">
+            فاتورة بيع
+          </h2>
+
+          <div id="invoiceSystemName">
+            نظام المبيعات الذكي
+          </div>
+
+        </div>
+
+        <div class="invoice-meta">
+
+          <div>
+            <strong id="invoiceNumberLabel">
+              رقم الفاتورة:
+            </strong>
+
+            <span id="invoiceNumber">
+              -
+            </span>
+          </div>
+
+          <div>
+            <strong id="invoiceDateLabel">
+              التاريخ:
+            </strong>
+
+            <span id="invoiceDate">
+              -
+            </span>
+          </div>
+
+          <div>
+            <strong id="invoiceCustomerLabel">
+              العميل:
+            </strong>
+
+            <span id="invoiceCustomer">
+              -
+            </span>
+          </div>
+
+          <div>
+            <strong id="invoicePaymentLabel">
+              حالة الدفع:
+            </strong>
+
+            <span id="invoicePayment">
+              -
+            </span>
+          </div>
+
+        </div>
+
+        <table class="invoice-table">
+
+          <thead>
+            <tr>
+              <th id="invoiceProductHeader">
+                المنتج
+              </th>
+
+              <th id="invoiceQuantityHeader">
+                الكمية
+              </th>
+
+              <th id="invoicePriceHeader">
+                سعر الوحدة
+              </th>
+
+              <th id="invoiceTotalHeader">
+                الإجمالي
+              </th>
+            </tr>
+          </thead>
+
+          <tbody>
+
+            <tr>
+
+              <td id="invoiceProduct">
+                -
+              </td>
+
+              <td id="invoiceQuantity">
+                1
+              </td>
+
+              <td id="invoiceUnitPrice">
+                0.00
+              </td>
+
+              <td id="invoiceLineTotal">
+                0.00
+              </td>
+
+            </tr>
+
+          </tbody>
+
+        </table>
+
+        <div class="invoice-total">
+
+          <span id="invoiceGrandTotalLabel">
+            الإجمالي
+          </span>
+
+          <span id="invoiceGrandTotal">
+            0.00
+          </span>
+
+        </div>
+
+        <div
+          class="payment-status"
+          id="invoicePaymentStatus"
+        >
+          مدفوع
+        </div>
+
+      </div>
+
+      <div class="invoice-buttons">
+
+        <button
+          class="print-btn"
+          onclick="printInvoice()"
+          id="printInvoiceButton"
+        >
+          طباعة الفاتورة
+        </button>
+
+        <button
+          class="invoice-close-btn"
+          onclick="closeInvoiceModal()"
+          id="closeInvoiceButton"
+        >
+          إغلاق
+        </button>
+
+      </div>
+
+    </div>
+
+  </div>
+
   <script>
 
     let currentLanguage = "ar";
@@ -700,7 +991,35 @@
 
         customerDeleteError: "حدث خطأ أثناء حذف العميل",
 
-        customerUpdateError: "حدث خطأ أثناء تعديل العميل"
+        customerUpdateError: "حدث خطأ أثناء تعديل العميل",
+
+        invoiceTitle: "فاتورة بيع",
+
+        invoiceNumber: "رقم الفاتورة:",
+
+        invoiceDate: "التاريخ:",
+
+        invoiceCustomer: "العميل:",
+
+        invoicePayment: "حالة الدفع:",
+
+        invoiceProduct: "المنتج",
+
+        invoiceQuantity: "الكمية",
+
+        invoiceUnitPrice: "سعر الوحدة",
+
+        invoiceTotal: "الإجمالي",
+
+        invoiceGrandTotal: "الإجمالي",
+
+        paid: "مدفوع",
+
+        printInvoice: "طباعة الفاتورة",
+
+        closeInvoice: "إغلاق",
+
+        withoutCustomer: "بدون عميل"
 
       },
 
@@ -812,7 +1131,35 @@
 
         customerDeleteError: "Error deleting customer",
 
-        customerUpdateError: "Error updating customer"
+        customerUpdateError: "Error updating customer",
+
+        invoiceTitle: "Sales Invoice",
+
+        invoiceNumber: "Invoice Number:",
+
+        invoiceDate: "Date:",
+
+        invoiceCustomer: "Customer:",
+
+        invoicePayment: "Payment Status:",
+
+        invoiceProduct: "Product",
+
+        invoiceQuantity: "Quantity",
+
+        invoiceUnitPrice: "Unit Price",
+
+        invoiceTotal: "Total",
+
+        invoiceGrandTotal: "Total",
+
+        paid: "Paid",
+
+        printInvoice: "Print Invoice",
+
+        closeInvoice: "Close",
+
+        withoutCustomer: "Without customer"
 
       }
 
@@ -951,6 +1298,49 @@
       document.getElementById("editCustomerNotes").placeholder =
         t.customerNotesPlaceholder;
 
+      document.getElementById("invoiceTitle").textContent =
+        t.invoiceTitle;
+
+      document.getElementById("invoiceNumberLabel").textContent =
+        t.invoiceNumber;
+
+      document.getElementById("invoiceDateLabel").textContent =
+        t.invoiceDate;
+
+      document.getElementById("invoiceCustomerLabel").textContent =
+        t.invoiceCustomer;
+
+      document.getElementById("invoicePaymentLabel").textContent =
+        t.invoicePayment;
+
+      document.getElementById("invoiceProductHeader").textContent =
+        t.invoiceProduct;
+
+      document.getElementById("invoiceQuantityHeader").textContent =
+        t.invoiceQuantity;
+
+      document.getElementById("invoicePriceHeader").textContent =
+        t.invoiceUnitPrice;
+
+      document.getElementById("invoiceTotalHeader").textContent =
+        t.invoiceTotal;
+
+      document.getElementById("invoiceGrandTotalLabel").textContent =
+        t.invoiceGrandTotal;
+
+      document.getElementById("printInvoiceButton").textContent =
+        t.printInvoice;
+
+      document.getElementById("closeInvoiceButton").textContent =
+        t.closeInvoice;
+
+      if (
+        document.getElementById("invoiceModal").style.display ===
+        "flex"
+      ) {
+        updateInvoiceStaticTexts();
+      }
+
       renderProducts();
 
       renderCustomers();
@@ -958,6 +1348,50 @@
       if (selectedProductId !== null) {
         renderSaleCustomerOptions();
       }
+
+    }
+
+
+    function updateInvoiceStaticTexts() {
+
+      const t =
+        translations[currentLanguage];
+
+      document.getElementById("invoiceTitle").textContent =
+        t.invoiceTitle;
+
+      document.getElementById("invoiceNumberLabel").textContent =
+        t.invoiceNumber;
+
+      document.getElementById("invoiceDateLabel").textContent =
+        t.invoiceDate;
+
+      document.getElementById("invoiceCustomerLabel").textContent =
+        t.invoiceCustomer;
+
+      document.getElementById("invoicePaymentLabel").textContent =
+        t.invoicePayment;
+
+      document.getElementById("invoiceProductHeader").textContent =
+        t.invoiceProduct;
+
+      document.getElementById("invoiceQuantityHeader").textContent =
+        t.invoiceQuantity;
+
+      document.getElementById("invoicePriceHeader").textContent =
+        t.invoiceUnitPrice;
+
+      document.getElementById("invoiceTotalHeader").textContent =
+        t.invoiceTotal;
+
+      document.getElementById("invoiceGrandTotalLabel").textContent =
+        t.invoiceGrandTotal;
+
+      document.getElementById("printInvoiceButton").textContent =
+        t.printInvoice;
+
+      document.getElementById("closeInvoiceButton").textContent =
+        t.closeInvoice;
 
     }
 
@@ -1601,6 +2035,23 @@
 
         }
 
+        const soldProduct =
+          data.product ||
+          products.find(
+            p =>
+              Number(p.id) ===
+              Number(productId)
+          );
+
+        const selectedCustomer =
+          selectedCustomerId === null
+            ? null
+            : customers.find(
+                customer =>
+                  Number(customer.id) ===
+                  Number(selectedCustomerId)
+              );
+
         closeSaleModal();
 
         await loadSales();
@@ -1611,6 +2062,36 @@
           translations[currentLanguage]
             .sold
         );
+
+        openInvoiceModal({
+          invoiceNumber:
+            data.invoiceNumber || "-",
+
+          customerName:
+            selectedCustomer
+              ? selectedCustomer.name
+              : translations[currentLanguage]
+                  .withoutCustomer,
+
+          productName:
+            soldProduct
+              ? soldProduct.name
+              : "-",
+
+          quantity:
+            Number(data.soldQuantity || 1),
+
+          unitPrice:
+            soldProduct
+              ? Number(soldProduct.price || 0)
+              : 0,
+
+          total:
+            Number(data.total || 0),
+
+          paymentStatus:
+            "paid"
+        });
 
       } catch (error) {
 
@@ -1633,9 +2114,126 @@
     }
 
 
-    function sellProduct(id) {
+    function openInvoiceModal(invoiceData) {
 
-      openSaleModal(id);
+      const t =
+        translations[currentLanguage];
+
+      document.getElementById(
+        "invoiceNumber"
+      ).textContent =
+        invoiceData.invoiceNumber || "-";
+
+      document.getElementById(
+        "invoiceDate"
+      ).textContent =
+        formatInvoiceDate(new Date());
+
+      document.getElementById(
+        "invoiceCustomer"
+      ).textContent =
+        invoiceData.customerName ||
+        t.withoutCustomer;
+
+      document.getElementById(
+        "invoiceProduct"
+      ).textContent =
+        invoiceData.productName || "-";
+
+      document.getElementById(
+        "invoiceQuantity"
+      ).textContent =
+        Number(invoiceData.quantity || 1);
+
+      document.getElementById(
+        "invoiceUnitPrice"
+      ).textContent =
+        Number(
+          invoiceData.unitPrice || 0
+        ).toFixed(2);
+
+      document.getElementById(
+        "invoiceLineTotal"
+      ).textContent =
+        Number(
+          invoiceData.total || 0
+        ).toFixed(2);
+
+      document.getElementById(
+        "invoiceGrandTotal"
+      ).textContent =
+        Number(
+          invoiceData.total || 0
+        ).toFixed(2);
+
+      document.getElementById(
+        "invoicePayment"
+      ).textContent =
+        invoiceData.paymentStatus === "paid"
+          ? t.paid
+          : invoiceData.paymentStatus;
+
+      document.getElementById(
+        "invoicePaymentStatus"
+      ).textContent =
+        invoiceData.paymentStatus === "paid"
+          ? t.paid
+          : invoiceData.paymentStatus;
+
+      updateInvoiceStaticTexts();
+
+      document.getElementById(
+        "invoiceModal"
+      ).style.display = "flex";
+
+    }
+
+
+    function closeInvoiceModal() {
+
+      document.getElementById(
+        "invoiceModal"
+      ).style.display = "none";
+
+    }
+
+
+    function printInvoice() {
+
+      window.print();
+
+    }
+
+
+    function formatInvoiceDate(date) {
+
+      if (
+        currentLanguage === "ar"
+      ) {
+
+        return date.toLocaleString(
+          "ar-YE",
+          {
+            year: "numeric",
+            month: "2-digit",
+            day: "2-digit",
+            hour: "2-digit",
+            minute: "2-digit"
+          }
+        );
+
+      }
+
+      return date.toLocaleString(
+        "en-US",
+        {
+          year: "numeric",
+          month: "2-digit",
+          day: "2-digit",
+          hour: "2-digit",
+          minute: "2-digit"
+        }
+      );
 
     }
 
