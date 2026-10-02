@@ -1,8 +1,11 @@
-<!DOCTYPE html><html lang="ar" dir="rtl">
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>نظام المبيعات الذكي</title>  <style>
+  <title>نظام المبيعات الذكي</title>
+
+  <style>
     * {
       box-sizing: border-box;
       margin: 0;
@@ -61,7 +64,7 @@
       background: white;
       padding: 20px;
       border-radius: 12px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
     }
 
     .card h3 {
@@ -79,7 +82,7 @@
       padding: 20px;
       border-radius: 12px;
       margin-bottom: 20px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
     }
 
     .section h2 {
@@ -145,6 +148,18 @@
       color: white;
     }
 
+    .edit-btn {
+      background: #f59e0b;
+      color: white;
+    }
+
+    .customer-actions {
+      display: flex;
+      justify-content: center;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
     table {
       width: 100%;
       border-collapse: collapse;
@@ -206,11 +221,27 @@
       background: white;
       border-radius: 14px;
       padding: 20px;
-      box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
     }
 
     .modal h3 {
       margin-bottom: 15px;
+    }
+
+    .modal input,
+    .modal textarea {
+      margin-bottom: 10px;
+    }
+
+    .modal textarea {
+      width: 100%;
+      min-height: 90px;
+      padding: 12px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      font-size: 15px;
+      resize: vertical;
+      font-family: Arial, sans-serif;
     }
 
     .modal-buttons {
@@ -271,302 +302,522 @@
       body {
         padding: 10px;
       }
+
+      .customer-actions {
+        flex-direction: column;
+      }
+
+      .customer-actions button {
+        width: 100%;
+      }
     }
-  </style></head><body>  <div class="container"><header>
-  <h1 id="title">نظام المبيعات الذكي</h1>
+  </style>
+</head>
 
-  <button
-    class="language-btn"
-    onclick="toggleLanguage()"
-    id="languageBtn"
-  >
-    English
-  </button>
-</header>
+<body>
 
-<div class="cards">
+  <div class="container">
 
-  <div class="card">
-    <h3 id="productsLabel">المنتجات</h3>
-    <strong id="productsCount">0</strong>
+    <header>
+      <h1 id="title">نظام المبيعات الذكي</h1>
+
+      <button
+        class="language-btn"
+        onclick="toggleLanguage()"
+        id="languageBtn"
+      >
+        English
+      </button>
+    </header>
+
+    <div class="cards">
+
+      <div class="card">
+        <h3 id="productsLabel">المنتجات</h3>
+        <strong id="productsCount">0</strong>
+      </div>
+
+      <div class="card">
+        <h3 id="stockLabel">إجمالي المخزون</h3>
+        <strong id="stockCount">0</strong>
+      </div>
+
+      <div class="card">
+        <h3 id="salesLabel">المبيعات</h3>
+        <strong id="salesTotal">0.00</strong>
+      </div>
+
+      <div class="card">
+        <h3 id="customersLabel">العملاء</h3>
+        <strong id="customersCount">0</strong>
+      </div>
+
+    </div>
+
+    <div class="section">
+
+      <h2 id="productsTitle">إدارة المنتجات</h2>
+
+      <div class="form">
+
+        <input
+          type="text"
+          id="productName"
+          placeholder="اسم المنتج"
+        >
+
+        <input
+          type="number"
+          id="productPrice"
+          placeholder="السعر"
+          min="0"
+        >
+
+        <input
+          type="number"
+          id="productQuantity"
+          placeholder="الكمية"
+          min="0"
+        >
+
+        <button
+          class="add-btn"
+          onclick="addProduct()"
+          id="addButton"
+        >
+          إضافة
+        </button>
+
+      </div>
+
+      <div id="message" class="message"></div>
+
+      <table>
+        <thead>
+          <tr>
+            <th id="nameHeader">المنتج</th>
+            <th id="priceHeader">السعر</th>
+            <th id="quantityHeader">الكمية</th>
+            <th id="actionHeader">الإجراء</th>
+          </tr>
+        </thead>
+
+        <tbody id="productsTable"></tbody>
+      </table>
+
+      <div class="empty" id="emptyMessage">
+        لا توجد منتجات حاليًا
+      </div>
+
+    </div>
+
+    <div class="section">
+
+      <h2 id="customersTitle">إدارة العملاء</h2>
+
+      <div class="customer-form">
+
+        <input
+          type="text"
+          id="customerName"
+          placeholder="اسم العميل"
+        >
+
+        <input
+          type="text"
+          id="customerPhone"
+          placeholder="رقم الهاتف"
+        >
+
+        <input
+          type="text"
+          id="customerAddress"
+          class="full-width"
+          placeholder="العنوان"
+        >
+
+        <textarea
+          id="customerNotes"
+          class="full-width"
+          placeholder="ملاحظات"
+        ></textarea>
+
+        <button
+          class="customer-add-btn"
+          onclick="addCustomer()"
+          id="customerAddButton"
+        >
+          إضافة عميل
+        </button>
+
+      </div>
+
+      <table>
+
+        <thead>
+          <tr>
+            <th id="customerNameHeader">الاسم</th>
+            <th id="customerPhoneHeader">الهاتف</th>
+            <th id="customerAddressHeader">العنوان</th>
+            <th id="customerNotesHeader">الملاحظات</th>
+            <th id="customerActionHeader">الإجراء</th>
+          </tr>
+        </thead>
+
+        <tbody id="customersTable"></tbody>
+
+      </table>
+
+      <div class="empty" id="customersEmptyMessage">
+        لا يوجد عملاء حاليًا
+      </div>
+
+    </div>
+
   </div>
 
-  <div class="card">
-    <h3 id="stockLabel">إجمالي المخزون</h3>
-    <strong id="stockCount">0</strong>
-  </div>
+  <!-- Sale Modal -->
 
-  <div class="card">
-    <h3 id="salesLabel">المبيعات</h3>
-    <strong id="salesTotal">0.00</strong>
-  </div>
-
-  <div class="card">
-    <h3 id="customersLabel">العملاء</h3>
-    <strong id="customersCount">0</strong>
-  </div>
-
-</div>
-
-<div class="section">
-
-  <h2 id="productsTitle">إدارة المنتجات</h2>
-
-  <div class="form">
-
-    <input
-      type="text"
-      id="productName"
-      placeholder="اسم المنتج"
-    >
-
-    <input
-      type="number"
-      id="productPrice"
-      placeholder="السعر"
-      min="0"
-    >
-
-    <input
-      type="number"
-      id="productQuantity"
-      placeholder="الكمية"
-      min="0"
-    >
-
-    <button
-      class="add-btn"
-      onclick="addProduct()"
-      id="addButton"
-    >
-      إضافة
-    </button>
-
-  </div>
-
-  <div id="message" class="message"></div>
-
-  <table>
-
-    <thead>
-      <tr>
-        <th id="nameHeader">المنتج</th>
-        <th id="priceHeader">السعر</th>
-        <th id="quantityHeader">الكمية</th>
-        <th id="actionHeader">الإجراء</th>
-      </tr>
-    </thead>
-
-    <tbody id="productsTable"></tbody>
-
-  </table>
-
-  <div class="empty" id="emptyMessage">
-    لا توجد منتجات حاليًا
-  </div>
-
-</div>
-
-<div class="section">
-
-  <h2 id="customersTitle">إدارة العملاء</h2>
-
-  <div class="customer-form">
-
-    <input
-      type="text"
-      id="customerName"
-      placeholder="اسم العميل"
-    >
-
-    <input
-      type="text"
-      id="customerPhone"
-      placeholder="رقم الهاتف"
-    >
-
-    <input
-      type="text"
-      id="customerAddress"
-      class="full-width"
-      placeholder="العنوان"
-    >
-
-    <textarea
-      id="customerNotes"
-      class="full-width"
-      placeholder="ملاحظات"
-    ></textarea>
-
-    <button
-      class="customer-add-btn"
-      onclick="addCustomer()"
-      id="customerAddButton"
-    >
-      إضافة عميل
-    </button>
-
-  </div>
-
-  <table>
-
-    <thead>
-      <tr>
-        <th id="customerNameHeader">الاسم</th>
-        <th id="customerPhoneHeader">الهاتف</th>
-        <th id="customerAddressHeader">العنوان</th>
-        <th id="customerNotesHeader">الملاحظات</th>
-      </tr>
-    </thead>
-
-    <tbody id="customersTable"></tbody>
-
-  </table>
-
-  <div class="empty" id="customersEmptyMessage">
-    لا يوجد عملاء حاليًا
-  </div>
-
-</div>
-
-  </div>  <div
+  <div
     class="modal-overlay"
     id="saleModal"
-  ><div class="modal">
+  >
 
-  <h3 id="saleModalTitle">
-    اختيار العميل
-  </h3>
+    <div class="modal">
 
-  <select
-    id="saleCustomerSelect"
-  ></select>
+      <h3 id="saleModalTitle">
+        اختيار العميل
+      </h3>
 
-  <div class="modal-buttons">
+      <select
+        id="saleCustomerSelect"
+      ></select>
 
-    <button
-      class="modal-confirm"
-      onclick="confirmSale()"
-      id="confirmSaleButton"
-    >
-      تأكيد البيع
-    </button>
+      <div class="modal-buttons">
 
-    <button
-      class="modal-cancel"
-      onclick="closeSaleModal()"
-      id="cancelSaleButton"
-    >
-      إلغاء
-    </button>
+        <button
+          class="modal-confirm"
+          onclick="confirmSale()"
+          id="confirmSaleButton"
+        >
+          تأكيد البيع
+        </button>
+
+        <button
+          class="modal-cancel"
+          onclick="closeSaleModal()"
+          id="cancelSaleButton"
+        >
+          إلغاء
+        </button>
+
+      </div>
+
+    </div>
 
   </div>
 
-</div>
+  <!-- Edit Customer Modal -->
 
-  </div>  <script>
+  <div
+    class="modal-overlay"
+    id="customerEditModal"
+  >
+
+    <div class="modal">
+
+      <h3 id="customerEditModalTitle">
+        تعديل العميل
+      </h3>
+
+      <input
+        type="text"
+        id="editCustomerName"
+        placeholder="اسم العميل"
+      >
+
+      <input
+        type="text"
+        id="editCustomerPhone"
+        placeholder="رقم الهاتف"
+      >
+
+      <input
+        type="text"
+        id="editCustomerAddress"
+        placeholder="العنوان"
+      >
+
+      <textarea
+        id="editCustomerNotes"
+        placeholder="ملاحظات"
+      ></textarea>
+
+      <div class="modal-buttons">
+
+        <button
+          class="modal-confirm"
+          onclick="saveCustomerEdit()"
+          id="saveCustomerEditButton"
+        >
+          حفظ التعديل
+        </button>
+
+        <button
+          class="modal-cancel"
+          onclick="closeCustomerEditModal()"
+          id="cancelCustomerEditButton"
+        >
+          إلغاء
+        </button>
+
+      </div>
+
+    </div>
+
+  </div>
+
+  <script>
+
     let currentLanguage = "ar";
+
     let products = [];
+
     let customers = [];
+
     let selectedProductId = null;
+
+    let selectedCustomerId = null;
+
 
     const translations = {
 
       ar: {
+
         title: "نظام المبيعات الذكي",
+
         language: "English",
+
         products: "المنتجات",
+
         stock: "إجمالي المخزون",
+
         sales: "المبيعات",
+
         customers: "العملاء",
+
         productsTitle: "إدارة المنتجات",
+
         customersTitle: "إدارة العملاء",
+
         namePlaceholder: "اسم المنتج",
+
         pricePlaceholder: "السعر",
+
         quantityPlaceholder: "الكمية",
+
         customerNamePlaceholder: "اسم العميل",
+
         customerPhonePlaceholder: "رقم الهاتف",
+
         customerAddressPlaceholder: "العنوان",
+
         customerNotesPlaceholder: "ملاحظات",
+
         add: "إضافة",
+
         addCustomer: "إضافة عميل",
+
         name: "المنتج",
+
         price: "السعر",
+
         quantity: "الكمية",
+
         action: "الإجراء",
+
         customerName: "الاسم",
+
         customerPhone: "الهاتف",
+
         customerAddress: "العنوان",
+
         customerNotes: "الملاحظات",
+
+        customerAction: "الإجراء",
+
         sell: "بيع",
+
         delete: "حذف",
+
+        edit: "تعديل",
+
         empty: "لا توجد منتجات حاليًا",
+
         customersEmpty: "لا يوجد عملاء حاليًا",
+
         added: "تمت إضافة المنتج بنجاح",
+
         customerAdded: "تمت إضافة العميل بنجاح",
+
         sold: "تم تسجيل البيع",
+
         deleted: "تم حذف المنتج",
+
+        customerDeleted: "تم حذف العميل",
+
+        customerUpdated: "تم تعديل بيانات العميل بنجاح",
+
         invalid: "يرجى إدخال بيانات صحيحة",
+
         customerNameRequired: "يرجى إدخال اسم العميل",
+
         productsLoadError: "حدث خطأ أثناء تحميل المنتجات",
+
         customersLoadError: "حدث خطأ أثناء تحميل العملاء",
+
         connectionError: "حدث خطأ في الاتصال",
+
         selectCustomer: "اختر العميل",
+
         noCustomer: "بيع بدون عميل",
+
         saleModalTitle: "اختيار العميل",
+
         confirmSale: "تأكيد البيع",
+
         cancel: "إلغاء",
-        noCustomers: "لا يوجد عملاء. سيتم تسجيل البيع بدون عميل."
+
+        noCustomers: "لا يوجد عملاء. سيتم تسجيل البيع بدون عميل.",
+
+        customerEditModalTitle: "تعديل العميل",
+
+        saveCustomerEdit: "حفظ التعديل",
+
+        cancelCustomerEdit: "إلغاء",
+
+        deleteCustomerConfirm: "هل أنت متأكد من حذف العميل؟",
+
+        customerDeleteError: "حدث خطأ أثناء حذف العميل",
+
+        customerUpdateError: "حدث خطأ أثناء تعديل العميل"
+
       },
 
       en: {
+
         title: "Smart Sales System",
+
         language: "العربية",
+
         products: "Products",
+
         stock: "Total Stock",
+
         sales: "Sales",
+
         customers: "Customers",
+
         productsTitle: "Product Management",
+
         customersTitle: "Customer Management",
+
         namePlaceholder: "Product name",
+
         pricePlaceholder: "Price",
+
         quantityPlaceholder: "Quantity",
+
         customerNamePlaceholder: "Customer name",
+
         customerPhonePlaceholder: "Phone number",
+
         customerAddressPlaceholder: "Address",
+
         customerNotesPlaceholder: "Notes",
+
         add: "Add",
+
         addCustomer: "Add Customer",
+
         name: "Product",
+
         price: "Price",
+
         quantity: "Quantity",
+
         action: "Action",
+
         customerName: "Name",
+
         customerPhone: "Phone",
+
         customerAddress: "Address",
+
         customerNotes: "Notes",
+
+        customerAction: "Action",
+
         sell: "Sell",
+
         delete: "Delete",
+
+        edit: "Edit",
+
         empty: "No products currently",
+
         customersEmpty: "No customers currently",
+
         added: "Product added successfully",
+
         customerAdded: "Customer added successfully",
+
         sold: "Sale recorded",
+
         deleted: "Product deleted",
+
+        customerDeleted: "Customer deleted",
+
+        customerUpdated: "Customer updated successfully",
+
         invalid: "Please enter valid data",
+
         customerNameRequired: "Please enter customer name",
+
         productsLoadError: "Error loading products",
+
         customersLoadError: "Error loading customers",
+
         connectionError: "Connection error",
+
         selectCustomer: "Select customer",
+
         noCustomer: "Sell without customer",
+
         saleModalTitle: "Select Customer",
+
         confirmSale: "Confirm Sale",
+
         cancel: "Cancel",
-        noCustomers: "No customers. The sale will be recorded without a customer."
+
+        noCustomers: "No customers. The sale will be recorded without a customer.",
+
+        customerEditModalTitle: "Edit Customer",
+
+        saveCustomerEdit: "Save Changes",
+
+        cancelCustomerEdit: "Cancel",
+
+        deleteCustomerConfirm: "Are you sure you want to delete this customer?",
+
+        customerDeleteError: "Error deleting customer",
+
+        customerUpdateError: "Error updating customer"
+
       }
 
     };
+
 
     function toggleLanguage() {
 
@@ -661,6 +912,9 @@
       document.getElementById("customerNotesHeader").textContent =
         t.customerNotes;
 
+      document.getElementById("customerActionHeader").textContent =
+        t.customerAction;
+
       document.getElementById("emptyMessage").textContent =
         t.empty;
 
@@ -676,13 +930,37 @@
       document.getElementById("cancelSaleButton").textContent =
         t.cancel;
 
+      document.getElementById("customerEditModalTitle").textContent =
+        t.customerEditModalTitle;
+
+      document.getElementById("saveCustomerEditButton").textContent =
+        t.saveCustomerEdit;
+
+      document.getElementById("cancelCustomerEditButton").textContent =
+        t.cancelCustomerEdit;
+
+      document.getElementById("editCustomerName").placeholder =
+        t.customerNamePlaceholder;
+
+      document.getElementById("editCustomerPhone").placeholder =
+        t.customerPhonePlaceholder;
+
+      document.getElementById("editCustomerAddress").placeholder =
+        t.customerAddressPlaceholder;
+
+      document.getElementById("editCustomerNotes").placeholder =
+        t.customerNotesPlaceholder;
+
       renderProducts();
+
       renderCustomers();
 
       if (selectedProductId !== null) {
         renderSaleCustomerOptions();
       }
+
     }
+
 
     async function loadProducts() {
 
@@ -709,8 +987,11 @@
             .productsLoadError,
           true
         );
+
       }
+
     }
+
 
     async function loadSales() {
 
@@ -739,8 +1020,11 @@
           "salesTotal"
         ).textContent =
           "0.00";
+
       }
+
     }
+
 
     async function loadCustomers() {
 
@@ -771,8 +1055,11 @@
             .customersLoadError,
           true
         );
+
       }
+
     }
+
 
     async function addProduct() {
 
@@ -816,10 +1103,12 @@
             "/api/products",
             {
               method: "POST",
+
               headers: {
                 "Content-Type":
                   "application/json"
               },
+
               body: JSON.stringify({
                 name,
                 price,
@@ -862,8 +1151,11 @@
           t.connectionError,
           true
         );
+
       }
+
     }
+
 
     async function addCustomer() {
 
@@ -911,10 +1203,12 @@
             "/api/customers",
             {
               method: "POST",
+
               headers: {
                 "Content-Type":
                   "application/json"
               },
+
               body: JSON.stringify({
                 name,
                 phone,
@@ -933,6 +1227,7 @@
             data.error ||
             "Failed to add customer"
           );
+
         }
 
         document
@@ -966,8 +1261,11 @@
           t.connectionError,
           true
         );
+
       }
+
     }
+
 
     function renderProducts() {
 
@@ -995,6 +1293,7 @@
 
         empty.style.display =
           "none";
+
       }
 
       let totalStock = 0;
@@ -1034,6 +1333,7 @@
         `;
 
         table.appendChild(row);
+
       });
 
       document.getElementById(
@@ -1045,7 +1345,9 @@
         "stockCount"
       ).textContent =
         totalStock;
+
     }
+
 
     function renderCustomers() {
 
@@ -1061,6 +1363,9 @@
 
       table.innerHTML = "";
 
+      const t =
+        translations[currentLanguage];
+
       if (customers.length === 0) {
 
         empty.style.display =
@@ -1070,6 +1375,7 @@
 
         empty.style.display =
           "none";
+
       }
 
       customers.forEach(customer => {
@@ -1078,23 +1384,56 @@
           document.createElement("tr");
 
         row.innerHTML = `
-          <td>${escapeHtml(customer.name || "")}</td>
+          <td>
+            ${escapeHtml(customer.name || "")}
+          </td>
 
-          <td>${escapeHtml(customer.phone || "")}</td>
+          <td>
+            ${escapeHtml(customer.phone || "")}
+          </td>
 
-          <td>${escapeHtml(customer.address || "")}</td>
+          <td>
+            ${escapeHtml(customer.address || "")}
+          </td>
 
-          <td>${escapeHtml(customer.notes || "")}</td>
+          <td>
+            ${escapeHtml(customer.notes || "")}
+          </td>
+
+          <td>
+
+            <div class="customer-actions">
+
+              <button
+                class="edit-btn"
+                onclick="openCustomerEditModal(${customer.id})"
+              >
+                ${t.edit}
+              </button>
+
+              <button
+                class="danger-btn"
+                onclick="deleteCustomer(${customer.id})"
+              >
+                ${t.delete}
+              </button>
+
+            </div>
+
+          </td>
         `;
 
         table.appendChild(row);
+
       });
 
       document.getElementById(
         "customersCount"
       ).textContent =
         customers.length;
+
     }
+
 
     function renderSaleCustomerOptions() {
 
@@ -1132,8 +1471,11 @@
           customer.name;
 
         select.appendChild(option);
+
       });
+
     }
+
 
     function openSaleModal(id) {
 
@@ -1174,7 +1516,9 @@
       document.getElementById(
         "saleModal"
       ).style.display = "flex";
+
     }
+
 
     function closeSaleModal() {
 
@@ -1183,7 +1527,9 @@
       document.getElementById(
         "saleModal"
       ).style.display = "none";
+
     }
+
 
     async function confirmSale() {
 
@@ -1211,10 +1557,12 @@
             "/api/sell",
             {
               method: "POST",
+
               headers: {
                 "Content-Type":
                   "application/json"
               },
+
               body: JSON.stringify({
                 id: productId,
                 customerId:
@@ -1232,6 +1580,7 @@
             data.error ||
             "Failed to record sale"
           );
+
         }
 
         if (data.product) {
@@ -1247,7 +1596,9 @@
 
             products[index] =
               data.product;
+
           }
+
         }
 
         closeSaleModal();
@@ -1276,12 +1627,18 @@
         );
 
         closeSaleModal();
+
       }
+
     }
 
+
     function sellProduct(id) {
+
       openSaleModal(id);
+
     }
+
 
     async function deleteProduct(id) {
 
@@ -1326,6 +1683,7 @@
             data.error ||
             "Failed to delete product"
           );
+
         }
 
         products =
@@ -1352,8 +1710,264 @@
             : "Error deleting product",
           true
         );
+
       }
+
     }
+
+
+    function openCustomerEditModal(id) {
+
+      const customer =
+        customers.find(
+          item =>
+            Number(item.id) ===
+            Number(id)
+        );
+
+      if (!customer) {
+        return;
+      }
+
+      selectedCustomerId =
+        Number(id);
+
+      document.getElementById(
+        "editCustomerName"
+      ).value =
+        customer.name || "";
+
+      document.getElementById(
+        "editCustomerPhone"
+      ).value =
+        customer.phone || "";
+
+      document.getElementById(
+        "editCustomerAddress"
+      ).value =
+        customer.address || "";
+
+      document.getElementById(
+        "editCustomerNotes"
+      ).value =
+        customer.notes || "";
+
+      document.getElementById(
+        "customerEditModal"
+      ).style.display = "flex";
+
+    }
+
+
+    function closeCustomerEditModal() {
+
+      selectedCustomerId = null;
+
+      document.getElementById(
+        "customerEditModal"
+      ).style.display = "none";
+
+    }
+
+
+    async function saveCustomerEdit() {
+
+      if (selectedCustomerId === null) {
+        return;
+      }
+
+      const name =
+        document
+          .getElementById("editCustomerName")
+          .value
+          .trim();
+
+      const phone =
+        document
+          .getElementById("editCustomerPhone")
+          .value
+          .trim();
+
+      const address =
+        document
+          .getElementById("editCustomerAddress")
+          .value
+          .trim();
+
+      const notes =
+        document
+          .getElementById("editCustomerNotes")
+          .value
+          .trim();
+
+      const t =
+        translations[currentLanguage];
+
+      if (!name) {
+
+        showMessage(
+          t.customerNameRequired,
+          true
+        );
+
+        return;
+      }
+
+      try {
+
+        const response =
+          await fetch(
+            "/api/customers?id=" +
+            selectedCustomerId,
+            {
+              method: "PUT",
+
+              headers: {
+                "Content-Type":
+                  "application/json"
+              },
+
+              body: JSON.stringify({
+                name,
+                phone,
+                address,
+                notes
+              })
+            }
+          );
+
+        const data =
+          await response.json();
+
+        if (!response.ok) {
+
+          throw new Error(
+            data.error ||
+            "Failed to update customer"
+          );
+
+        }
+
+        const updatedCustomer =
+          data.customer;
+
+        const index =
+          customers.findIndex(
+            customer =>
+              Number(customer.id) ===
+              Number(selectedCustomerId)
+          );
+
+        if (index !== -1) {
+
+          customers[index] =
+            updatedCustomer;
+
+        }
+
+        renderCustomers();
+
+        renderSaleCustomerOptions();
+
+        closeCustomerEditModal();
+
+        showMessage(
+          t.customerUpdated
+        );
+
+      } catch (error) {
+
+        console.error(error);
+
+        showMessage(
+          error.message ||
+          t.customerUpdateError,
+          true
+        );
+
+      }
+
+    }
+
+
+    async function deleteCustomer(id) {
+
+      const customer =
+        customers.find(
+          item =>
+            Number(item.id) ===
+            Number(id)
+        );
+
+      if (!customer) {
+        return;
+      }
+
+      const t =
+        translations[currentLanguage];
+
+      const confirmed =
+        confirm(
+          currentLanguage === "ar"
+            ? `هل أنت متأكد من حذف العميل "${customer.name}"؟`
+            : `Are you sure you want to delete "${customer.name}"?`
+        );
+
+      if (!confirmed) {
+        return;
+      }
+
+      try {
+
+        const response =
+          await fetch(
+            "/api/customers?id=" + id,
+            {
+              method: "DELETE"
+            }
+          );
+
+        const data =
+          await response.json();
+
+        if (!response.ok) {
+
+          throw new Error(
+            data.error ||
+            "Failed to delete customer"
+          );
+
+        }
+
+        customers =
+          customers.filter(
+            item =>
+              Number(item.id) !==
+              Number(id)
+          );
+
+        renderCustomers();
+
+        renderSaleCustomerOptions();
+
+        showMessage(
+          t.customerDeleted
+        );
+
+      } catch (error) {
+
+        console.error(error);
+
+        showMessage(
+          error.message ||
+          t.customerDeleteError,
+          true
+        );
+
+      }
+
+    }
+
 
     function showMessage(
       message,
@@ -1385,7 +1999,9 @@
           "none";
 
       }, 2500);
+
     }
+
 
     function escapeHtml(text) {
 
@@ -1396,19 +2012,28 @@
         text;
 
       return div.innerHTML;
+
     }
+
 
     async function initializeApp() {
 
       await Promise.all([
+
         loadProducts(),
+
         loadSales(),
+
         loadCustomers()
+
       ]);
 
     }
 
+
     initializeApp();
 
-  </script></body>
+  </script>
+
+</body>
 </html>
