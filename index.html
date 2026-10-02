@@ -150,6 +150,12 @@
       background: white;
     }
 
+    input:disabled,
+    select:disabled {
+      background: #f3f4f6;
+      cursor: not-allowed;
+    }
+
     .add-btn {
       background: #2563eb;
       color: white;
@@ -255,6 +261,63 @@
       color: #374151;
     }
 
+    .sale-total-box {
+      background: #f8fafc;
+      border-radius: 8px;
+      padding: 12px;
+      margin: 10px 0;
+    }
+
+    .sale-summary-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 5px 0;
+    }
+
+    .sale-summary-row strong {
+      font-size: 17px;
+    }
+
+    .sale-payment-section {
+      margin-top: 15px;
+      padding-top: 15px;
+      border-top: 1px solid #eee;
+    }
+
+    .sale-payment-section > label {
+      display: block;
+      margin-bottom: 6px;
+      font-weight: bold;
+    }
+
+    .payment-help {
+      font-size: 13px;
+      color: #666;
+      margin-top: 5px;
+      line-height: 1.5;
+    }
+
+    .remaining-preview {
+      margin-top: 10px;
+      padding: 10px;
+      border-radius: 8px;
+      background: #fef3c7;
+      color: #92400e;
+      font-weight: bold;
+      text-align: center;
+    }
+
+    .remaining-preview.paid {
+      background: #dcfce7;
+      color: #166534;
+    }
+
+    .remaining-preview.unpaid {
+      background: #fee2e2;
+      color: #991b1b;
+    }
+
     .modal-overlay {
       position: fixed;
       inset: 0;
@@ -281,19 +344,9 @@
     }
 
     .modal input,
-    .modal textarea {
+    .modal textarea,
+    .modal select {
       margin-bottom: 10px;
-    }
-
-    .modal textarea {
-      width: 100%;
-      min-height: 90px;
-      padding: 12px;
-      border: 1px solid #ddd;
-      border-radius: 8px;
-      font-size: 15px;
-      resize: vertical;
-      font-family: Arial, sans-serif;
     }
 
     .modal-buttons {
@@ -315,6 +368,7 @@
     }
 
     /* Invoice */
+
     .invoice-modal {
       max-width: 700px;
     }
@@ -375,6 +429,15 @@
       font-size: 15px;
     }
 
+    .invoice-payment-row {
+      font-weight: bold;
+    }
+
+    .invoice-remaining {
+      font-weight: bold;
+      color: #92400e;
+    }
+
     .invoice-total {
       display: flex;
       justify-content: space-between;
@@ -391,8 +454,6 @@
       text-align: center;
       padding: 8px;
       border-radius: 8px;
-      background: #dcfce7;
-      color: #166534;
       font-weight: bold;
     }
 
@@ -512,6 +573,10 @@
       .invoice-buttons {
         flex-direction: column;
       }
+
+      .modal-buttons {
+        flex-direction: column;
+      }
     }
   </style>
 </head>
@@ -557,6 +622,7 @@
     </div>
 
     <!-- Products -->
+
     <div class="section">
 
       <h2 id="productsTitle">إدارة المنتجات</h2>
@@ -619,6 +685,7 @@
     </div>
 
     <!-- Customers -->
+
     <div class="section">
 
       <h2 id="customersTitle">إدارة العملاء</h2>
@@ -685,6 +752,7 @@
     </div>
 
     <!-- Sales History -->
+
     <div class="section">
 
       <div class="section-header">
@@ -708,6 +776,7 @@
         <thead>
 
           <tr>
+
             <th id="salesInvoiceHeader">
               رقم الفاتورة
             </th>
@@ -735,6 +804,7 @@
             <th id="salesActionHeader">
               الإجراء
             </th>
+
           </tr>
 
         </thead>
@@ -755,6 +825,7 @@
   </div>
 
   <!-- Sale Modal -->
+
   <div
     class="modal-overlay"
     id="saleModal"
@@ -763,12 +834,141 @@
     <div class="modal">
 
       <h3 id="saleModalTitle">
-        اختيار العميل
+        إتمام البيع
       </h3>
+
+      <div class="sale-total-box">
+
+        <div class="sale-summary-row">
+          <span id="saleProductLabel">المنتج</span>
+          <strong id="saleProductName">-</strong>
+        </div>
+
+        <div class="sale-summary-row">
+          <span id="saleUnitPriceLabel">سعر الوحدة</span>
+          <strong id="saleUnitPrice">0.00</strong>
+        </div>
+
+        <div class="sale-summary-row">
+          <span id="saleTotalLabel">إجمالي البيع</span>
+          <strong id="saleTotalAmount">0.00</strong>
+        </div>
+
+      </div>
+
+      <label
+        for="saleCustomerSelect"
+        id="saleCustomerLabel"
+      >
+        العميل
+      </label>
 
       <select
         id="saleCustomerSelect"
+        onchange="handleSaleCustomerChange()"
       ></select>
+
+      <div class="sale-payment-section">
+
+        <label
+          for="salePaymentStatus"
+          id="salePaymentStatusLabel"
+        >
+          حالة الدفع
+        </label>
+
+        <select
+          id="salePaymentStatus"
+          onchange="handlePaymentStatusChange()"
+        >
+
+          <option value="paid">
+            مدفوع
+          </option>
+
+          <option value="partial">
+            مدفوع جزئيًا
+          </option>
+
+          <option value="unpaid">
+            غير مدفوع / آجل
+          </option>
+
+        </select>
+
+        <label
+          for="salePaidAmount"
+          id="salePaidAmountLabel"
+        >
+          المبلغ المدفوع
+        </label>
+
+        <input
+          type="number"
+          id="salePaidAmount"
+          min="0"
+          step="0.01"
+          value="0"
+          oninput="updatePaymentPreview()"
+        >
+
+        <div
+          class="remaining-preview"
+          id="saleRemainingPreview"
+        >
+          المتبقي: 0.00
+        </div>
+
+        <label
+          for="salePaymentMethod"
+          id="salePaymentMethodLabel"
+        >
+          طريقة الدفع
+        </label>
+
+        <select
+          id="salePaymentMethod"
+        >
+
+          <option value="cash">
+            نقدي
+          </option>
+
+          <option value="card">
+            بطاقة
+          </option>
+
+          <option value="transfer">
+            تحويل
+          </option>
+
+          <option value="other">
+            أخرى
+          </option>
+
+        </select>
+
+        <label
+          for="salePaymentReference"
+          id="salePaymentReferenceLabel"
+        >
+          المرجع
+        </label>
+
+        <input
+          type="text"
+          id="salePaymentReference"
+          placeholder="رقم المرجع أو العملية"
+        >
+
+        <div
+          class="payment-help"
+          id="salePaymentHelp"
+        >
+          في البيع الآجل أو الجزئي يجب اختيار عميل.
+        </div>
+
+      </div>
 
       <div class="modal-buttons">
 
@@ -795,6 +995,7 @@
   </div>
 
   <!-- Edit Customer Modal -->
+
   <div
     class="modal-overlay"
     id="customerEditModal"
@@ -854,6 +1055,7 @@
   </div>
 
   <!-- Invoice Modal -->
+
   <div
     class="modal-overlay"
     id="invoiceModal"
@@ -920,6 +1122,26 @@
             </span>
           </div>
 
+          <div>
+            <strong id="invoicePaymentMethodLabel">
+              طريقة الدفع:
+            </strong>
+
+            <span id="invoicePaymentMethod">
+              -
+            </span>
+          </div>
+
+          <div>
+            <strong id="invoiceReferenceLabel">
+              المرجع:
+            </strong>
+
+            <span id="invoiceReference">
+              -
+            </span>
+          </div>
+
         </div>
 
         <table class="invoice-table">
@@ -955,6 +1177,7 @@
         <div class="invoice-summary">
 
           <div class="invoice-summary-row">
+
             <span id="invoiceSubtotalLabel">
               المجموع الفرعي
             </span>
@@ -962,9 +1185,11 @@
             <span id="invoiceSubtotal">
               0.00
             </span>
+
           </div>
 
           <div class="invoice-summary-row">
+
             <span id="invoiceDiscountLabel">
               الخصم
             </span>
@@ -972,9 +1197,11 @@
             <span id="invoiceDiscount">
               0.00
             </span>
+
           </div>
 
           <div class="invoice-summary-row">
+
             <span id="invoiceTaxLabel">
               الضريبة
             </span>
@@ -982,6 +1209,31 @@
             <span id="invoiceTax">
               0.00
             </span>
+
+          </div>
+
+          <div class="invoice-summary-row invoice-payment-row">
+
+            <span id="invoicePaidLabel">
+              المدفوع
+            </span>
+
+            <span id="invoicePaid">
+              0.00
+            </span>
+
+          </div>
+
+          <div class="invoice-summary-row invoice-payment-row invoice-remaining">
+
+            <span id="invoiceRemainingLabel">
+              المتبقي
+            </span>
+
+            <span id="invoiceRemaining">
+              0.00
+            </span>
+
           </div>
 
         </div>
@@ -1044,6 +1296,8 @@
     let selectedProductId = null;
 
     let selectedCustomerId = null;
+
+    let currentSaleTotal = 0;
 
     const translations = {
 
@@ -1143,7 +1397,7 @@
 
         noCustomer: "بيع بدون عميل",
 
-        saleModalTitle: "اختيار العميل",
+        saleModalTitle: "إتمام البيع",
 
         confirmSale: "تأكيد البيع",
 
@@ -1173,6 +1427,10 @@
 
         invoicePayment: "حالة الدفع:",
 
+        invoicePaymentMethod: "طريقة الدفع:",
+
+        invoiceReference: "المرجع:",
+
         invoiceProduct: "المنتج",
 
         invoiceQuantity: "الكمية",
@@ -1188,6 +1446,10 @@
         invoiceDiscount: "الخصم",
 
         invoiceTax: "الضريبة",
+
+        invoicePaid: "المدفوع",
+
+        invoiceRemaining: "المتبقي",
 
         paid: "مدفوع",
 
@@ -1217,7 +1479,53 @@
 
         statusUnknown: "غير محددة",
 
-        loading: "جارٍ التحميل..."
+        loading: "جارٍ التحميل...",
+
+        saleProduct: "المنتج",
+
+        saleUnitPrice: "سعر الوحدة",
+
+        saleTotal: "إجمالي البيع",
+
+        saleCustomer: "العميل",
+
+        paymentStatus: "حالة الدفع",
+
+        paymentMethod: "طريقة الدفع",
+
+        paidAmount: "المبلغ المدفوع",
+
+        paymentReference: "المرجع",
+
+        referencePlaceholder: "رقم المرجع أو العملية",
+
+        cash: "نقدي",
+
+        card: "بطاقة",
+
+        transfer: "تحويل",
+
+        other: "أخرى",
+
+        remaining: "المتبقي",
+
+        paymentHelp: "في البيع الآجل أو الجزئي يجب اختيار عميل.",
+
+        paidHelp: "سيتم تسجيل كامل قيمة الفاتورة كمدفوع.",
+
+        partialHelp: "أدخل المبلغ المدفوع، ويجب أن يكون أقل من إجمالي الفاتورة.",
+
+        unpaidHelp: "سيتم تسجيل كامل قيمة الفاتورة كدين على العميل.",
+
+        customerRequiredForDebt: "يجب اختيار عميل للبيع الآجل أو الجزئي.",
+
+        invalidPaidAmount: "المبلغ المدفوع غير صحيح.",
+
+        partialAmountInvalid: "في الدفع الجزئي يجب أن يكون المبلغ أكبر من صفر وأقل من إجمالي الفاتورة.",
+
+        unpaidAmountInvalid: "البيع غير المدفوع يجب أن يكون المبلغ المدفوع فيه صفرًا.",
+
+        paidAmountInvalid: "المبلغ المدفوع يجب أن يساوي إجمالي الفاتورة في البيع المدفوع بالكامل."
 
       },
 
@@ -1317,7 +1625,7 @@
 
         noCustomer: "Sell without customer",
 
-        saleModalTitle: "Select Customer",
+        saleModalTitle: "Complete Sale",
 
         confirmSale: "Confirm Sale",
 
@@ -1347,6 +1655,10 @@
 
         invoicePayment: "Payment Status:",
 
+        invoicePaymentMethod: "Payment Method:",
+
+        invoiceReference: "Reference:",
+
         invoiceProduct: "Product",
 
         invoiceQuantity: "Quantity",
@@ -1362,6 +1674,10 @@
         invoiceDiscount: "Discount",
 
         invoiceTax: "Tax",
+
+        invoicePaid: "Paid",
+
+        invoiceRemaining: "Remaining",
 
         paid: "Paid",
 
@@ -1391,7 +1707,53 @@
 
         statusUnknown: "Unknown",
 
-        loading: "Loading..."
+        loading: "Loading...",
+
+        saleProduct: "Product",
+
+        saleUnitPrice: "Unit Price",
+
+        saleTotal: "Sale Total",
+
+        saleCustomer: "Customer",
+
+        paymentStatus: "Payment Status",
+
+        paymentMethod: "Payment Method",
+
+        paidAmount: "Paid Amount",
+
+        paymentReference: "Reference",
+
+        referencePlaceholder: "Reference or transaction number",
+
+        cash: "Cash",
+
+        card: "Card",
+
+        transfer: "Transfer",
+
+        other: "Other",
+
+        remaining: "Remaining",
+
+        paymentHelp: "A customer is required for unpaid or partial sales.",
+
+        paidHelp: "The full invoice amount will be recorded as paid.",
+
+        partialHelp: "Enter the paid amount. It must be less than the invoice total.",
+
+        unpaidHelp: "The full invoice amount will be recorded as customer debt.",
+
+        customerRequiredForDebt: "A customer is required for unpaid or partial sales.",
+
+        invalidPaidAmount: "Invalid paid amount.",
+
+        partialAmountInvalid: "For partial payment, the amount must be greater than zero and less than the invoice total.",
+
+        unpaidAmountInvalid: "An unpaid sale must have a paid amount of zero.",
+
+        paidAmountInvalid: "For a fully paid sale, the paid amount must equal the invoice total."
 
       }
 
@@ -1550,6 +1912,33 @@
       document.getElementById("saleModalTitle").textContent =
         t.saleModalTitle;
 
+      document.getElementById("saleProductLabel").textContent =
+        t.saleProduct;
+
+      document.getElementById("saleUnitPriceLabel").textContent =
+        t.saleUnitPrice;
+
+      document.getElementById("saleTotalLabel").textContent =
+        t.saleTotal;
+
+      document.getElementById("saleCustomerLabel").textContent =
+        t.saleCustomer;
+
+      document.getElementById("salePaymentStatusLabel").textContent =
+        t.paymentStatus;
+
+      document.getElementById("salePaidAmountLabel").textContent =
+        t.paidAmount;
+
+      document.getElementById("salePaymentMethodLabel").textContent =
+        t.paymentMethod;
+
+      document.getElementById("salePaymentReferenceLabel").textContent =
+        t.paymentReference;
+
+      document.getElementById("salePaymentReference").placeholder =
+        t.referencePlaceholder;
+
       document.getElementById("confirmSaleButton").textContent =
         t.confirmSale;
 
@@ -1577,6 +1966,8 @@
       document.getElementById("editCustomerNotes").placeholder =
         t.customerNotesPlaceholder;
 
+      updatePaymentMethodOptions();
+
       updateInvoiceStaticTexts();
 
       renderProducts();
@@ -1588,6 +1979,67 @@
       if (selectedProductId !== null) {
         renderSaleCustomerOptions();
       }
+
+      updatePaymentPreview();
+
+    }
+
+    function updatePaymentMethodOptions() {
+
+      const select =
+        document.getElementById(
+          "salePaymentMethod"
+        );
+
+      const currentValue =
+        select.value || "cash";
+
+      select.innerHTML = "";
+
+      const t =
+        translations[currentLanguage];
+
+      const options = [
+        {
+          value: "cash",
+          label: t.cash
+        },
+        {
+          value: "card",
+          label: t.card
+        },
+        {
+          value: "transfer",
+          label: t.transfer
+        },
+        {
+          value: "other",
+          label: t.other
+        }
+      ];
+
+      options.forEach(optionData => {
+
+        const option =
+          document.createElement("option");
+
+        option.value =
+          optionData.value;
+
+        option.textContent =
+          optionData.label;
+
+        select.appendChild(option);
+
+      });
+
+      select.value =
+        options.some(
+          option =>
+            option.value === currentValue
+        )
+          ? currentValue
+          : "cash";
 
     }
 
@@ -1611,6 +2063,12 @@
       document.getElementById("invoicePaymentLabel").textContent =
         t.invoicePayment;
 
+      document.getElementById("invoicePaymentMethodLabel").textContent =
+        t.invoicePaymentMethod;
+
+      document.getElementById("invoiceReferenceLabel").textContent =
+        t.invoiceReference;
+
       document.getElementById("invoiceProductHeader").textContent =
         t.invoiceProduct;
 
@@ -1632,6 +2090,12 @@
       document.getElementById("invoiceTaxLabel").textContent =
         t.invoiceTax;
 
+      document.getElementById("invoicePaidLabel").textContent =
+        t.invoicePaid;
+
+      document.getElementById("invoiceRemainingLabel").textContent =
+        t.invoiceRemaining;
+
       document.getElementById("invoiceGrandTotalLabel").textContent =
         t.invoiceGrandTotal;
 
@@ -1651,7 +2115,9 @@
           await fetch("/api/products");
 
         if (!response.ok) {
-          throw new Error("Failed to load products");
+          throw new Error(
+            "Failed to load products"
+          );
         }
 
         products =
@@ -1681,7 +2147,9 @@
           await fetch("/api/sales");
 
         if (!response.ok) {
-          throw new Error("Failed to load sales");
+          throw new Error(
+            "Failed to load sales"
+          );
         }
 
         const data =
@@ -1690,7 +2158,9 @@
         document.getElementById(
           "salesTotal"
         ).textContent =
-          Number(data.total || 0).toFixed(2);
+          Number(
+            data.total || 0
+          ).toFixed(2);
 
       } catch (error) {
 
@@ -1761,7 +2231,9 @@
           await fetch("/api/customers");
 
         if (!response.ok) {
-          throw new Error("Failed to load customers");
+          throw new Error(
+            "Failed to load customers"
+          );
         }
 
         customers =
@@ -1861,7 +2333,8 @@
           let data = {};
 
           try {
-            data = await response.json();
+            data =
+              await response.json();
           } catch {}
 
           throw new Error(
@@ -1882,7 +2355,9 @@
           .getElementById("productQuantity")
           .value = "";
 
-        showMessage(t.added);
+        showMessage(
+          t.added
+        );
 
         await loadProducts();
 
@@ -2043,7 +2518,9 @@
       products.forEach(product => {
 
         totalStock +=
-          Number(product.quantity || 0);
+          Number(
+            product.quantity || 0
+          );
 
         const row =
           document.createElement("tr");
@@ -2055,11 +2532,15 @@
           </td>
 
           <td>
-            ${Number(product.price || 0).toFixed(2)}
+            ${Number(
+              product.price || 0
+            ).toFixed(2)}
           </td>
 
           <td>
-            ${Number(product.quantity || 0)}
+            ${Number(
+              product.quantity || 0
+            )}
           </td>
 
           <td>
@@ -2135,19 +2616,27 @@
         row.innerHTML = `
 
           <td>
-            ${escapeHtml(customer.name || "")}
+            ${escapeHtml(
+              customer.name || ""
+            )}
           </td>
 
           <td>
-            ${escapeHtml(customer.phone || "")}
+            ${escapeHtml(
+              customer.phone || ""
+            )}
           </td>
 
           <td>
-            ${escapeHtml(customer.address || "")}
+            ${escapeHtml(
+              customer.address || ""
+            )}
           </td>
 
           <td>
-            ${escapeHtml(customer.notes || "")}
+            ${escapeHtml(
+              customer.notes || ""
+            )}
           </td>
 
           <td>
@@ -2195,6 +2684,9 @@
       const t =
         translations[currentLanguage];
 
+      const previousValue =
+        select.value;
+
       select.innerHTML = "";
 
       const noCustomerOption =
@@ -2223,6 +2715,20 @@
         select.appendChild(option);
 
       });
+
+      if (
+        previousValue !== "" &&
+        customers.some(
+          customer =>
+            String(customer.id) ===
+            String(previousValue)
+        )
+      ) {
+
+        select.value =
+          previousValue;
+
+      }
 
     }
 
@@ -2256,6 +2762,9 @@
       selectedProductId =
         Number(id);
 
+      currentSaleTotal =
+        Number(product.price || 0);
+
       renderSaleCustomerOptions();
 
       document.getElementById(
@@ -2263,31 +2772,267 @@
       ).value = "";
 
       document.getElementById(
+        "saleProductName"
+      ).textContent =
+        product.name || "-";
+
+      document.getElementById(
+        "saleUnitPrice"
+      ).textContent =
+        currentSaleTotal.toFixed(2);
+
+      document.getElementById(
+        "saleTotalAmount"
+      ).textContent =
+        currentSaleTotal.toFixed(2);
+
+      document.getElementById(
+        "salePaymentStatus"
+      ).value =
+        "paid";
+
+      document.getElementById(
+        "salePaidAmount"
+      ).value =
+        currentSaleTotal.toFixed(2);
+
+      document.getElementById(
+        "salePaymentMethod"
+      ).value =
+        "cash";
+
+      document.getElementById(
+        "salePaymentReference"
+      ).value =
+        "";
+
+      document.getElementById(
         "saleModal"
-      ).style.display = "flex";
+      ).style.display =
+        "flex";
+
+      handlePaymentStatusChange();
 
     }
 
     function closeSaleModal() {
 
-      selectedProductId = null;
+      selectedProductId =
+        null;
+
+      currentSaleTotal =
+        0;
 
       const button =
         document.getElementById(
           "confirmSaleButton"
         );
 
-      button.disabled = false;
+      button.disabled =
+        false;
 
       document.getElementById(
         "saleModal"
-      ).style.display = "none";
+      ).style.display =
+        "none";
+
+    }
+
+    function handleSaleCustomerChange() {
+
+      const status =
+        document.getElementById(
+          "salePaymentStatus"
+        ).value;
+
+      updatePaymentPreview();
+
+      if (
+        status === "paid"
+      ) {
+        return;
+      }
+
+    }
+
+    function handlePaymentStatusChange() {
+
+      const status =
+        document.getElementById(
+          "salePaymentStatus"
+        ).value;
+
+      const paidInput =
+        document.getElementById(
+          "salePaidAmount"
+        );
+
+      const customerSelect =
+        document.getElementById(
+          "saleCustomerSelect"
+        );
+
+      const help =
+        document.getElementById(
+          "salePaymentHelp"
+        );
+
+      const t =
+        translations[currentLanguage];
+
+      if (
+        status === "paid"
+      ) {
+
+        paidInput.value =
+          currentSaleTotal.toFixed(2);
+
+        paidInput.disabled =
+          true;
+
+        help.textContent =
+          t.paidHelp;
+
+      } else if (
+        status === "partial"
+      ) {
+
+        paidInput.disabled =
+          false;
+
+        if (
+          Number(paidInput.value) <= 0 ||
+          Number(paidInput.value) >= currentSaleTotal
+        ) {
+
+          paidInput.value =
+            "";
+
+        }
+
+        help.textContent =
+          t.partialHelp;
+
+      } else if (
+        status === "unpaid"
+      ) {
+
+        paidInput.value =
+          "0";
+
+        paidInput.disabled =
+          true;
+
+        help.textContent =
+          t.unpaidHelp;
+
+      }
+
+      if (
+        status !== "paid" &&
+        customerSelect.value === ""
+      ) {
+
+        customerSelect.setCustomValidity(
+          t.customerRequiredForDebt
+        );
+
+      } else {
+
+        customerSelect.setCustomValidity(
+          ""
+        );
+
+      }
+
+      updatePaymentPreview();
+
+    }
+
+    function updatePaymentPreview() {
+
+      const status =
+        document.getElementById(
+          "salePaymentStatus"
+        ).value;
+
+      const paidInput =
+        document.getElementById(
+          "salePaidAmount"
+        );
+
+      const preview =
+        document.getElementById(
+          "saleRemainingPreview"
+        );
+
+      let paidAmount =
+        Number(
+          paidInput.value || 0
+        );
+
+      if (!Number.isFinite(paidAmount)) {
+        paidAmount = 0;
+      }
+
+      if (
+        status === "paid"
+      ) {
+
+        paidAmount =
+          currentSaleTotal;
+
+      } else if (
+        status === "unpaid"
+      ) {
+
+        paidAmount =
+          0;
+
+      }
+
+      let remaining =
+        currentSaleTotal -
+        paidAmount;
+
+      if (remaining < 0) {
+        remaining = 0;
+      }
+
+      const t =
+        translations[currentLanguage];
+
+      preview.textContent =
+        `${t.remaining}: ${remaining.toFixed(2)}`;
+
+      preview.className =
+        "remaining-preview";
+
+      if (
+        remaining === 0
+      ) {
+
+        preview.classList.add(
+          "paid"
+        );
+
+      } else if (
+        paidAmount === 0
+      ) {
+
+        preview.classList.add(
+          "unpaid"
+        );
+
+      }
 
     }
 
     async function confirmSale() {
 
-      if (selectedProductId === null) {
+      if (
+        selectedProductId === null
+      ) {
         return;
       }
 
@@ -2300,12 +3045,30 @@
         return;
       }
 
-      button.disabled = true;
-
       const select =
         document.getElementById(
           "saleCustomerSelect"
         );
+
+      const paymentStatus =
+        document.getElementById(
+          "salePaymentStatus"
+        ).value;
+
+      const paidAmountInput =
+        document.getElementById(
+          "salePaidAmount"
+        );
+
+      const paymentMethod =
+        document.getElementById(
+          "salePaymentMethod"
+        ).value;
+
+      const reference =
+        document.getElementById(
+          "salePaymentReference"
+        ).value.trim();
 
       const selectedCustomerId =
         select.value === ""
@@ -2314,6 +3077,88 @@
 
       const productId =
         selectedProductId;
+
+      let paidAmount =
+        Number(
+          paidAmountInput.value
+        );
+
+      const t =
+        translations[currentLanguage];
+
+      if (
+        !Number.isFinite(paidAmount) ||
+        paidAmount < 0
+      ) {
+
+        showMessage(
+          t.invalidPaidAmount,
+          true
+        );
+
+        return;
+      }
+
+      if (
+        (
+          paymentStatus === "partial" ||
+          paymentStatus === "unpaid"
+        ) &&
+        selectedCustomerId === null
+      ) {
+
+        showMessage(
+          t.customerRequiredForDebt,
+          true
+        );
+
+        return;
+      }
+
+      if (
+        paymentStatus === "paid"
+      ) {
+
+        paidAmount =
+          currentSaleTotal;
+
+      } else if (
+        paymentStatus === "partial"
+      ) {
+
+        if (
+          paidAmount <= 0 ||
+          paidAmount >= currentSaleTotal
+        ) {
+
+          showMessage(
+            t.partialAmountInvalid,
+            true
+          );
+
+          return;
+        }
+
+      } else if (
+        paymentStatus === "unpaid"
+      ) {
+
+        if (
+          paidAmount !== 0
+        ) {
+
+          showMessage(
+            t.unpaidAmountInvalid,
+            true
+          );
+
+          return;
+        }
+
+      }
+
+      button.disabled =
+        true;
 
       try {
 
@@ -2329,10 +3174,27 @@
               },
 
               body: JSON.stringify({
-                id: productId,
+
+                id:
+                  productId,
+
                 customerId:
-                  selectedCustomerId
+                  selectedCustomerId,
+
+                paymentStatus:
+                  paymentStatus,
+
+                paidAmount:
+                  paidAmount,
+
+                paymentMethod:
+                  paymentMethod,
+
+                reference:
+                  reference || null
+
               })
+
             }
           );
 
@@ -2375,8 +3237,7 @@
         await loadSalesHistory();
 
         showMessage(
-          translations[currentLanguage]
-            .sold
+          t.sold
         );
 
         if (data.saleId) {
@@ -2401,7 +3262,8 @@
           true
         );
 
-        button.disabled = false;
+        button.disabled =
+          false;
 
       }
 
@@ -2473,7 +3335,9 @@
 
       const createdAt =
         invoiceData.createdAt
-          ? new Date(invoiceData.createdAt)
+          ? new Date(
+              invoiceData.createdAt
+            )
           : new Date();
 
       document.getElementById(
@@ -2495,13 +3359,20 @@
         customerName;
 
       const items =
-        Array.isArray(invoiceData.items)
+        Array.isArray(
+          invoiceData.items
+        )
           ? invoiceData.items
           : [];
 
       renderInvoiceItems(
         items
       );
+
+      const total =
+        Number(
+          invoiceData.total || 0
+        );
 
       document.getElementById(
         "invoiceSubtotal"
@@ -2527,13 +3398,66 @@
       document.getElementById(
         "invoiceGrandTotal"
       ).textContent =
-        Number(
-          invoiceData.total || 0
-        ).toFixed(2);
+        total.toFixed(2);
 
       const paymentStatus =
         invoiceData.paymentStatus ||
         "";
+
+      let paidAmount =
+        Number(
+          invoiceData.paidAmount
+        );
+
+      let remainingAmount =
+        Number(
+          invoiceData.remainingAmount
+        );
+
+      if (
+        !Number.isFinite(paidAmount)
+      ) {
+
+        if (
+          paymentStatus === "paid"
+        ) {
+
+          paidAmount =
+            total;
+
+        } else {
+
+          paidAmount =
+            0;
+
+        }
+
+      }
+
+      if (
+        !Number.isFinite(
+          remainingAmount
+        )
+      ) {
+
+        remainingAmount =
+          Math.max(
+            total -
+            paidAmount,
+            0
+          );
+
+      }
+
+      document.getElementById(
+        "invoicePaid"
+      ).textContent =
+        paidAmount.toFixed(2);
+
+      document.getElementById(
+        "invoiceRemaining"
+      ).textContent =
+        remainingAmount.toFixed(2);
 
       document.getElementById(
         "invoicePayment"
@@ -2549,6 +3473,19 @@
           paymentStatus
         );
 
+      document.getElementById(
+        "invoicePaymentMethod"
+      ).textContent =
+        translatePaymentMethod(
+          invoiceData.paymentMethod
+        );
+
+      document.getElementById(
+        "invoiceReference"
+      ).textContent =
+        invoiceData.reference ||
+        "-";
+
       updateInvoicePaymentClass(
         paymentStatus
       );
@@ -2557,7 +3494,8 @@
 
       document.getElementById(
         "invoiceModal"
-      ).style.display = "flex";
+      ).style.display =
+        "flex";
 
     }
 
@@ -2576,7 +3514,9 @@
       ) {
 
         const row =
-          document.createElement("tr");
+          document.createElement(
+            "tr"
+          );
 
         row.innerHTML = `
 
@@ -2589,12 +3529,15 @@
         table.appendChild(row);
 
         return;
+
       }
 
       items.forEach(item => {
 
         const row =
-          document.createElement("tr");
+          document.createElement(
+            "tr"
+          );
 
         row.innerHTML = `
 
@@ -2643,22 +3586,74 @@
       if (
         normalized === "paid"
       ) {
+
         return t.paid;
+
       }
 
       if (
         normalized === "unpaid"
       ) {
+
         return t.unpaid;
+
       }
 
       if (
         normalized === "partial"
       ) {
+
         return t.partial;
+
       }
 
       return status || "-";
+
+    }
+
+    function translatePaymentMethod(method) {
+
+      const t =
+        translations[currentLanguage];
+
+      const normalized =
+        String(
+          method || ""
+        ).toLowerCase();
+
+      if (
+        normalized === "cash"
+      ) {
+
+        return t.cash;
+
+      }
+
+      if (
+        normalized === "card"
+      ) {
+
+        return t.card;
+
+      }
+
+      if (
+        normalized === "transfer"
+      ) {
+
+        return t.transfer;
+
+      }
+
+      if (
+        normalized === "other"
+      ) {
+
+        return t.other;
+
+      }
+
+      return method || "-";
 
     }
 
@@ -2715,7 +3710,8 @@
 
       document.getElementById(
         "invoiceModal"
-      ).style.display = "none";
+      ).style.display =
+        "none";
 
     }
 
@@ -2791,7 +3787,9 @@
       salesHistory.forEach(sale => {
 
         const row =
-          document.createElement("tr");
+          document.createElement(
+            "tr"
+          );
 
         const customerName =
           sale.customer &&
@@ -2823,15 +3821,16 @@
           </td>
 
           <td>
-            ${sale.createdAt
-              ? escapeHtml(
-                  formatInvoiceDate(
-                    new Date(
-                      sale.createdAt
+            ${
+              sale.createdAt
+                ? escapeHtml(
+                    formatInvoiceDate(
+                      new Date(
+                        sale.createdAt
+                      )
                     )
                   )
-                )
-              : "-"
+                : "-"
             }
           </td>
 
@@ -2898,19 +3897,25 @@
       if (
         normalized === "paid"
       ) {
+
         return "status-paid";
+
       }
 
       if (
         normalized === "unpaid"
       ) {
+
         return "status-unpaid";
+
       }
 
       if (
         normalized === "partial"
       ) {
+
         return "status-partial";
+
       }
 
       return "status-default";
@@ -2930,23 +3935,30 @@
       if (
         normalized === "completed"
       ) {
+
         return t.statusCompleted;
+
       }
 
       if (
         normalized === "cancelled" ||
         normalized === "canceled"
       ) {
+
         return t.statusCancelled;
+
       }
 
       if (
         normalized === "pending"
       ) {
+
         return t.statusPending;
+
       }
 
-      return status || t.statusUnknown;
+      return status ||
+        t.statusUnknown;
 
     }
 
@@ -3064,17 +4076,20 @@
 
       document.getElementById(
         "customerEditModal"
-      ).style.display = "flex";
+      ).style.display =
+        "flex";
 
     }
 
     function closeCustomerEditModal() {
 
-      selectedCustomerId = null;
+      selectedCustomerId =
+        null;
 
       document.getElementById(
         "customerEditModal"
-      ).style.display = "none";
+      ).style.display =
+        "none";
 
     }
 
