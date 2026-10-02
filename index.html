@@ -48,6 +48,11 @@
       font-size: 15px;
     }
 
+    button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
     .language-btn {
       background: white;
       color: #1f2937;
@@ -87,6 +92,23 @@
 
     .section h2 {
       margin-bottom: 15px;
+    }
+
+    .section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 15px;
+    }
+
+    .section-header h2 {
+      margin-bottom: 0;
+    }
+
+    .refresh-btn {
+      background: #2563eb;
+      color: white;
     }
 
     .form {
@@ -153,7 +175,8 @@
       color: white;
     }
 
-    .customer-actions {
+    .customer-actions,
+    .sales-actions {
       display: flex;
       justify-content: center;
       gap: 6px;
@@ -202,6 +225,34 @@
     .customer-select {
       margin-top: 10px;
       margin-bottom: 10px;
+    }
+
+    .status-badge {
+      display: inline-block;
+      padding: 6px 10px;
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: bold;
+    }
+
+    .status-paid {
+      background: #dcfce7;
+      color: #166534;
+    }
+
+    .status-unpaid {
+      background: #fee2e2;
+      color: #991b1b;
+    }
+
+    .status-partial {
+      background: #fef3c7;
+      color: #92400e;
+    }
+
+    .status-default {
+      background: #e5e7eb;
+      color: #374151;
     }
 
     .modal-overlay {
@@ -264,9 +315,8 @@
     }
 
     /* Invoice */
-
     .invoice-modal {
-      max-width: 600px;
+      max-width: 700px;
     }
 
     .invoice {
@@ -309,6 +359,20 @@
     .invoice-table td {
       border: 1px solid #ddd;
       padding: 10px;
+    }
+
+    .invoice-summary {
+      margin-top: 10px;
+      border-top: 1px solid #ddd;
+      padding-top: 10px;
+    }
+
+    .invoice-summary-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 6px 0;
+      font-size: 15px;
     }
 
     .invoice-total {
@@ -407,6 +471,11 @@
         text-align: center;
       }
 
+      .section-header {
+        flex-direction: column;
+        align-items: stretch;
+      }
+
       table {
         font-size: 13px;
       }
@@ -430,11 +499,13 @@
         padding: 10px;
       }
 
-      .customer-actions {
+      .customer-actions,
+      .sales-actions {
         flex-direction: column;
       }
 
-      .customer-actions button {
+      .customer-actions button,
+      .sales-actions button {
         width: 100%;
       }
 
@@ -485,6 +556,7 @@
 
     </div>
 
+    <!-- Products -->
     <div class="section">
 
       <h2 id="productsTitle">إدارة المنتجات</h2>
@@ -546,6 +618,7 @@
 
     </div>
 
+    <!-- Customers -->
     <div class="section">
 
       <h2 id="customersTitle">إدارة العملاء</h2>
@@ -611,10 +684,77 @@
 
     </div>
 
+    <!-- Sales History -->
+    <div class="section">
+
+      <div class="section-header">
+
+        <h2 id="salesHistoryTitle">
+          سجل المبيعات
+        </h2>
+
+        <button
+          class="refresh-btn"
+          onclick="loadSalesHistory()"
+          id="refreshSalesHistoryButton"
+        >
+          تحديث
+        </button>
+
+      </div>
+
+      <table>
+
+        <thead>
+
+          <tr>
+            <th id="salesInvoiceHeader">
+              رقم الفاتورة
+            </th>
+
+            <th id="salesDateHeader">
+              التاريخ
+            </th>
+
+            <th id="salesCustomerHeader">
+              العميل
+            </th>
+
+            <th id="salesTotalHeader">
+              الإجمالي
+            </th>
+
+            <th id="salesPaymentHeader">
+              حالة الدفع
+            </th>
+
+            <th id="salesStatusHeader">
+              الحالة
+            </th>
+
+            <th id="salesActionHeader">
+              الإجراء
+            </th>
+          </tr>
+
+        </thead>
+
+        <tbody id="salesHistoryTable"></tbody>
+
+      </table>
+
+      <div
+        class="empty"
+        id="salesHistoryEmptyMessage"
+      >
+        لا توجد مبيعات حاليًا
+      </div>
+
+    </div>
+
   </div>
 
   <!-- Sale Modal -->
-
   <div
     class="modal-overlay"
     id="saleModal"
@@ -655,7 +795,6 @@
   </div>
 
   <!-- Edit Customer Modal -->
-
   <div
     class="modal-overlay"
     id="customerEditModal"
@@ -715,7 +854,6 @@
   </div>
 
   <!-- Invoice Modal -->
-
   <div
     class="modal-overlay"
     id="invoiceModal"
@@ -723,7 +861,10 @@
 
     <div class="modal invoice-modal">
 
-      <div class="invoice" id="invoiceContent">
+      <div
+        class="invoice"
+        id="invoiceContent"
+      >
 
         <div class="invoice-header">
 
@@ -807,31 +948,43 @@
 
           </thead>
 
-          <tbody>
-
-            <tr>
-
-              <td id="invoiceProduct">
-                -
-              </td>
-
-              <td id="invoiceQuantity">
-                1
-              </td>
-
-              <td id="invoiceUnitPrice">
-                0.00
-              </td>
-
-              <td id="invoiceLineTotal">
-                0.00
-              </td>
-
-            </tr>
-
-          </tbody>
+          <tbody id="invoiceItemsBody"></tbody>
 
         </table>
+
+        <div class="invoice-summary">
+
+          <div class="invoice-summary-row">
+            <span id="invoiceSubtotalLabel">
+              المجموع الفرعي
+            </span>
+
+            <span id="invoiceSubtotal">
+              0.00
+            </span>
+          </div>
+
+          <div class="invoice-summary-row">
+            <span id="invoiceDiscountLabel">
+              الخصم
+            </span>
+
+            <span id="invoiceDiscount">
+              0.00
+            </span>
+          </div>
+
+          <div class="invoice-summary-row">
+            <span id="invoiceTaxLabel">
+              الضريبة
+            </span>
+
+            <span id="invoiceTax">
+              0.00
+            </span>
+          </div>
+
+        </div>
 
         <div class="invoice-total">
 
@@ -881,9 +1034,15 @@
   <script>
 
     let currentLanguage = "ar";
+
     let products = [];
+
     let customers = [];
+
+    let salesHistory = [];
+
     let selectedProductId = null;
+
     let selectedCustomerId = null;
 
     const translations = {
@@ -891,188 +1050,348 @@
       ar: {
 
         title: "نظام المبيعات الذكي",
+
         language: "English",
 
         products: "المنتجات",
+
         stock: "إجمالي المخزون",
+
         sales: "المبيعات",
+
         customers: "العملاء",
 
         productsTitle: "إدارة المنتجات",
+
         customersTitle: "إدارة العملاء",
 
+        salesHistoryTitle: "سجل المبيعات",
+
         namePlaceholder: "اسم المنتج",
+
         pricePlaceholder: "السعر",
+
         quantityPlaceholder: "الكمية",
 
         customerNamePlaceholder: "اسم العميل",
+
         customerPhonePlaceholder: "رقم الهاتف",
+
         customerAddressPlaceholder: "العنوان",
+
         customerNotesPlaceholder: "ملاحظات",
 
         add: "إضافة",
+
         addCustomer: "إضافة عميل",
 
         name: "المنتج",
+
         price: "السعر",
+
         quantity: "الكمية",
+
         action: "الإجراء",
 
         customerName: "الاسم",
+
         customerPhone: "الهاتف",
+
         customerAddress: "العنوان",
+
         customerNotes: "الملاحظات",
+
         customerAction: "الإجراء",
 
         sell: "بيع",
+
         delete: "حذف",
+
         edit: "تعديل",
 
         empty: "لا توجد منتجات حاليًا",
+
         customersEmpty: "لا يوجد عملاء حاليًا",
 
+        salesEmpty: "لا توجد مبيعات حاليًا",
+
         added: "تمت إضافة المنتج بنجاح",
+
         customerAdded: "تمت إضافة العميل بنجاح",
+
         sold: "تم تسجيل البيع",
+
         deleted: "تم حذف المنتج",
+
         customerDeleted: "تم حذف العميل",
+
         customerUpdated: "تم تعديل بيانات العميل بنجاح",
 
         invalid: "يرجى إدخال بيانات صحيحة",
+
         customerNameRequired: "يرجى إدخال اسم العميل",
 
         productsLoadError: "حدث خطأ أثناء تحميل المنتجات",
+
         customersLoadError: "حدث خطأ أثناء تحميل العملاء",
+
+        salesHistoryLoadError: "حدث خطأ أثناء تحميل سجل المبيعات",
+
         connectionError: "حدث خطأ في الاتصال",
 
         selectCustomer: "اختر العميل",
+
         noCustomer: "بيع بدون عميل",
 
         saleModalTitle: "اختيار العميل",
+
         confirmSale: "تأكيد البيع",
+
         cancel: "إلغاء",
 
         noCustomers: "لا يوجد عملاء. سيتم تسجيل البيع بدون عميل.",
 
         customerEditModalTitle: "تعديل العميل",
+
         saveCustomerEdit: "حفظ التعديل",
+
         cancelCustomerEdit: "إلغاء",
 
         deleteCustomerConfirm: "هل أنت متأكد من حذف العميل؟",
 
         customerDeleteError: "حدث خطأ أثناء حذف العميل",
+
         customerUpdateError: "حدث خطأ أثناء تعديل العميل",
 
         invoiceTitle: "فاتورة بيع",
+
         invoiceNumber: "رقم الفاتورة:",
+
         invoiceDate: "التاريخ:",
+
         invoiceCustomer: "العميل:",
+
         invoicePayment: "حالة الدفع:",
 
         invoiceProduct: "المنتج",
+
         invoiceQuantity: "الكمية",
+
         invoiceUnitPrice: "سعر الوحدة",
+
         invoiceTotal: "الإجمالي",
+
         invoiceGrandTotal: "الإجمالي",
 
+        invoiceSubtotal: "المجموع الفرعي",
+
+        invoiceDiscount: "الخصم",
+
+        invoiceTax: "الضريبة",
+
         paid: "مدفوع",
+
+        unpaid: "غير مدفوع",
+
+        partial: "مدفوع جزئيًا",
+
         printInvoice: "طباعة الفاتورة",
+
         closeInvoice: "إغلاق",
-        withoutCustomer: "بدون عميل"
+
+        withoutCustomer: "بدون عميل",
+
+        refresh: "تحديث",
+
+        viewInvoice: "عرض الفاتورة",
+
+        invoiceNotFound: "لم يتم العثور على الفاتورة",
+
+        invoiceLoadError: "حدث خطأ أثناء تحميل الفاتورة",
+
+        statusCompleted: "مكتملة",
+
+        statusCancelled: "ملغاة",
+
+        statusPending: "معلقة",
+
+        statusUnknown: "غير محددة",
+
+        loading: "جارٍ التحميل..."
 
       },
 
       en: {
 
         title: "Smart Sales System",
+
         language: "العربية",
 
         products: "Products",
+
         stock: "Total Stock",
+
         sales: "Sales",
+
         customers: "Customers",
 
         productsTitle: "Product Management",
+
         customersTitle: "Customer Management",
 
+        salesHistoryTitle: "Sales History",
+
         namePlaceholder: "Product name",
+
         pricePlaceholder: "Price",
+
         quantityPlaceholder: "Quantity",
 
         customerNamePlaceholder: "Customer name",
+
         customerPhonePlaceholder: "Phone number",
+
         customerAddressPlaceholder: "Address",
+
         customerNotesPlaceholder: "Notes",
 
         add: "Add",
+
         addCustomer: "Add Customer",
 
         name: "Product",
+
         price: "Price",
+
         quantity: "Quantity",
+
         action: "Action",
 
         customerName: "Name",
+
         customerPhone: "Phone",
+
         customerAddress: "Address",
+
         customerNotes: "Notes",
+
         customerAction: "Action",
 
         sell: "Sell",
+
         delete: "Delete",
+
         edit: "Edit",
 
         empty: "No products currently",
+
         customersEmpty: "No customers currently",
 
+        salesEmpty: "No sales currently",
+
         added: "Product added successfully",
+
         customerAdded: "Customer added successfully",
+
         sold: "Sale recorded",
+
         deleted: "Product deleted",
+
         customerDeleted: "Customer deleted",
+
         customerUpdated: "Customer updated successfully",
 
         invalid: "Please enter valid data",
+
         customerNameRequired: "Please enter customer name",
 
         productsLoadError: "Error loading products",
+
         customersLoadError: "Error loading customers",
+
+        salesHistoryLoadError: "Error loading sales history",
+
         connectionError: "Connection error",
 
         selectCustomer: "Select customer",
+
         noCustomer: "Sell without customer",
 
         saleModalTitle: "Select Customer",
+
         confirmSale: "Confirm Sale",
+
         cancel: "Cancel",
 
         noCustomers: "No customers. The sale will be recorded without a customer.",
 
         customerEditModalTitle: "Edit Customer",
+
         saveCustomerEdit: "Save Changes",
+
         cancelCustomerEdit: "Cancel",
 
         deleteCustomerConfirm: "Are you sure you want to delete this customer?",
 
         customerDeleteError: "Error deleting customer",
+
         customerUpdateError: "Error updating customer",
 
         invoiceTitle: "Sales Invoice",
+
         invoiceNumber: "Invoice Number:",
+
         invoiceDate: "Date:",
+
         invoiceCustomer: "Customer:",
+
         invoicePayment: "Payment Status:",
 
         invoiceProduct: "Product",
+
         invoiceQuantity: "Quantity",
+
         invoiceUnitPrice: "Unit Price",
+
         invoiceTotal: "Total",
+
         invoiceGrandTotal: "Total",
 
+        invoiceSubtotal: "Subtotal",
+
+        invoiceDiscount: "Discount",
+
+        invoiceTax: "Tax",
+
         paid: "Paid",
+
+        unpaid: "Unpaid",
+
+        partial: "Partially Paid",
+
         printInvoice: "Print Invoice",
+
         closeInvoice: "Close",
-        withoutCustomer: "Without customer"
+
+        withoutCustomer: "Without customer",
+
+        refresh: "Refresh",
+
+        viewInvoice: "View Invoice",
+
+        invoiceNotFound: "Invoice not found",
+
+        invoiceLoadError: "Error loading invoice",
+
+        statusCompleted: "Completed",
+
+        statusCancelled: "Cancelled",
+
+        statusPending: "Pending",
+
+        statusUnknown: "Unknown",
+
+        loading: "Loading..."
 
       }
 
@@ -1084,6 +1403,12 @@
         currentLanguage === "ar"
           ? "en"
           : "ar";
+
+      applyLanguage();
+
+    }
+
+    function applyLanguage() {
 
       const t =
         translations[currentLanguage];
@@ -1119,6 +1444,9 @@
 
       document.getElementById("customersTitle").textContent =
         t.customersTitle;
+
+      document.getElementById("salesHistoryTitle").textContent =
+        t.salesHistoryTitle;
 
       document.getElementById("productName").placeholder =
         t.namePlaceholder;
@@ -1180,6 +1508,45 @@
       document.getElementById("customersEmptyMessage").textContent =
         t.customersEmpty;
 
+      document.getElementById("salesHistoryEmptyMessage").textContent =
+        t.salesEmpty;
+
+      document.getElementById("refreshSalesHistoryButton").textContent =
+        t.refresh;
+
+      document.getElementById("salesInvoiceHeader").textContent =
+        currentLanguage === "ar"
+          ? "رقم الفاتورة"
+          : "Invoice Number";
+
+      document.getElementById("salesDateHeader").textContent =
+        currentLanguage === "ar"
+          ? "التاريخ"
+          : "Date";
+
+      document.getElementById("salesCustomerHeader").textContent =
+        currentLanguage === "ar"
+          ? "العميل"
+          : "Customer";
+
+      document.getElementById("salesTotalHeader").textContent =
+        currentLanguage === "ar"
+          ? "الإجمالي"
+          : "Total";
+
+      document.getElementById("salesPaymentHeader").textContent =
+        currentLanguage === "ar"
+          ? "حالة الدفع"
+          : "Payment Status";
+
+      document.getElementById("salesStatusHeader").textContent =
+        currentLanguage === "ar"
+          ? "الحالة"
+          : "Status";
+
+      document.getElementById("salesActionHeader").textContent =
+        t.action;
+
       document.getElementById("saleModalTitle").textContent =
         t.saleModalTitle;
 
@@ -1210,51 +1577,13 @@
       document.getElementById("editCustomerNotes").placeholder =
         t.customerNotesPlaceholder;
 
-      document.getElementById("invoiceTitle").textContent =
-        t.invoiceTitle;
-
-      document.getElementById("invoiceNumberLabel").textContent =
-        t.invoiceNumber;
-
-      document.getElementById("invoiceDateLabel").textContent =
-        t.invoiceDate;
-
-      document.getElementById("invoiceCustomerLabel").textContent =
-        t.invoiceCustomer;
-
-      document.getElementById("invoicePaymentLabel").textContent =
-        t.invoicePayment;
-
-      document.getElementById("invoiceProductHeader").textContent =
-        t.invoiceProduct;
-
-      document.getElementById("invoiceQuantityHeader").textContent =
-        t.invoiceQuantity;
-
-      document.getElementById("invoicePriceHeader").textContent =
-        t.invoiceUnitPrice;
-
-      document.getElementById("invoiceTotalHeader").textContent =
-        t.invoiceTotal;
-
-      document.getElementById("invoiceGrandTotalLabel").textContent =
-        t.invoiceGrandTotal;
-
-      document.getElementById("printInvoiceButton").textContent =
-        t.printInvoice;
-
-      document.getElementById("closeInvoiceButton").textContent =
-        t.closeInvoice;
-
-      if (
-        document.getElementById("invoiceModal").style.display ===
-        "flex"
-      ) {
-        updateInvoiceStaticTexts();
-      }
+      updateInvoiceStaticTexts();
 
       renderProducts();
+
       renderCustomers();
+
+      renderSalesHistory();
 
       if (selectedProductId !== null) {
         renderSaleCustomerOptions();
@@ -1293,6 +1622,15 @@
 
       document.getElementById("invoiceTotalHeader").textContent =
         t.invoiceTotal;
+
+      document.getElementById("invoiceSubtotalLabel").textContent =
+        t.invoiceSubtotal;
+
+      document.getElementById("invoiceDiscountLabel").textContent =
+        t.invoiceDiscount;
+
+      document.getElementById("invoiceTaxLabel").textContent =
+        t.invoiceTax;
 
       document.getElementById("invoiceGrandTotalLabel").textContent =
         t.invoiceGrandTotal;
@@ -1367,6 +1705,54 @@
 
     }
 
+    async function loadSalesHistory() {
+
+      const table =
+        document.getElementById(
+          "salesHistoryTable"
+        );
+
+      table.innerHTML = "";
+
+      try {
+
+        const response =
+          await fetch("/api/sales-history");
+
+        if (!response.ok) {
+          throw new Error(
+            "Failed to load sales history"
+          );
+        }
+
+        const data =
+          await response.json();
+
+        salesHistory =
+          Array.isArray(data.sales)
+            ? data.sales
+            : [];
+
+        renderSalesHistory();
+
+      } catch (error) {
+
+        console.error(error);
+
+        salesHistory = [];
+
+        renderSalesHistory();
+
+        showMessage(
+          translations[currentLanguage]
+            .salesHistoryLoadError,
+          true
+        );
+
+      }
+
+    }
+
     async function loadCustomers() {
 
       try {
@@ -1436,6 +1822,19 @@
         return;
       }
 
+      if (
+        Number(price) < 0 ||
+        Number(quantity) < 0
+      ) {
+
+        showMessage(
+          t.invalid,
+          true
+        );
+
+        return;
+      }
+
       try {
 
         const response =
@@ -1459,12 +1858,16 @@
 
         if (!response.ok) {
 
-          showMessage(
-            t.invalid,
-            true
+          let data = {};
+
+          try {
+            data = await response.json();
+          } catch {}
+
+          throw new Error(
+            data.error || t.invalid
           );
 
-          return;
         }
 
         document
@@ -1488,6 +1891,7 @@
         console.error(error);
 
         showMessage(
+          error.message ||
           t.connectionError,
           true
         );
@@ -1639,7 +2043,7 @@
       products.forEach(product => {
 
         totalStock +=
-          Number(product.quantity);
+          Number(product.quantity || 0);
 
         const row =
           document.createElement("tr");
@@ -1651,11 +2055,11 @@
           </td>
 
           <td>
-            ${Number(product.price).toFixed(2)}
+            ${Number(product.price || 0).toFixed(2)}
           </td>
 
           <td>
-            ${product.quantity}
+            ${Number(product.quantity || 0)}
           </td>
 
           <td>
@@ -1868,6 +2272,13 @@
 
       selectedProductId = null;
 
+      const button =
+        document.getElementById(
+          "confirmSaleButton"
+        );
+
+      button.disabled = false;
+
       document.getElementById(
         "saleModal"
       ).style.display = "none";
@@ -1879,6 +2290,17 @@
       if (selectedProductId === null) {
         return;
       }
+
+      const button =
+        document.getElementById(
+          "confirmSaleButton"
+        );
+
+      if (button.disabled) {
+        return;
+      }
+
+      button.disabled = true;
 
       const select =
         document.getElementById(
@@ -1944,65 +2366,26 @@
 
         }
 
-        const soldProduct =
-          data.product ||
-          products.find(
-            p =>
-              Number(p.id) ===
-              Number(productId)
-          );
-
-        const selectedCustomer =
-          selectedCustomerId === null
-            ? null
-            : customers.find(
-                customer =>
-                  Number(customer.id) ===
-                  Number(selectedCustomerId)
-              );
-
         closeSaleModal();
+
+        await loadProducts();
 
         await loadSales();
 
-        renderProducts();
+        await loadSalesHistory();
 
         showMessage(
           translations[currentLanguage]
             .sold
         );
 
-        openInvoiceModal({
+        if (data.saleId) {
 
-          invoiceNumber:
-            data.invoiceNumber || "-",
+          await openInvoiceById(
+            data.saleId
+          );
 
-          customerName:
-            selectedCustomer
-              ? selectedCustomer.name
-              : translations[currentLanguage]
-                  .withoutCustomer,
-
-          productName:
-            soldProduct
-              ? soldProduct.name
-              : "-",
-
-          quantity:
-            Number(data.soldQuantity || 1),
-
-          unitPrice:
-            soldProduct
-              ? Number(soldProduct.price || 0)
-              : 0,
-
-          total:
-            Number(data.total || 0),
-
-          paymentStatus:
-            "paid"
-
-        });
+        }
 
       } catch (error) {
 
@@ -2018,7 +2401,60 @@
           true
         );
 
-        closeSaleModal();
+        button.disabled = false;
+
+      }
+
+    }
+
+    async function openInvoiceById(saleId) {
+
+      try {
+
+        const response =
+          await fetch(
+            "/api/invoice?id=" +
+            encodeURIComponent(saleId)
+          );
+
+        const data =
+          await response.json();
+
+        if (!response.ok) {
+
+          throw new Error(
+            data.error ||
+            translations[currentLanguage]
+              .invoiceLoadError
+          );
+
+        }
+
+        if (
+          !data.invoice
+        ) {
+
+          throw new Error(
+            translations[currentLanguage]
+              .invoiceNotFound
+          );
+
+        }
+
+        openInvoiceModal(
+          data.invoice
+        );
+
+      } catch (error) {
+
+        console.error(error);
+
+        showMessage(
+          error.message ||
+          translations[currentLanguage]
+            .invoiceLoadError,
+          true
+        );
 
       }
 
@@ -2032,41 +2468,60 @@
       document.getElementById(
         "invoiceNumber"
       ).textContent =
-        invoiceData.invoiceNumber || "-";
+        invoiceData.invoiceNumber ||
+        "-";
+
+      const createdAt =
+        invoiceData.createdAt
+          ? new Date(invoiceData.createdAt)
+          : new Date();
 
       document.getElementById(
         "invoiceDate"
       ).textContent =
-        formatInvoiceDate(new Date());
+        formatInvoiceDate(
+          createdAt
+        );
+
+      const customerName =
+        invoiceData.customer &&
+        invoiceData.customer.name
+          ? invoiceData.customer.name
+          : t.withoutCustomer;
 
       document.getElementById(
         "invoiceCustomer"
       ).textContent =
-        invoiceData.customerName ||
-        t.withoutCustomer;
+        customerName;
+
+      const items =
+        Array.isArray(invoiceData.items)
+          ? invoiceData.items
+          : [];
+
+      renderInvoiceItems(
+        items
+      );
 
       document.getElementById(
-        "invoiceProduct"
-      ).textContent =
-        invoiceData.productName || "-";
-
-      document.getElementById(
-        "invoiceQuantity"
-      ).textContent =
-        Number(invoiceData.quantity || 1);
-
-      document.getElementById(
-        "invoiceUnitPrice"
+        "invoiceSubtotal"
       ).textContent =
         Number(
-          invoiceData.unitPrice || 0
+          invoiceData.subtotal || 0
         ).toFixed(2);
 
       document.getElementById(
-        "invoiceLineTotal"
+        "invoiceDiscount"
       ).textContent =
         Number(
-          invoiceData.total || 0
+          invoiceData.discount || 0
+        ).toFixed(2);
+
+      document.getElementById(
+        "invoiceTax"
+      ).textContent =
+        Number(
+          invoiceData.tax || 0
         ).toFixed(2);
 
       document.getElementById(
@@ -2076,25 +2531,183 @@
           invoiceData.total || 0
         ).toFixed(2);
 
+      const paymentStatus =
+        invoiceData.paymentStatus ||
+        "";
+
       document.getElementById(
         "invoicePayment"
       ).textContent =
-        invoiceData.paymentStatus === "paid"
-          ? t.paid
-          : invoiceData.paymentStatus;
+        translatePaymentStatus(
+          paymentStatus
+        );
 
       document.getElementById(
         "invoicePaymentStatus"
       ).textContent =
-        invoiceData.paymentStatus === "paid"
-          ? t.paid
-          : invoiceData.paymentStatus;
+        translatePaymentStatus(
+          paymentStatus
+        );
+
+      updateInvoicePaymentClass(
+        paymentStatus
+      );
 
       updateInvoiceStaticTexts();
 
       document.getElementById(
         "invoiceModal"
       ).style.display = "flex";
+
+    }
+
+    function renderInvoiceItems(items) {
+
+      const table =
+        document.getElementById(
+          "invoiceItemsBody"
+        );
+
+      table.innerHTML = "";
+
+      if (
+        !Array.isArray(items) ||
+        items.length === 0
+      ) {
+
+        const row =
+          document.createElement("tr");
+
+        row.innerHTML = `
+
+          <td colspan="4">
+            -
+          </td>
+
+        `;
+
+        table.appendChild(row);
+
+        return;
+      }
+
+      items.forEach(item => {
+
+        const row =
+          document.createElement("tr");
+
+        row.innerHTML = `
+
+          <td>
+            ${escapeHtml(
+              item.productName || "-"
+            )}
+          </td>
+
+          <td>
+            ${Number(
+              item.quantity || 0
+            )}
+          </td>
+
+          <td>
+            ${Number(
+              item.unitPrice || 0
+            ).toFixed(2)}
+          </td>
+
+          <td>
+            ${Number(
+              item.total || 0
+            ).toFixed(2)}
+          </td>
+
+        `;
+
+        table.appendChild(row);
+
+      });
+
+    }
+
+    function translatePaymentStatus(status) {
+
+      const t =
+        translations[currentLanguage];
+
+      const normalized =
+        String(
+          status || ""
+        ).toLowerCase();
+
+      if (
+        normalized === "paid"
+      ) {
+        return t.paid;
+      }
+
+      if (
+        normalized === "unpaid"
+      ) {
+        return t.unpaid;
+      }
+
+      if (
+        normalized === "partial"
+      ) {
+        return t.partial;
+      }
+
+      return status || "-";
+
+    }
+
+    function updateInvoicePaymentClass(status) {
+
+      const element =
+        document.getElementById(
+          "invoicePaymentStatus"
+        );
+
+      element.className =
+        "payment-status";
+
+      const normalized =
+        String(
+          status || ""
+        ).toLowerCase();
+
+      if (
+        normalized === "paid"
+      ) {
+
+        element.classList.add(
+          "status-paid"
+        );
+
+      } else if (
+        normalized === "unpaid"
+      ) {
+
+        element.classList.add(
+          "status-unpaid"
+        );
+
+      } else if (
+        normalized === "partial"
+      ) {
+
+        element.classList.add(
+          "status-partial"
+        );
+
+      } else {
+
+        element.classList.add(
+          "status-default"
+        );
+
+      }
 
     }
 
@@ -2144,6 +2757,199 @@
 
     }
 
+    function renderSalesHistory() {
+
+      const table =
+        document.getElementById(
+          "salesHistoryTable"
+        );
+
+      const empty =
+        document.getElementById(
+          "salesHistoryEmptyMessage"
+        );
+
+      const t =
+        translations[currentLanguage];
+
+      table.innerHTML = "";
+
+      if (
+        salesHistory.length === 0
+      ) {
+
+        empty.style.display =
+          "block";
+
+        return;
+
+      }
+
+      empty.style.display =
+        "none";
+
+      salesHistory.forEach(sale => {
+
+        const row =
+          document.createElement("tr");
+
+        const customerName =
+          sale.customer &&
+          sale.customer.name
+            ? sale.customer.name
+            : t.withoutCustomer;
+
+        const paymentStatus =
+          translatePaymentStatus(
+            sale.paymentStatus
+          );
+
+        const status =
+          translateSaleStatus(
+            sale.status
+          );
+
+        const paymentClass =
+          getPaymentStatusClass(
+            sale.paymentStatus
+          );
+
+        row.innerHTML = `
+
+          <td>
+            ${escapeHtml(
+              sale.invoiceNumber || "-"
+            )}
+          </td>
+
+          <td>
+            ${sale.createdAt
+              ? escapeHtml(
+                  formatInvoiceDate(
+                    new Date(
+                      sale.createdAt
+                    )
+                  )
+                )
+              : "-"
+            }
+          </td>
+
+          <td>
+            ${escapeHtml(
+              customerName
+            )}
+          </td>
+
+          <td>
+            ${Number(
+              sale.total || 0
+            ).toFixed(2)}
+          </td>
+
+          <td>
+
+            <span
+              class="status-badge ${paymentClass}"
+            >
+              ${escapeHtml(
+                paymentStatus
+              )}
+            </span>
+
+          </td>
+
+          <td>
+            ${escapeHtml(
+              status
+            )}
+          </td>
+
+          <td>
+
+            <div class="sales-actions">
+
+              <button
+                class="sale-btn"
+                onclick="openInvoiceById(${sale.id})"
+              >
+                ${t.viewInvoice}
+              </button>
+
+            </div>
+
+          </td>
+
+        `;
+
+        table.appendChild(row);
+
+      });
+
+    }
+
+    function getPaymentStatusClass(status) {
+
+      const normalized =
+        String(
+          status || ""
+        ).toLowerCase();
+
+      if (
+        normalized === "paid"
+      ) {
+        return "status-paid";
+      }
+
+      if (
+        normalized === "unpaid"
+      ) {
+        return "status-unpaid";
+      }
+
+      if (
+        normalized === "partial"
+      ) {
+        return "status-partial";
+      }
+
+      return "status-default";
+
+    }
+
+    function translateSaleStatus(status) {
+
+      const t =
+        translations[currentLanguage];
+
+      const normalized =
+        String(
+          status || ""
+        ).toLowerCase();
+
+      if (
+        normalized === "completed"
+      ) {
+        return t.statusCompleted;
+      }
+
+      if (
+        normalized === "cancelled" ||
+        normalized === "canceled"
+      ) {
+        return t.statusCancelled;
+      }
+
+      if (
+        normalized === "pending"
+      ) {
+        return t.statusPending;
+      }
+
+      return status || t.statusUnknown;
+
+    }
+
     async function deleteProduct(id) {
 
       const product =
@@ -2172,7 +2978,8 @@
 
         const response =
           await fetch(
-            "/api/delete-product?id=" + id,
+            "/api/delete-product?id=" +
+            id,
             {
               method: "DELETE"
             }
@@ -2273,31 +3080,41 @@
 
     async function saveCustomerEdit() {
 
-      if (selectedCustomerId === null) {
+      if (
+        selectedCustomerId === null
+      ) {
         return;
       }
 
       const name =
         document
-          .getElementById("editCustomerName")
+          .getElementById(
+            "editCustomerName"
+          )
           .value
           .trim();
 
       const phone =
         document
-          .getElementById("editCustomerPhone")
+          .getElementById(
+            "editCustomerPhone"
+          )
           .value
           .trim();
 
       const address =
         document
-          .getElementById("editCustomerAddress")
+          .getElementById(
+            "editCustomerAddress"
+          )
           .value
           .trim();
 
       const notes =
         document
-          .getElementById("editCustomerNotes")
+          .getElementById(
+            "editCustomerNotes"
+          )
           .value
           .trim();
 
@@ -2376,6 +3193,8 @@
           t.customerUpdated
         );
 
+        await loadSalesHistory();
+
       } catch (error) {
 
         console.error(error);
@@ -2421,7 +3240,8 @@
 
         const response =
           await fetch(
-            "/api/customers?id=" + id,
+            "/api/customers?id=" +
+            id,
             {
               method: "DELETE"
             }
@@ -2453,6 +3273,8 @@
         showMessage(
           t.customerDeleted
         );
+
+        await loadSalesHistory();
 
       } catch (error) {
 
@@ -2504,7 +3326,9 @@
     function escapeHtml(text) {
 
       const div =
-        document.createElement("div");
+        document.createElement(
+          "div"
+        );
 
       div.textContent =
         text;
@@ -2516,12 +3340,20 @@
     async function initializeApp() {
 
       await Promise.all([
+
         loadProducts(),
+
         loadSales(),
-        loadCustomers()
+
+        loadCustomers(),
+
+        loadSalesHistory()
+
       ]);
 
     }
+
+    applyLanguage();
 
     initializeApp();
 
