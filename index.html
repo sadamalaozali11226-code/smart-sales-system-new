@@ -3009,7 +3009,7 @@
         "remaining-preview";
 
       if (
-        remaining === 0
+        remaining <= 0.001
       ) {
 
         preview.classList.add(
@@ -3017,7 +3017,7 @@
         );
 
       } else if (
-        paidAmount === 0
+        paidAmount <= 0
       ) {
 
         preview.classList.add(
@@ -3078,6 +3078,9 @@
       const productId =
         selectedProductId;
 
+      const total =
+        Number(currentSaleTotal);
+
       let paidAmount =
         Number(
           paidAmountInput.value
@@ -3085,6 +3088,19 @@
 
       const t =
         translations[currentLanguage];
+
+      if (
+        !Number.isFinite(total) ||
+        total <= 0
+      ) {
+
+        showMessage(
+          t.invalid,
+          true
+        );
+
+        return;
+      }
 
       if (
         !Number.isFinite(paidAmount) ||
@@ -3112,6 +3128,8 @@
           true
         );
 
+        select.focus();
+
         return;
       }
 
@@ -3120,7 +3138,7 @@
       ) {
 
         paidAmount =
-          currentSaleTotal;
+          total;
 
       } else if (
         paymentStatus === "partial"
@@ -3128,13 +3146,15 @@
 
         if (
           paidAmount <= 0 ||
-          paidAmount >= currentSaleTotal
+          paidAmount >= total
         ) {
 
           showMessage(
             t.partialAmountInvalid,
             true
           );
+
+          paidAmountInput.focus();
 
           return;
         }
@@ -3143,18 +3163,31 @@
         paymentStatus === "unpaid"
       ) {
 
-        if (
-          paidAmount !== 0
-        ) {
+        paidAmount =
+          0;
 
-          showMessage(
-            t.unpaidAmountInvalid,
-            true
-          );
+      } else {
 
-          return;
-        }
+        showMessage(
+          t.invalid,
+          true
+        );
 
+        return;
+      }
+
+      if (
+        paidAmount > total
+      ) {
+
+        showMessage(
+          t.invalidPaidAmount,
+          true
+        );
+
+        paidAmountInput.focus();
+
+        return;
       }
 
       button.disabled =
@@ -3324,6 +3357,20 @@
 
     function openInvoiceModal(invoiceData) {
 
+      if (
+        !invoiceData ||
+        typeof invoiceData !== "object"
+      ) {
+
+        showMessage(
+          translations[currentLanguage]
+            .invoiceLoadError,
+          true
+        );
+
+        return;
+      }
+
       const t =
         translations[currentLanguage];
 
@@ -3369,40 +3416,78 @@
         items
       );
 
-      const total =
+      let total =
         Number(
-          invoiceData.total || 0
+          invoiceData.total
         );
+
+      if (
+        !Number.isFinite(total) ||
+        total < 0
+      ) {
+
+        total = 0;
+
+      }
+
+      let subtotal =
+        Number(
+          invoiceData.subtotal
+        );
+
+      if (
+        !Number.isFinite(subtotal)
+      ) {
+
+        subtotal = total;
+
+      }
+
+      let discount =
+        Number(
+          invoiceData.discount
+        );
+
+      if (
+        !Number.isFinite(discount)
+      ) {
+
+        discount = 0;
+
+      }
+
+      let tax =
+        Number(
+          invoiceData.tax
+        );
+
+      if (
+        !Number.isFinite(tax)
+      ) {
+
+        tax = 0;
+
+      }
 
       document.getElementById(
         "invoiceSubtotal"
       ).textContent =
-        Number(
-          invoiceData.subtotal || 0
-        ).toFixed(2);
+        subtotal.toFixed(2);
 
       document.getElementById(
         "invoiceDiscount"
       ).textContent =
-        Number(
-          invoiceData.discount || 0
-        ).toFixed(2);
+        discount.toFixed(2);
 
       document.getElementById(
         "invoiceTax"
       ).textContent =
-        Number(
-          invoiceData.tax || 0
-        ).toFixed(2);
+        tax.toFixed(2);
 
       document.getElementById(
         "invoiceGrandTotal"
       ).textContent =
         total.toFixed(2);
-
-      const paymentStatus =
-        invoiceData.paymentStatus ||
-        "";
 
       let paidAmount =
         Number(
@@ -3418,20 +3503,24 @@
         !Number.isFinite(paidAmount)
       ) {
 
-        if (
-          paymentStatus === "paid"
-        ) {
+        const originalStatus =
+          String(
+            invoiceData.paymentStatus || ""
+          ).toLowerCase();
 
-          paidAmount =
-            total;
+        paidAmount =
+          originalStatus === "paid"
+            ? total
+            : 0;
 
-        } else {
+      }
 
-          paidAmount =
-            0;
+      if (paidAmount < 0) {
+        paidAmount = 0;
+      }
 
-        }
-
+      if (paidAmount > total) {
+        paidAmount = total;
       }
 
       if (
@@ -3446,6 +3535,36 @@
             paidAmount,
             0
           );
+
+      }
+
+      remainingAmount =
+        Math.max(
+          total -
+          paidAmount,
+          0
+        );
+
+      let paymentStatus;
+
+      if (
+        remainingAmount <= 0.001
+      ) {
+
+        paymentStatus =
+          "paid";
+
+      } else if (
+        paidAmount > 0
+      ) {
+
+        paymentStatus =
+          "partial";
+
+      } else {
+
+        paymentStatus =
+          "unpaid";
 
       }
 
