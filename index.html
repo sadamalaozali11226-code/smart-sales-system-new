@@ -2319,17 +2319,36 @@
       }
     }
 
+    function normalizeNumericInput(value) {
+      return String(value || "")
+        .replace(/[٠-٩]/g, digit => String(digit.charCodeAt(0) - 1632))
+        .replace(/[۰-۹]/g, digit => String(digit.charCodeAt(0) - 1776))
+        .replace(/٫/g, ".")
+        .replace(/٬/g, "");
+    }
+
     async function addProduct() {
       const name = document.getElementById("productName").value.trim();
-      const price = document.getElementById("productPrice").value;
-      const quantity = document.getElementById("productQuantity").value;
+      const priceText = normalizeNumericInput(
+        document.getElementById("productPrice").value
+      ).trim();
+      const quantityText = normalizeNumericInput(
+        document.getElementById("productQuantity").value
+      ).trim();
+      const price = Number(priceText);
+      const quantity = Number(quantityText);
       const t = translations[currentLanguage];
 
-      if (!name || price === "" || quantity === "") {
-        showMessage(t.invalid, true);
-        return;
-      }
-      if (Number(price) < 0 || Number(quantity) < 0) {
+      if (
+        !name ||
+        priceText === "" ||
+        quantityText === "" ||
+        !Number.isFinite(price) ||
+        !Number.isFinite(quantity) ||
+        price < 0 ||
+        quantity < 0 ||
+        !Number.isInteger(quantity)
+      ) {
         showMessage(t.invalid, true);
         return;
       }
