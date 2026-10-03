@@ -1,11 +1,8 @@
-<!DOCTYPE html>
-<html lang="ar" dir="rtl">
+<!DOCTYPE html><html lang="ar" dir="rtl">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>نظام المبيعات الذكي</title>
-
-  <style>
+  <title>نظام المبيعات الذكي</title>  <style>
     * {
       box-sizing: border-box;
       margin: 0;
@@ -141,7 +138,8 @@
     }
 
     input,
-    select {
+    select,
+    textarea {
       width: 100%;
       padding: 12px;
       border: 1px solid #ddd;
@@ -151,7 +149,8 @@
     }
 
     input:disabled,
-    select:disabled {
+    select:disabled,
+    textarea:disabled {
       background: #f3f4f6;
       cursor: not-allowed;
     }
@@ -168,6 +167,11 @@
 
     .sale-btn {
       background: #16a34a;
+      color: white;
+    }
+
+    .payment-btn {
+      background: #0891b2;
       color: white;
     }
 
@@ -261,7 +265,8 @@
       color: #374151;
     }
 
-    .sale-total-box {
+    .sale-total-box,
+    .payment-debt-summary {
       background: #f8fafc;
       border-radius: 8px;
       padding: 12px;
@@ -273,10 +278,44 @@
       justify-content: space-between;
       align-items: center;
       padding: 5px 0;
+      gap: 10px;
     }
 
     .sale-summary-row strong {
       font-size: 17px;
+    }
+
+    .debt-summary-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 15px;
+      padding: 7px 0;
+      border-bottom: 1px solid #e5e7eb;
+    }
+
+    .debt-summary-row:last-child {
+      border-bottom: none;
+    }
+
+    .debt-summary-row strong {
+      text-align: left;
+    }
+
+    .debt-remaining {
+      color: #b45309;
+      font-size: 18px;
+    }
+
+    .debt-payment-section {
+      margin-top: 15px;
+      padding-top: 15px;
+      border-top: 1px solid #eee;
+    }
+
+    .debt-payment-section > label {
+      display: block;
+      margin-bottom: 6px;
+      font-weight: bold;
     }
 
     .sale-payment-section {
@@ -363,6 +402,12 @@
 
     .modal-cancel {
       background: #6b7280;
+      color: white;
+      flex: 1;
+    }
+
+    .payment-confirm {
+      background: #0891b2;
       color: white;
       flex: 1;
     }
@@ -578,1196 +623,1216 @@
         flex-direction: column;
       }
     }
-  </style>
-</head>
-
-<body>
-
-  <div class="container">
-
-    <header>
-      <h1 id="title">نظام المبيعات الذكي</h1>
-
-      <button
-        class="language-btn"
-        onclick="toggleLanguage()"
-        id="languageBtn"
-      >
-        English
-      </button>
-    </header>
-
-    <div class="cards">
-
-      <div class="card">
-        <h3 id="productsLabel">المنتجات</h3>
-        <strong id="productsCount">0</strong>
-      </div>
-
-      <div class="card">
-        <h3 id="stockLabel">إجمالي المخزون</h3>
-        <strong id="stockCount">0</strong>
-      </div>
-
-      <div class="card">
-        <h3 id="salesLabel">المبيعات</h3>
-        <strong id="salesTotal">0.00</strong>
-      </div>
-
-      <div class="card">
-        <h3 id="customersLabel">العملاء</h3>
-        <strong id="customersCount">0</strong>
-      </div>
-
-    </div>
-
-    <!-- Products -->
-
-    <div class="section">
-
-      <h2 id="productsTitle">إدارة المنتجات</h2>
-
-      <div class="form">
-
-        <input
-          type="text"
-          id="productName"
-          placeholder="اسم المنتج"
-        >
-
-        <input
-          type="number"
-          id="productPrice"
-          placeholder="السعر"
-          min="0"
-        >
-
-        <input
-          type="number"
-          id="productQuantity"
-          placeholder="الكمية"
-          min="0"
-        >
-
-        <button
-          class="add-btn"
-          onclick="addProduct()"
-          id="addButton"
-        >
-          إضافة
-        </button>
-
-      </div>
-
-      <div id="message" class="message"></div>
-
-      <table>
-
-        <thead>
-
-          <tr>
-            <th id="nameHeader">المنتج</th>
-            <th id="priceHeader">السعر</th>
-            <th id="quantityHeader">الكمية</th>
-            <th id="actionHeader">الإجراء</th>
-          </tr>
-
-        </thead>
-
-        <tbody id="productsTable"></tbody>
-
-      </table>
-
-      <div class="empty" id="emptyMessage">
-        لا توجد منتجات حاليًا
-      </div>
-
-    </div>
-
-    <!-- Customers -->
-
-    <div class="section">
-
-      <h2 id="customersTitle">إدارة العملاء</h2>
-
-      <div class="customer-form">
-
-        <input
-          type="text"
-          id="customerName"
-          placeholder="اسم العميل"
-        >
-
-        <input
-          type="text"
-          id="customerPhone"
-          placeholder="رقم الهاتف"
-        >
-
-        <input
-          type="text"
-          id="customerAddress"
-          class="full-width"
-          placeholder="العنوان"
-        >
-
-        <textarea
-          id="customerNotes"
-          class="full-width"
-          placeholder="ملاحظات"
-        ></textarea>
-
-        <button
-          class="customer-add-btn"
-          onclick="addCustomer()"
-          id="customerAddButton"
-        >
-          إضافة عميل
-        </button>
-
-      </div>
-
-      <table>
-
-        <thead>
-
-          <tr>
-            <th id="customerNameHeader">الاسم</th>
-            <th id="customerPhoneHeader">الهاتف</th>
-            <th id="customerAddressHeader">العنوان</th>
-            <th id="customerNotesHeader">الملاحظات</th>
-            <th id="customerActionHeader">الإجراء</th>
-          </tr>
-
-        </thead>
-
-        <tbody id="customersTable"></tbody>
-
-      </table>
-
-      <div class="empty" id="customersEmptyMessage">
-        لا يوجد عملاء حاليًا
-      </div>
-
-    </div>
-
-    <!-- Sales History -->
-
-    <div class="section">
-
-      <div class="section-header">
-
-        <h2 id="salesHistoryTitle">
-          سجل المبيعات
-        </h2>
-
-        <button
-          class="refresh-btn"
-          onclick="loadSalesHistory()"
-          id="refreshSalesHistoryButton"
-        >
-          تحديث
-        </button>
-
-      </div>
-
-      <table>
-
-        <thead>
-
-          <tr>
-
-            <th id="salesInvoiceHeader">
-              رقم الفاتورة
-            </th>
-
-            <th id="salesDateHeader">
-              التاريخ
-            </th>
-
-            <th id="salesCustomerHeader">
-              العميل
-            </th>
-
-            <th id="salesTotalHeader">
-              الإجمالي
-            </th>
-
-            <th id="salesPaymentHeader">
-              حالة الدفع
-            </th>
-
-            <th id="salesStatusHeader">
-              الحالة
-            </th>
-
-            <th id="salesActionHeader">
-              الإجراء
-            </th>
-
-          </tr>
-
-        </thead>
-
-        <tbody id="salesHistoryTable"></tbody>
-
-      </table>
-
-      <div
-        class="empty"
-        id="salesHistoryEmptyMessage"
-      >
-        لا توجد مبيعات حاليًا
-      </div>
-
-    </div>
+  </style></head><body>  <div class="container"><header>
+  <h1 id="title">نظام المبيعات الذكي</h1>
+
+  <button
+    class="language-btn"
+    onclick="toggleLanguage()"
+    id="languageBtn"
+  >
+    English
+  </button>
+</header>
+
+<div class="cards">
+
+  <div class="card">
+    <h3 id="productsLabel">المنتجات</h3>
+    <strong id="productsCount">0</strong>
+  </div>
+
+  <div class="card">
+    <h3 id="stockLabel">إجمالي المخزون</h3>
+    <strong id="stockCount">0</strong>
+  </div>
+
+  <div class="card">
+    <h3 id="salesLabel">المبيعات</h3>
+    <strong id="salesTotal">0.00</strong>
+  </div>
+
+  <div class="card">
+    <h3 id="customersLabel">العملاء</h3>
+    <strong id="customersCount">0</strong>
+  </div>
+
+</div>
+
+<!-- Products -->
+
+<div class="section">
+
+  <h2 id="productsTitle">إدارة المنتجات</h2>
+
+  <div class="form">
+
+    <input
+      type="text"
+      id="productName"
+      placeholder="اسم المنتج"
+    >
+
+    <input
+      type="number"
+      id="productPrice"
+      placeholder="السعر"
+      min="0"
+    >
+
+    <input
+      type="number"
+      id="productQuantity"
+      placeholder="الكمية"
+      min="0"
+    >
+
+    <button
+      class="add-btn"
+      onclick="addProduct()"
+      id="addButton"
+    >
+      إضافة
+    </button>
 
   </div>
 
-  <!-- Sale Modal -->
+  <div id="message" class="message"></div>
+
+  <table>
+
+    <thead>
+
+      <tr>
+        <th id="nameHeader">المنتج</th>
+        <th id="priceHeader">السعر</th>
+        <th id="quantityHeader">الكمية</th>
+        <th id="actionHeader">الإجراء</th>
+      </tr>
+
+    </thead>
+
+    <tbody id="productsTable"></tbody>
+
+  </table>
+
+  <div class="empty" id="emptyMessage">
+    لا توجد منتجات حاليًا
+  </div>
+
+</div>
+
+<!-- Customers -->
+
+<div class="section">
+
+  <h2 id="customersTitle">إدارة العملاء</h2>
+
+  <div class="customer-form">
+
+    <input
+      type="text"
+      id="customerName"
+      placeholder="اسم العميل"
+    >
+
+    <input
+      type="text"
+      id="customerPhone"
+      placeholder="رقم الهاتف"
+    >
+
+    <input
+      type="text"
+      id="customerAddress"
+      class="full-width"
+      placeholder="العنوان"
+    >
+
+    <textarea
+      id="customerNotes"
+      class="full-width"
+      placeholder="ملاحظات"
+    ></textarea>
+
+    <button
+      class="customer-add-btn"
+      onclick="addCustomer()"
+      id="customerAddButton"
+    >
+      إضافة عميل
+    </button>
+
+  </div>
+
+  <table>
+
+    <thead>
+
+      <tr>
+        <th id="customerNameHeader">الاسم</th>
+        <th id="customerPhoneHeader">الهاتف</th>
+        <th id="customerAddressHeader">العنوان</th>
+        <th id="customerNotesHeader">الملاحظات</th>
+        <th id="customerActionHeader">الإجراء</th>
+      </tr>
+
+    </thead>
+
+    <tbody id="customersTable"></tbody>
+
+  </table>
+
+  <div class="empty" id="customersEmptyMessage">
+    لا يوجد عملاء حاليًا
+  </div>
+
+</div>
+
+<!-- Sales History -->
+
+<div class="section">
+
+  <div class="section-header">
+
+    <h2 id="salesHistoryTitle">
+      سجل المبيعات
+    </h2>
+
+    <button
+      class="refresh-btn"
+      onclick="loadSalesHistory()"
+      id="refreshSalesHistoryButton"
+    >
+      تحديث
+    </button>
+
+  </div>
+
+  <table>
+
+    <thead>
+
+      <tr>
+
+        <th id="salesInvoiceHeader">
+          رقم الفاتورة
+        </th>
+
+        <th id="salesDateHeader">
+          التاريخ
+        </th>
+
+        <th id="salesCustomerHeader">
+          العميل
+        </th>
+
+        <th id="salesTotalHeader">
+          الإجمالي
+        </th>
+
+        <th id="salesPaymentHeader">
+          حالة الدفع
+        </th>
+
+        <th id="salesStatusHeader">
+          الحالة
+        </th>
+
+        <th id="salesActionHeader">
+          الإجراء
+        </th>
+
+      </tr>
+
+    </thead>
+
+    <tbody id="salesHistoryTable"></tbody>
+
+  </table>
 
   <div
+    class="empty"
+    id="salesHistoryEmptyMessage"
+  >
+    لا توجد مبيعات حاليًا
+  </div>
+
+</div>
+
+  </div>  <!-- Sale Modal -->  <div
     class="modal-overlay"
     id="saleModal"
-  >
+  ><div class="modal">
 
-    <div class="modal">
+  <h3 id="saleModalTitle">
+    إتمام البيع
+  </h3>
 
-      <h3 id="saleModalTitle">
-        إتمام البيع
-      </h3>
+  <div class="sale-total-box">
 
-      <div class="sale-total-box">
+    <div class="sale-summary-row">
+      <span id="saleProductLabel">المنتج</span>
+      <strong id="saleProductName">-</strong>
+    </div>
 
-        <div class="sale-summary-row">
-          <span id="saleProductLabel">المنتج</span>
-          <strong id="saleProductName">-</strong>
-        </div>
+    <div class="sale-summary-row">
+      <span id="saleUnitPriceLabel">سعر الوحدة</span>
+      <strong id="saleUnitPrice">0.00</strong>
+    </div>
 
-        <div class="sale-summary-row">
-          <span id="saleUnitPriceLabel">سعر الوحدة</span>
-          <strong id="saleUnitPrice">0.00</strong>
-        </div>
-
-        <div class="sale-summary-row">
-          <span id="saleTotalLabel">إجمالي البيع</span>
-          <strong id="saleTotalAmount">0.00</strong>
-        </div>
-
-      </div>
-
-      <label
-        for="saleCustomerSelect"
-        id="saleCustomerLabel"
-      >
-        العميل
-      </label>
-
-      <select
-        id="saleCustomerSelect"
-        onchange="handleSaleCustomerChange()"
-      ></select>
-
-      <div class="sale-payment-section">
-
-        <label
-          for="salePaymentStatus"
-          id="salePaymentStatusLabel"
-        >
-          حالة الدفع
-        </label>
-
-        <select
-          id="salePaymentStatus"
-          onchange="handlePaymentStatusChange()"
-        >
-
-          <option value="paid">
-            مدفوع
-          </option>
-
-          <option value="partial">
-            مدفوع جزئيًا
-          </option>
-
-          <option value="unpaid">
-            غير مدفوع / آجل
-          </option>
-
-        </select>
-
-        <label
-          for="salePaidAmount"
-          id="salePaidAmountLabel"
-        >
-          المبلغ المدفوع
-        </label>
-
-        <input
-          type="number"
-          id="salePaidAmount"
-          min="0"
-          step="0.01"
-          value="0"
-          oninput="updatePaymentPreview()"
-        >
-
-        <div
-          class="remaining-preview"
-          id="saleRemainingPreview"
-        >
-          المتبقي: 0.00
-        </div>
-
-        <label
-          for="salePaymentMethod"
-          id="salePaymentMethodLabel"
-        >
-          طريقة الدفع
-        </label>
-
-        <select
-          id="salePaymentMethod"
-        >
-
-          <option value="cash">
-            نقدي
-          </option>
-
-          <option value="card">
-            بطاقة
-          </option>
-
-          <option value="transfer">
-            تحويل
-          </option>
-
-          <option value="other">
-            أخرى
-          </option>
-
-        </select>
-
-        <label
-          for="salePaymentReference"
-          id="salePaymentReferenceLabel"
-        >
-          المرجع
-        </label>
-
-        <input
-          type="text"
-          id="salePaymentReference"
-          placeholder="رقم المرجع أو العملية"
-        >
-
-        <div
-          class="payment-help"
-          id="salePaymentHelp"
-        >
-          في البيع الآجل أو الجزئي يجب اختيار عميل.
-        </div>
-
-      </div>
-
-      <div class="modal-buttons">
-
-        <button
-          class="modal-confirm"
-          onclick="confirmSale()"
-          id="confirmSaleButton"
-        >
-          تأكيد البيع
-        </button>
-
-        <button
-          class="modal-cancel"
-          onclick="closeSaleModal()"
-          id="cancelSaleButton"
-        >
-          إلغاء
-        </button>
-
-      </div>
-
+    <div class="sale-summary-row">
+      <span id="saleTotalLabel">إجمالي البيع</span>
+      <strong id="saleTotalAmount">0.00</strong>
     </div>
 
   </div>
 
-  <!-- Edit Customer Modal -->
+  <label
+    for="saleCustomerSelect"
+    id="saleCustomerLabel"
+  >
+    العميل
+  </label>
 
-  <div
+  <select
+    id="saleCustomerSelect"
+    onchange="handleSaleCustomerChange()"
+  ></select>
+
+  <div class="sale-payment-section">
+
+    <label
+      for="salePaymentStatus"
+      id="salePaymentStatusLabel"
+    >
+      حالة الدفع
+    </label>
+
+    <select
+      id="salePaymentStatus"
+      onchange="handlePaymentStatusChange()"
+    >
+
+      <option value="paid">
+        مدفوع
+      </option>
+
+      <option value="partial">
+        مدفوع جزئيًا
+      </option>
+
+      <option value="unpaid">
+        غير مدفوع / آجل
+      </option>
+
+    </select>
+
+    <label
+      for="salePaidAmount"
+      id="salePaidAmountLabel"
+    >
+      المبلغ المدفوع
+    </label>
+
+    <input
+      type="number"
+      id="salePaidAmount"
+      min="0"
+      step="0.01"
+      value="0"
+      oninput="updatePaymentPreview()"
+    >
+
+    <div
+      class="remaining-preview"
+      id="saleRemainingPreview"
+    >
+      المتبقي: 0.00
+    </div>
+
+    <label
+      for="salePaymentMethod"
+      id="salePaymentMethodLabel"
+    >
+      طريقة الدفع
+    </label>
+
+    <select
+      id="salePaymentMethod"
+    >
+
+      <option value="cash">
+        نقدي
+      </option>
+
+      <option value="card">
+        بطاقة
+      </option>
+
+      <option value="transfer">
+        تحويل
+      </option>
+
+      <option value="other">
+        أخرى
+      </option>
+
+    </select>
+
+    <label
+      for="salePaymentReference"
+      id="salePaymentReferenceLabel"
+    >
+      المرجع
+    </label>
+
+    <input
+      type="text"
+      id="salePaymentReference"
+      placeholder="رقم المرجع أو العملية"
+    >
+
+    <div
+      class="payment-help"
+      id="salePaymentHelp"
+    >
+      في البيع الآجل أو الجزئي يجب اختيار عميل.
+    </div>
+
+  </div>
+
+  <div class="modal-buttons">
+
+    <button
+      class="modal-confirm"
+      onclick="confirmSale()"
+      id="confirmSaleButton"
+    >
+      تأكيد البيع
+    </button>
+
+    <button
+      class="modal-cancel"
+      onclick="closeSaleModal()"
+      id="cancelSaleButton"
+    >
+      إلغاء
+    </button>
+
+  </div>
+
+</div>
+
+  </div>  <!-- Debt Payment Modal -->  <div
+    class="modal-overlay"
+    id="paymentModal"
+  ><div class="modal">
+
+  <h3 id="paymentModalTitle">
+    سداد المديونية
+  </h3>
+
+  <div class="payment-debt-summary">
+
+    <div class="debt-summary-row">
+      <span id="paymentInvoiceNumberLabel">
+        رقم الفاتورة
+      </span>
+      <strong id="paymentInvoiceNumber">
+        -
+      </strong>
+    </div>
+
+    <div class="debt-summary-row">
+      <span id="paymentCustomerNameLabel">
+        العميل
+      </span>
+      <strong id="paymentCustomerName">
+        -
+      </strong>
+    </div>
+
+    <div class="debt-summary-row">
+      <span id="paymentInvoiceTotalLabel">
+        إجمالي الفاتورة
+      </span>
+      <strong id="paymentInvoiceTotal">
+        0.00
+      </strong>
+    </div>
+
+    <div class="debt-summary-row">
+      <span id="paymentAlreadyPaidLabel">
+        المدفوع سابقًا
+      </span>
+      <strong id="paymentAlreadyPaid">
+        0.00
+      </strong>
+    </div>
+
+    <div class="debt-summary-row">
+      <span id="paymentCurrentRemainingLabel">
+        المتبقي
+      </span>
+      <strong
+        id="paymentCurrentRemaining"
+        class="debt-remaining"
+      >
+        0.00
+      </strong>
+    </div>
+
+  </div>
+
+  <div class="debt-payment-section">
+
+    <label
+      for="debtPaymentAmount"
+      id="debtPaymentAmountLabel"
+    >
+      مبلغ السداد
+    </label>
+
+    <input
+      type="number"
+      id="debtPaymentAmount"
+      min="0.01"
+      step="0.01"
+      inputmode="decimal"
+      placeholder="أدخل مبلغ السداد"
+      oninput="updateDebtPaymentPreview()"
+    >
+
+    <div
+      class="remaining-preview"
+      id="debtPaymentRemainingPreview"
+    >
+      المتبقي بعد السداد: 0.00
+    </div>
+
+    <label
+      for="debtPaymentMethod"
+      id="debtPaymentMethodLabel"
+    >
+      طريقة الدفع
+    </label>
+
+    <select
+      id="debtPaymentMethod"
+    >
+      <option value="cash">نقدي</option>
+      <option value="card">بطاقة</option>
+      <option value="transfer">تحويل</option>
+      <option value="other">أخرى</option>
+    </select>
+
+    <label
+      for="debtPaymentReference"
+      id="debtPaymentReferenceLabel"
+    >
+      المرجع
+    </label>
+
+    <input
+      type="text"
+      id="debtPaymentReference"
+      placeholder="رقم المرجع أو العملية"
+      maxlength="200"
+    >
+
+    <div
+      class="payment-help"
+      id="debtPaymentHelp"
+    >
+      أدخل المبلغ المراد سداده، ولا يمكن أن يتجاوز المتبقي.
+    </div>
+
+  </div>
+
+  <div class="modal-buttons">
+
+    <button
+      class="payment-confirm"
+      onclick="confirmDebtPayment()"
+      id="confirmDebtPaymentButton"
+    >
+      تأكيد السداد
+    </button>
+
+    <button
+      class="modal-cancel"
+      onclick="closePaymentModal()"
+      id="cancelDebtPaymentButton"
+    >
+      إلغاء
+    </button>
+
+  </div>
+
+</div>
+
+  </div>  <!-- Edit Customer Modal -->  <div
     class="modal-overlay"
     id="customerEditModal"
+  ><div class="modal">
+
+  <h3 id="customerEditModalTitle">
+    تعديل العميل
+  </h3>
+
+  <input
+    type="text"
+    id="editCustomerName"
+    placeholder="اسم العميل"
   >
 
-    <div class="modal">
+  <input
+    type="text"
+    id="editCustomerPhone"
+    placeholder="رقم الهاتف"
+  >
 
-      <h3 id="customerEditModalTitle">
-        تعديل العميل
-      </h3>
+  <input
+    type="text"
+    id="editCustomerAddress"
+    placeholder="العنوان"
+  >
 
-      <input
-        type="text"
-        id="editCustomerName"
-        placeholder="اسم العميل"
-      >
+  <textarea
+    id="editCustomerNotes"
+    placeholder="ملاحظات"
+  ></textarea>
 
-      <input
-        type="text"
-        id="editCustomerPhone"
-        placeholder="رقم الهاتف"
-      >
+  <div class="modal-buttons">
 
-      <input
-        type="text"
-        id="editCustomerAddress"
-        placeholder="العنوان"
-      >
+    <button
+      class="modal-confirm"
+      onclick="saveCustomerEdit()"
+      id="saveCustomerEditButton"
+    >
+      حفظ التعديل
+    </button>
 
-      <textarea
-        id="editCustomerNotes"
-        placeholder="ملاحظات"
-      ></textarea>
-
-      <div class="modal-buttons">
-
-        <button
-          class="modal-confirm"
-          onclick="saveCustomerEdit()"
-          id="saveCustomerEditButton"
-        >
-          حفظ التعديل
-        </button>
-
-        <button
-          class="modal-cancel"
-          onclick="closeCustomerEditModal()"
-          id="cancelCustomerEditButton"
-        >
-          إلغاء
-        </button>
-
-      </div>
-
-    </div>
+    <button
+      class="modal-cancel"
+      onclick="closeCustomerEditModal()"
+      id="cancelCustomerEditButton"
+    >
+      إلغاء
+    </button>
 
   </div>
 
-  <!-- Invoice Modal -->
+</div>
 
-  <div
+  </div>  <!-- Invoice Modal -->  <div
     class="modal-overlay"
     id="invoiceModal"
+  ><div class="modal invoice-modal">
+
+  <div
+    class="invoice"
+    id="invoiceContent"
   >
 
-    <div class="modal invoice-modal">
+    <div class="invoice-header">
 
-      <div
-        class="invoice"
-        id="invoiceContent"
-      >
+      <h2 id="invoiceTitle">
+        فاتورة بيع
+      </h2>
 
-        <div class="invoice-header">
+      <div id="invoiceSystemName">
+        نظام المبيعات الذكي
+      </div>
 
-          <h2 id="invoiceTitle">
-            فاتورة بيع
-          </h2>
+    </div>
 
-          <div id="invoiceSystemName">
-            نظام المبيعات الذكي
-          </div>
+    <div class="invoice-meta">
 
-        </div>
+      <div>
+        <strong id="invoiceNumberLabel">
+          رقم الفاتورة:
+        </strong>
 
-        <div class="invoice-meta">
+        <span id="invoiceNumber">
+          -
+        </span>
+      </div>
 
-          <div>
-            <strong id="invoiceNumberLabel">
-              رقم الفاتورة:
-            </strong>
+      <div>
+        <strong id="invoiceDateLabel">
+          التاريخ:
+        </strong>
 
-            <span id="invoiceNumber">
-              -
-            </span>
-          </div>
+        <span id="invoiceDate">
+          -
+        </span>
+      </div>
 
-          <div>
-            <strong id="invoiceDateLabel">
-              التاريخ:
-            </strong>
+      <div>
+        <strong id="invoiceCustomerLabel">
+          العميل:
+        </strong>
 
-            <span id="invoiceDate">
-              -
-            </span>
-          </div>
+        <span id="invoiceCustomer">
+          -
+        </span>
+      </div>
 
-          <div>
-            <strong id="invoiceCustomerLabel">
-              العميل:
-            </strong>
+      <div>
+        <strong id="invoicePaymentLabel">
+          حالة الدفع:
+        </strong>
 
-            <span id="invoiceCustomer">
-              -
-            </span>
-          </div>
+        <span id="invoicePayment">
+          -
+        </span>
+      </div>
 
-          <div>
-            <strong id="invoicePaymentLabel">
-              حالة الدفع:
-            </strong>
+      <div>
+        <strong id="invoicePaymentMethodLabel">
+          طريقة الدفع:
+        </strong>
 
-            <span id="invoicePayment">
-              -
-            </span>
-          </div>
+        <span id="invoicePaymentMethod">
+          -
+        </span>
+      </div>
 
-          <div>
-            <strong id="invoicePaymentMethodLabel">
-              طريقة الدفع:
-            </strong>
+      <div>
+        <strong id="invoiceReferenceLabel">
+          المرجع:
+        </strong>
 
-            <span id="invoicePaymentMethod">
-              -
-            </span>
-          </div>
+        <span id="invoiceReference">
+          -
+        </span>
+      </div>
 
-          <div>
-            <strong id="invoiceReferenceLabel">
-              المرجع:
-            </strong>
+    </div>
 
-            <span id="invoiceReference">
-              -
-            </span>
-          </div>
+    <table class="invoice-table">
 
-        </div>
+      <thead>
 
-        <table class="invoice-table">
+        <tr>
 
-          <thead>
+          <th id="invoiceProductHeader">
+            المنتج
+          </th>
 
-            <tr>
+          <th id="invoiceQuantityHeader">
+            الكمية
+          </th>
 
-              <th id="invoiceProductHeader">
-                المنتج
-              </th>
+          <th id="invoicePriceHeader">
+            سعر الوحدة
+          </th>
 
-              <th id="invoiceQuantityHeader">
-                الكمية
-              </th>
-
-              <th id="invoicePriceHeader">
-                سعر الوحدة
-              </th>
-
-              <th id="invoiceTotalHeader">
-                الإجمالي
-              </th>
-
-            </tr>
-
-          </thead>
-
-          <tbody id="invoiceItemsBody"></tbody>
-
-        </table>
-
-        <div class="invoice-summary">
-
-          <div class="invoice-summary-row">
-
-            <span id="invoiceSubtotalLabel">
-              المجموع الفرعي
-            </span>
-
-            <span id="invoiceSubtotal">
-              0.00
-            </span>
-
-          </div>
-
-          <div class="invoice-summary-row">
-
-            <span id="invoiceDiscountLabel">
-              الخصم
-            </span>
-
-            <span id="invoiceDiscount">
-              0.00
-            </span>
-
-          </div>
-
-          <div class="invoice-summary-row">
-
-            <span id="invoiceTaxLabel">
-              الضريبة
-            </span>
-
-            <span id="invoiceTax">
-              0.00
-            </span>
-
-          </div>
-
-          <div class="invoice-summary-row invoice-payment-row">
-
-            <span id="invoicePaidLabel">
-              المدفوع
-            </span>
-
-            <span id="invoicePaid">
-              0.00
-            </span>
-
-          </div>
-
-          <div class="invoice-summary-row invoice-payment-row invoice-remaining">
-
-            <span id="invoiceRemainingLabel">
-              المتبقي
-            </span>
-
-            <span id="invoiceRemaining">
-              0.00
-            </span>
-
-          </div>
-
-        </div>
-
-        <div class="invoice-total">
-
-          <span id="invoiceGrandTotalLabel">
+          <th id="invoiceTotalHeader">
             الإجمالي
-          </span>
+          </th>
 
-          <span id="invoiceGrandTotal">
-            0.00
-          </span>
+        </tr>
 
-        </div>
+      </thead>
 
-        <div
-          class="payment-status"
-          id="invoicePaymentStatus"
-        >
-          مدفوع
-        </div>
+      <tbody id="invoiceItemsBody"></tbody>
+
+    </table>
+
+    <div class="invoice-summary">
+
+      <div class="invoice-summary-row">
+
+        <span id="invoiceSubtotalLabel">
+          المجموع الفرعي
+        </span>
+
+        <span id="invoiceSubtotal">
+          0.00
+        </span>
 
       </div>
 
-      <div class="invoice-buttons">
+      <div class="invoice-summary-row">
 
-        <button
-          class="print-btn"
-          onclick="printInvoice()"
-          id="printInvoiceButton"
-        >
-          طباعة الفاتورة
-        </button>
+        <span id="invoiceDiscountLabel">
+          الخصم
+        </span>
 
-        <button
-          class="invoice-close-btn"
-          onclick="closeInvoiceModal()"
-          id="closeInvoiceButton"
-        >
-          إغلاق
-        </button>
+        <span id="invoiceDiscount">
+          0.00
+        </span>
+
+      </div>
+
+      <div class="invoice-summary-row">
+
+        <span id="invoiceTaxLabel">
+          الضريبة
+        </span>
+
+        <span id="invoiceTax">
+          0.00
+        </span>
+
+      </div>
+
+      <div class="invoice-summary-row invoice-payment-row">
+
+        <span id="invoicePaidLabel">
+          المدفوع
+        </span>
+
+        <span id="invoicePaid">
+          0.00
+        </span>
+
+      </div>
+
+      <div class="invoice-summary-row invoice-payment-row invoice-remaining">
+
+        <span id="invoiceRemainingLabel">
+          المتبقي
+        </span>
+
+        <span id="invoiceRemaining">
+          0.00
+        </span>
 
       </div>
 
     </div>
 
+    <div class="invoice-total">
+
+      <span id="invoiceGrandTotalLabel">
+        الإجمالي
+      </span>
+
+      <span id="invoiceGrandTotal">
+        0.00
+      </span>
+
+    </div>
+
+    <div
+      class="payment-status"
+      id="invoicePaymentStatus"
+    >
+      مدفوع
+    </div>
+
   </div>
 
-  <script>
+  <div class="invoice-buttons">
 
+    <button
+      class="print-btn"
+      onclick="printInvoice()"
+      id="printInvoiceButton"
+    >
+      طباعة الفاتورة
+    </button>
+
+    <button
+      class="invoice-close-btn"
+      onclick="closeInvoiceModal()"
+      id="closeInvoiceButton"
+    >
+      إغلاق
+    </button>
+
+  </div>
+
+</div>
+
+  </div>  <script>
     let currentLanguage = "ar";
 
     let products = [];
-
     let customers = [];
-
     let salesHistory = [];
 
     let selectedProductId = null;
-
     let selectedCustomerId = null;
 
     let currentSaleTotal = 0;
+
+    let selectedPaymentSaleId = null;
+    let selectedPaymentInvoice = null;
+    let currentPaymentRemaining = 0;
 
     const translations = {
 
       ar: {
 
         title: "نظام المبيعات الذكي",
-
         language: "English",
 
         products: "المنتجات",
-
         stock: "إجمالي المخزون",
-
         sales: "المبيعات",
-
         customers: "العملاء",
 
         productsTitle: "إدارة المنتجات",
-
         customersTitle: "إدارة العملاء",
-
         salesHistoryTitle: "سجل المبيعات",
 
         namePlaceholder: "اسم المنتج",
-
         pricePlaceholder: "السعر",
-
         quantityPlaceholder: "الكمية",
 
         customerNamePlaceholder: "اسم العميل",
-
         customerPhonePlaceholder: "رقم الهاتف",
-
         customerAddressPlaceholder: "العنوان",
-
         customerNotesPlaceholder: "ملاحظات",
 
         add: "إضافة",
-
         addCustomer: "إضافة عميل",
 
         name: "المنتج",
-
         price: "السعر",
-
         quantity: "الكمية",
-
         action: "الإجراء",
 
         customerName: "الاسم",
-
         customerPhone: "الهاتف",
-
         customerAddress: "العنوان",
-
         customerNotes: "الملاحظات",
-
         customerAction: "الإجراء",
 
         sell: "بيع",
-
         delete: "حذف",
-
         edit: "تعديل",
+        payment: "سداد المديونية",
 
         empty: "لا توجد منتجات حاليًا",
-
         customersEmpty: "لا يوجد عملاء حاليًا",
-
         salesEmpty: "لا توجد مبيعات حاليًا",
 
         added: "تمت إضافة المنتج بنجاح",
-
         customerAdded: "تمت إضافة العميل بنجاح",
-
         sold: "تم تسجيل البيع",
-
         deleted: "تم حذف المنتج",
-
         customerDeleted: "تم حذف العميل",
-
         customerUpdated: "تم تعديل بيانات العميل بنجاح",
 
         invalid: "يرجى إدخال بيانات صحيحة",
-
         customerNameRequired: "يرجى إدخال اسم العميل",
 
         productsLoadError: "حدث خطأ أثناء تحميل المنتجات",
-
         customersLoadError: "حدث خطأ أثناء تحميل العملاء",
-
         salesHistoryLoadError: "حدث خطأ أثناء تحميل سجل المبيعات",
-
         connectionError: "حدث خطأ في الاتصال",
 
         selectCustomer: "اختر العميل",
-
         noCustomer: "بيع بدون عميل",
 
         saleModalTitle: "إتمام البيع",
-
         confirmSale: "تأكيد البيع",
-
         cancel: "إلغاء",
 
         noCustomers: "لا يوجد عملاء. سيتم تسجيل البيع بدون عميل.",
 
         customerEditModalTitle: "تعديل العميل",
-
         saveCustomerEdit: "حفظ التعديل",
-
         cancelCustomerEdit: "إلغاء",
 
         deleteCustomerConfirm: "هل أنت متأكد من حذف العميل؟",
-
         customerDeleteError: "حدث خطأ أثناء حذف العميل",
-
         customerUpdateError: "حدث خطأ أثناء تعديل العميل",
 
         invoiceTitle: "فاتورة بيع",
-
         invoiceNumber: "رقم الفاتورة:",
-
         invoiceDate: "التاريخ:",
-
         invoiceCustomer: "العميل:",
-
         invoicePayment: "حالة الدفع:",
-
         invoicePaymentMethod: "طريقة الدفع:",
-
         invoiceReference: "المرجع:",
 
         invoiceProduct: "المنتج",
-
         invoiceQuantity: "الكمية",
-
         invoiceUnitPrice: "سعر الوحدة",
-
         invoiceTotal: "الإجمالي",
 
         invoiceGrandTotal: "الإجمالي",
-
         invoiceSubtotal: "المجموع الفرعي",
-
         invoiceDiscount: "الخصم",
-
         invoiceTax: "الضريبة",
-
         invoicePaid: "المدفوع",
-
         invoiceRemaining: "المتبقي",
 
         paid: "مدفوع",
-
         unpaid: "غير مدفوع",
-
         partial: "مدفوع جزئيًا",
 
         printInvoice: "طباعة الفاتورة",
-
         closeInvoice: "إغلاق",
 
         withoutCustomer: "بدون عميل",
 
         refresh: "تحديث",
-
         viewInvoice: "عرض الفاتورة",
 
         invoiceNotFound: "لم يتم العثور على الفاتورة",
-
         invoiceLoadError: "حدث خطأ أثناء تحميل الفاتورة",
 
         statusCompleted: "مكتملة",
-
         statusCancelled: "ملغاة",
-
         statusPending: "معلقة",
-
         statusUnknown: "غير محددة",
 
         loading: "جارٍ التحميل...",
 
         saleProduct: "المنتج",
-
         saleUnitPrice: "سعر الوحدة",
-
         saleTotal: "إجمالي البيع",
-
         saleCustomer: "العميل",
 
         paymentStatus: "حالة الدفع",
-
         paymentMethod: "طريقة الدفع",
-
         paidAmount: "المبلغ المدفوع",
-
         paymentReference: "المرجع",
 
         referencePlaceholder: "رقم المرجع أو العملية",
 
         cash: "نقدي",
-
         card: "بطاقة",
-
         transfer: "تحويل",
-
         other: "أخرى",
 
         remaining: "المتبقي",
 
         paymentHelp: "في البيع الآجل أو الجزئي يجب اختيار عميل.",
-
         paidHelp: "سيتم تسجيل كامل قيمة الفاتورة كمدفوع.",
-
         partialHelp: "أدخل المبلغ المدفوع، ويجب أن يكون أقل من إجمالي الفاتورة.",
-
         unpaidHelp: "سيتم تسجيل كامل قيمة الفاتورة كدين على العميل.",
 
         customerRequiredForDebt: "يجب اختيار عميل للبيع الآجل أو الجزئي.",
 
         invalidPaidAmount: "المبلغ المدفوع غير صحيح.",
-
         partialAmountInvalid: "في الدفع الجزئي يجب أن يكون المبلغ أكبر من صفر وأقل من إجمالي الفاتورة.",
-
         unpaidAmountInvalid: "البيع غير المدفوع يجب أن يكون المبلغ المدفوع فيه صفرًا.",
+        paidAmountInvalid: "المبلغ المدفوع يجب أن يساوي إجمالي الفاتورة في البيع المدفوع بالكامل.",
 
-        paidAmountInvalid: "المبلغ المدفوع يجب أن يساوي إجمالي الفاتورة في البيع المدفوع بالكامل."
+        paymentModalTitle: "سداد المديونية",
+        paymentInvoiceNumber: "رقم الفاتورة",
+        paymentCustomerName: "العميل",
+        paymentInvoiceTotal: "إجمالي الفاتورة",
+        paymentAlreadyPaid: "المدفوع سابقًا",
+        paymentCurrentRemaining: "المتبقي",
 
+        debtPaymentAmount: "مبلغ السداد",
+        debtPaymentMethod: "طريقة الدفع",
+        debtPaymentReference: "المرجع",
+
+        debtPaymentPlaceholder: "أدخل مبلغ السداد",
+
+        debtPaymentHelp: "أدخل المبلغ المراد سداده، ولا يمكن أن يتجاوز المتبقي.",
+        debtPaymentRemaining: "المتبقي بعد السداد",
+
+        confirmDebtPayment: "تأكيد السداد",
+
+        paymentAmountRequired: "يرجى إدخال مبلغ السداد.",
+        paymentAmountInvalid: "مبلغ السداد غير صحيح.",
+        paymentAmountTooLarge: "مبلغ السداد لا يمكن أن يتجاوز المبلغ المتبقي.",
+        paymentInvoiceAlreadyPaid: "هذه الفاتورة مدفوعة بالكامل.",
+        paymentInvoiceCancelled: "لا يمكن سداد فاتورة ملغاة.",
+        paymentInvoiceInvalid: "بيانات الفاتورة غير صالحة.",
+        paymentSuccess: "تم تسجيل السداد بنجاح.",
+        paymentError: "حدث خطأ أثناء تسجيل السداد."
       },
 
       en: {
 
         title: "Smart Sales System",
-
         language: "العربية",
 
         products: "Products",
-
         stock: "Total Stock",
-
         sales: "Sales",
-
         customers: "Customers",
 
         productsTitle: "Product Management",
-
         customersTitle: "Customer Management",
-
         salesHistoryTitle: "Sales History",
 
         namePlaceholder: "Product name",
-
         pricePlaceholder: "Price",
-
         quantityPlaceholder: "Quantity",
 
         customerNamePlaceholder: "Customer name",
-
         customerPhonePlaceholder: "Phone number",
-
         customerAddressPlaceholder: "Address",
-
         customerNotesPlaceholder: "Notes",
 
         add: "Add",
-
         addCustomer: "Add Customer",
 
         name: "Product",
-
         price: "Price",
-
         quantity: "Quantity",
-
         action: "Action",
 
         customerName: "Name",
-
         customerPhone: "Phone",
-
         customerAddress: "Address",
-
         customerNotes: "Notes",
-
         customerAction: "Action",
 
         sell: "Sell",
-
         delete: "Delete",
-
         edit: "Edit",
+        payment: "Pay Debt",
 
         empty: "No products currently",
-
         customersEmpty: "No customers currently",
-
         salesEmpty: "No sales currently",
 
         added: "Product added successfully",
-
         customerAdded: "Customer added successfully",
-
         sold: "Sale recorded",
-
         deleted: "Product deleted",
-
         customerDeleted: "Customer deleted",
-
         customerUpdated: "Customer updated successfully",
 
         invalid: "Please enter valid data",
-
         customerNameRequired: "Please enter customer name",
 
         productsLoadError: "Error loading products",
-
         customersLoadError: "Error loading customers",
-
         salesHistoryLoadError: "Error loading sales history",
-
         connectionError: "Connection error",
 
         selectCustomer: "Select customer",
-
         noCustomer: "Sell without customer",
 
         saleModalTitle: "Complete Sale",
-
         confirmSale: "Confirm Sale",
-
         cancel: "Cancel",
 
         noCustomers: "No customers. The sale will be recorded without a customer.",
 
         customerEditModalTitle: "Edit Customer",
-
         saveCustomerEdit: "Save Changes",
-
         cancelCustomerEdit: "Cancel",
 
         deleteCustomerConfirm: "Are you sure you want to delete this customer?",
-
         customerDeleteError: "Error deleting customer",
-
         customerUpdateError: "Error updating customer",
 
         invoiceTitle: "Sales Invoice",
-
         invoiceNumber: "Invoice Number:",
-
         invoiceDate: "Date:",
-
         invoiceCustomer: "Customer:",
-
         invoicePayment: "Payment Status:",
-
         invoicePaymentMethod: "Payment Method:",
-
         invoiceReference: "Reference:",
 
         invoiceProduct: "Product",
-
         invoiceQuantity: "Quantity",
-
         invoiceUnitPrice: "Unit Price",
-
         invoiceTotal: "Total",
 
         invoiceGrandTotal: "Total",
-
         invoiceSubtotal: "Subtotal",
-
         invoiceDiscount: "Discount",
-
         invoiceTax: "Tax",
-
         invoicePaid: "Paid",
-
         invoiceRemaining: "Remaining",
 
         paid: "Paid",
-
         unpaid: "Unpaid",
-
         partial: "Partially Paid",
 
         printInvoice: "Print Invoice",
-
         closeInvoice: "Close",
 
         withoutCustomer: "Without customer",
 
         refresh: "Refresh",
-
         viewInvoice: "View Invoice",
 
         invoiceNotFound: "Invoice not found",
-
         invoiceLoadError: "Error loading invoice",
 
         statusCompleted: "Completed",
-
         statusCancelled: "Cancelled",
-
         statusPending: "Pending",
-
         statusUnknown: "Unknown",
 
         loading: "Loading...",
 
         saleProduct: "Product",
-
         saleUnitPrice: "Unit Price",
-
         saleTotal: "Sale Total",
-
         saleCustomer: "Customer",
 
         paymentStatus: "Payment Status",
-
         paymentMethod: "Payment Method",
-
         paidAmount: "Paid Amount",
-
         paymentReference: "Reference",
 
         referencePlaceholder: "Reference or transaction number",
 
         cash: "Cash",
-
         card: "Card",
-
         transfer: "Transfer",
-
         other: "Other",
 
         remaining: "Remaining",
 
         paymentHelp: "A customer is required for unpaid or partial sales.",
-
         paidHelp: "The full invoice amount will be recorded as paid.",
-
         partialHelp: "Enter the paid amount. It must be less than the invoice total.",
-
         unpaidHelp: "The full invoice amount will be recorded as customer debt.",
 
         customerRequiredForDebt: "A customer is required for unpaid or partial sales.",
 
         invalidPaidAmount: "Invalid paid amount.",
-
         partialAmountInvalid: "For partial payment, the amount must be greater than zero and less than the invoice total.",
-
         unpaidAmountInvalid: "An unpaid sale must have a paid amount of zero.",
+        paidAmountInvalid: "For a fully paid sale, the paid amount must equal the invoice total.",
 
-        paidAmountInvalid: "For a fully paid sale, the paid amount must equal the invoice total."
+        paymentModalTitle: "Pay Debt",
+        paymentInvoiceNumber: "Invoice Number",
+        paymentCustomerName: "Customer",
+        paymentInvoiceTotal: "Invoice Total",
+        paymentAlreadyPaid: "Already Paid",
+        paymentCurrentRemaining: "Remaining",
 
+        debtPaymentAmount: "Payment Amount",
+        debtPaymentMethod: "Payment Method",
+        debtPaymentReference: "Reference",
+
+        debtPaymentPlaceholder: "Enter payment amount",
+
+        debtPaymentHelp: "Enter the amount to pay. It cannot exceed the remaining balance.",
+        debtPaymentRemaining: "Remaining After Payment",
+
+        confirmDebtPayment: "Confirm Payment",
+
+        paymentAmountRequired: "Please enter a payment amount.",
+        paymentAmountInvalid: "Invalid payment amount.",
+        paymentAmountTooLarge: "Payment amount cannot exceed the remaining balance.",
+        paymentInvoiceAlreadyPaid: "This invoice is already fully paid.",
+        paymentInvoiceCancelled: "A cancelled invoice cannot receive a payment.",
+        paymentInvoiceInvalid: "Invalid invoice data.",
+        paymentSuccess: "Payment recorded successfully.",
+        paymentError: "An error occurred while recording the payment."
       }
-
     };
 
     function toggleLanguage() {
-
       currentLanguage =
         currentLanguage === "ar"
           ? "en"
           : "ar";
 
       applyLanguage();
-
     }
 
     function applyLanguage() {
@@ -1966,14 +2031,56 @@
       document.getElementById("editCustomerNotes").placeholder =
         t.customerNotesPlaceholder;
 
+      document.getElementById("paymentModalTitle").textContent =
+        t.paymentModalTitle;
+
+      document.getElementById("paymentInvoiceNumberLabel").textContent =
+        t.paymentInvoiceNumber;
+
+      document.getElementById("paymentCustomerNameLabel").textContent =
+        t.paymentCustomerName;
+
+      document.getElementById("paymentInvoiceTotalLabel").textContent =
+        t.paymentInvoiceTotal;
+
+      document.getElementById("paymentAlreadyPaidLabel").textContent =
+        t.paymentAlreadyPaid;
+
+      document.getElementById("paymentCurrentRemainingLabel").textContent =
+        t.paymentCurrentRemaining;
+
+      document.getElementById("debtPaymentAmountLabel").textContent =
+        t.debtPaymentAmount;
+
+      document.getElementById("debtPaymentMethodLabel").textContent =
+        t.debtPaymentMethod;
+
+      document.getElementById("debtPaymentReferenceLabel").textContent =
+        t.debtPaymentReference;
+
+      document.getElementById("debtPaymentAmount").placeholder =
+        t.debtPaymentPlaceholder;
+
+      document.getElementById("debtPaymentReference").placeholder =
+        t.referencePlaceholder;
+
+      document.getElementById("debtPaymentHelp").textContent =
+        t.debtPaymentHelp;
+
+      document.getElementById("confirmDebtPaymentButton").textContent =
+        t.confirmDebtPayment;
+
+      document.getElementById("cancelDebtPaymentButton").textContent =
+        t.cancel;
+
       updatePaymentMethodOptions();
+
+      updateDebtPaymentMethodOptions();
 
       updateInvoiceStaticTexts();
 
       renderProducts();
-
       renderCustomers();
-
       renderSalesHistory();
 
       if (selectedProductId !== null) {
@@ -1981,7 +2088,7 @@
       }
 
       updatePaymentPreview();
-
+      updateDebtPaymentPreview();
     }
 
     function updatePaymentMethodOptions() {
@@ -2030,7 +2137,6 @@
           optionData.label;
 
         select.appendChild(option);
-
       });
 
       select.value =
@@ -2040,7 +2146,63 @@
         )
           ? currentValue
           : "cash";
+    }
 
+    function updateDebtPaymentMethodOptions() {
+
+      const select =
+        document.getElementById(
+          "debtPaymentMethod"
+        );
+
+      const currentValue =
+        select.value || "cash";
+
+      select.innerHTML = "";
+
+      const t =
+        translations[currentLanguage];
+
+      const options = [
+        {
+          value: "cash",
+          label: t.cash
+        },
+        {
+          value: "card",
+          label: t.card
+        },
+        {
+          value: "transfer",
+          label: t.transfer
+        },
+        {
+          value: "other",
+          label: t.other
+        }
+      ];
+
+      options.forEach(optionData => {
+
+        const option =
+          document.createElement("option");
+
+        option.value =
+          optionData.value;
+
+        option.textContent =
+          optionData.label;
+
+        select.appendChild(option);
+      });
+
+      select.value =
+        options.some(
+          option =>
+            option.value === currentValue
+        )
+          ? currentValue
+          : "cash";
     }
 
     function updateInvoiceStaticTexts() {
@@ -2104,7 +2266,6 @@
 
       document.getElementById("closeInvoiceButton").textContent =
         t.closeInvoice;
-
     }
 
     async function loadProducts() {
@@ -2134,9 +2295,7 @@
             .productsLoadError,
           true
         );
-
       }
-
     }
 
     async function loadSales() {
@@ -2170,9 +2329,7 @@
           "salesTotal"
         ).textContent =
           "0.00";
-
       }
-
     }
 
     async function loadSalesHistory() {
@@ -2218,9 +2375,7 @@
             .salesHistoryLoadError,
           true
         );
-
       }
-
     }
 
     async function loadCustomers() {
@@ -2254,9 +2409,7 @@
             .customersLoadError,
           true
         );
-
       }
-
     }
 
     async function addProduct() {
@@ -2340,7 +2493,6 @@
           throw new Error(
             data.error || t.invalid
           );
-
         }
 
         document
@@ -2370,9 +2522,7 @@
           t.connectionError,
           true
         );
-
       }
-
     }
 
     async function addCustomer() {
@@ -2445,7 +2595,6 @@
             data.error ||
             "Failed to add customer"
           );
-
         }
 
         document
@@ -2479,9 +2628,7 @@
           t.connectionError,
           true
         );
-
       }
-
     }
 
     function renderProducts() {
@@ -2510,7 +2657,6 @@
 
         empty.style.display =
           "none";
-
       }
 
       let totalStock = 0;
@@ -2560,11 +2706,9 @@
             </button>
 
           </td>
-
         `;
 
         table.appendChild(row);
-
       });
 
       document.getElementById(
@@ -2576,7 +2720,6 @@
         "stockCount"
       ).textContent =
         totalStock;
-
     }
 
     function renderCustomers() {
@@ -2605,7 +2748,6 @@
 
         empty.style.display =
           "none";
-
       }
 
       customers.forEach(customer => {
@@ -2660,18 +2802,15 @@
             </div>
 
           </td>
-
         `;
 
         table.appendChild(row);
-
       });
 
       document.getElementById(
         "customersCount"
       ).textContent =
         customers.length;
-
     }
 
     function renderSaleCustomerOptions() {
@@ -2713,7 +2852,6 @@
           customer.name;
 
         select.appendChild(option);
-
       });
 
       if (
@@ -2727,9 +2865,7 @@
 
         select.value =
           previousValue;
-
       }
-
     }
 
     function openSaleModal(id) {
@@ -2812,7 +2948,6 @@
         "flex";
 
       handlePaymentStatusChange();
-
     }
 
     function closeSaleModal() {
@@ -2835,7 +2970,6 @@
         "saleModal"
       ).style.display =
         "none";
-
     }
 
     function handleSaleCustomerChange() {
@@ -2852,7 +2986,6 @@
       ) {
         return;
       }
-
     }
 
     function handlePaymentStatusChange() {
@@ -2907,7 +3040,6 @@
 
           paidInput.value =
             "";
-
         }
 
         help.textContent =
@@ -2925,7 +3057,6 @@
 
         help.textContent =
           t.unpaidHelp;
-
       }
 
       if (
@@ -2942,11 +3073,9 @@
         customerSelect.setCustomValidity(
           ""
         );
-
       }
 
       updatePaymentPreview();
-
     }
 
     function updatePaymentPreview() {
@@ -2988,7 +3117,6 @@
 
         paidAmount =
           0;
-
       }
 
       let remaining =
@@ -3023,9 +3151,7 @@
         preview.classList.add(
           "unpaid"
         );
-
       }
-
     }
 
     async function confirmSale() {
@@ -3225,9 +3351,7 @@
 
                 reference:
                   reference || null
-
               })
-
             }
           );
 
@@ -3240,7 +3364,6 @@
             data.error ||
             "Failed to record sale"
           );
-
         }
 
         if (data.product) {
@@ -3256,17 +3379,13 @@
 
             products[index] =
               data.product;
-
           }
-
         }
 
         closeSaleModal();
 
         await loadProducts();
-
         await loadSales();
-
         await loadSalesHistory();
 
         showMessage(
@@ -3278,7 +3397,6 @@
           await openInvoiceById(
             data.saleId
           );
-
         }
 
       } catch (error) {
@@ -3297,9 +3415,517 @@
 
         button.disabled =
           false;
+      }
+    }
 
+    /*
+      ==============================
+      DEBT PAYMENT
+      ==============================
+    */
+
+    function getSaleById(saleId) {
+
+      return salesHistory.find(
+        sale =>
+          Number(sale.id) ===
+          Number(saleId)
+      ) || null;
+    }
+
+    function normalizePaymentStatusFromSale(sale) {
+
+      if (!sale) {
+        return "unpaid";
       }
 
+      const total =
+        Number(sale.total || 0);
+
+      let paid =
+        Number(sale.paidAmount);
+
+      if (!Number.isFinite(paid)) {
+        paid = 0;
+      }
+
+      if (paid < 0) {
+        paid = 0;
+      }
+
+      if (paid > total) {
+        paid = total;
+      }
+
+      if (total > 0 && paid >= total - 0.001) {
+        return "paid";
+      }
+
+      if (paid > 0) {
+        return "partial";
+      }
+
+      return "unpaid";
+    }
+
+    function getSaleRemainingAmount(sale) {
+
+      if (!sale) {
+        return 0;
+      }
+
+      const total =
+        Number(sale.total || 0);
+
+      let paid =
+        Number(sale.paidAmount);
+
+      if (!Number.isFinite(paid)) {
+
+        const status =
+          String(
+            sale.paymentStatus || ""
+          ).toLowerCase();
+
+        paid =
+          status === "paid"
+            ? total
+            : 0;
+      }
+
+      if (paid < 0) {
+        paid = 0;
+      }
+
+      if (paid > total) {
+        paid = total;
+      }
+
+      return Math.max(
+        total - paid,
+        0
+      );
+    }
+
+    function openDebtPaymentModal(saleId) {
+
+      const sale =
+        getSaleById(saleId);
+
+      const t =
+        translations[currentLanguage];
+
+      if (!sale) {
+
+        showMessage(
+          t.invoiceNotFound,
+          true
+        );
+
+        return;
+      }
+
+      const normalizedStatus =
+        String(
+          sale.status || ""
+        ).toLowerCase();
+
+      if (
+        normalizedStatus === "cancelled" ||
+        normalizedStatus === "canceled"
+      ) {
+
+        showMessage(
+          t.paymentInvoiceCancelled,
+          true
+        );
+
+        return;
+      }
+
+      const paymentStatus =
+        normalizePaymentStatusFromSale(
+          sale
+        );
+
+      const remaining =
+        getSaleRemainingAmount(
+          sale
+        );
+
+      if (
+        paymentStatus === "paid" ||
+        remaining <= 0.001
+      ) {
+
+        showMessage(
+          t.paymentInvoiceAlreadyPaid,
+          true
+        );
+
+        return;
+      }
+
+      const total =
+        Number(sale.total || 0);
+
+      let paid =
+        Number(sale.paidAmount);
+
+      if (!Number.isFinite(paid)) {
+        paid = 0;
+      }
+
+      if (paid < 0) {
+        paid = 0;
+      }
+
+      if (paid > total) {
+        paid = total;
+      }
+
+      selectedPaymentSaleId =
+        Number(sale.id);
+
+      selectedPaymentInvoice =
+        sale;
+
+      currentPaymentRemaining =
+        remaining;
+
+      document.getElementById(
+        "paymentInvoiceNumber"
+      ).textContent =
+        sale.invoiceNumber || "-";
+
+      document.getElementById(
+        "paymentCustomerName"
+      ).textContent =
+        sale.customer &&
+        sale.customer.name
+          ? sale.customer.name
+          : t.withoutCustomer;
+
+      document.getElementById(
+        "paymentInvoiceTotal"
+      ).textContent =
+        total.toFixed(2);
+
+      document.getElementById(
+        "paymentAlreadyPaid"
+      ).textContent =
+        paid.toFixed(2);
+
+      document.getElementById(
+        "paymentCurrentRemaining"
+      ).textContent =
+        remaining.toFixed(2);
+
+      document.getElementById(
+        "debtPaymentAmount"
+      ).value =
+        "";
+
+      document.getElementById(
+        "debtPaymentMethod"
+      ).value =
+        "cash";
+
+      document.getElementById(
+        "debtPaymentReference"
+      ).value =
+        "";
+
+      const button =
+        document.getElementById(
+          "confirmDebtPaymentButton"
+        );
+
+      button.disabled =
+        false;
+
+      document.getElementById(
+        "paymentModal"
+      ).style.display =
+        "flex";
+
+      updateDebtPaymentPreview();
+    }
+
+    function closePaymentModal() {
+
+      selectedPaymentSaleId =
+        null;
+
+      selectedPaymentInvoice =
+        null;
+
+      currentPaymentRemaining =
+        0;
+
+      document.getElementById(
+        "confirmDebtPaymentButton"
+      ).disabled =
+        false;
+
+      document.getElementById(
+        "paymentModal"
+      ).style.display =
+        "none";
+    }
+
+    function updateDebtPaymentPreview() {
+
+      const preview =
+        document.getElementById(
+          "debtPaymentRemainingPreview"
+        );
+
+      const amountInput =
+        document.getElementById(
+          "debtPaymentAmount"
+        );
+
+      const t =
+        translations[currentLanguage];
+
+      let amount =
+        Number(
+          amountInput.value || 0
+        );
+
+      if (!Number.isFinite(amount)) {
+        amount = 0;
+      }
+
+      let remaining =
+        currentPaymentRemaining -
+        amount;
+
+      if (remaining < 0) {
+        remaining = 0;
+      }
+
+      preview.textContent =
+        `${t.debtPaymentRemaining}: ${remaining.toFixed(2)}`;
+
+      preview.className =
+        "remaining-preview";
+
+      if (
+        currentPaymentRemaining > 0 &&
+        amount > 0 &&
+        amount <= currentPaymentRemaining
+      ) {
+
+        if (remaining <= 0.001) {
+
+          preview.classList.add(
+            "paid"
+          );
+
+        }
+
+      } else if (
+        amount <= 0
+      ) {
+
+        preview.classList.add(
+          "unpaid"
+        );
+      }
+    }
+
+    async function confirmDebtPayment() {
+
+      if (
+        selectedPaymentSaleId === null ||
+        !selectedPaymentInvoice
+      ) {
+        return;
+      }
+
+      const button =
+        document.getElementById(
+          "confirmDebtPaymentButton"
+        );
+
+      if (button.disabled) {
+        return;
+      }
+
+      const t =
+        translations[currentLanguage];
+
+      const amountInput =
+        document.getElementById(
+          "debtPaymentAmount"
+        );
+
+      const paymentMethod =
+        document.getElementById(
+          "debtPaymentMethod"
+        ).value;
+
+      const reference =
+        document.getElementById(
+          "debtPaymentReference"
+        ).value.trim();
+
+      const amount =
+        Number(
+          amountInput.value
+        );
+
+      const sale =
+        selectedPaymentInvoice;
+
+      const status =
+        String(
+          sale.status || ""
+        ).toLowerCase();
+
+      if (
+        status === "cancelled" ||
+        status === "canceled"
+      ) {
+
+        showMessage(
+          t.paymentInvoiceCancelled,
+          true
+        );
+
+        return;
+      }
+
+      if (
+        !Number.isFinite(amount) ||
+        amount <= 0
+      ) {
+
+        showMessage(
+          t.paymentAmountRequired,
+          true
+        );
+
+        amountInput.focus();
+
+        return;
+      }
+
+      if (
+        !Number.isFinite(currentPaymentRemaining) ||
+        currentPaymentRemaining <= 0
+      ) {
+
+        showMessage(
+          t.paymentInvoiceAlreadyPaid,
+          true
+        );
+
+        return;
+      }
+
+      if (
+        amount > currentPaymentRemaining + 0.001
+      ) {
+
+        showMessage(
+          t.paymentAmountTooLarge,
+          true
+        );
+
+        amountInput.focus();
+
+        return;
+      }
+
+      button.disabled =
+        true;
+
+      try {
+
+        /*
+          The payment is sent to the dedicated
+          /api/payment endpoint.
+
+          The server remains responsible for the
+          atomic financial operation.
+        */
+
+        const response =
+          await fetch(
+            "/api/payment",
+            {
+              method: "POST",
+
+              headers: {
+                "Content-Type":
+                  "application/json"
+              },
+
+              body: JSON.stringify({
+
+                saleId:
+                  Number(
+                    selectedPaymentSaleId
+                  ),
+
+                amount:
+                  Number(
+                    amount.toFixed(2)
+                  ),
+
+                paymentMethod:
+                  paymentMethod,
+
+                reference:
+                  reference || null
+              })
+            }
+          );
+
+        let data = {};
+
+        try {
+          data =
+            await response.json();
+        } catch {}
+
+        if (!response.ok) {
+
+          throw new Error(
+            data.error ||
+            t.paymentError
+          );
+        }
+
+        closePaymentModal();
+
+        await loadSalesHistory();
+        await loadSales();
+
+        showMessage(
+          t.paymentSuccess
+        );
+
+        await openInvoiceById(
+          selectedPaymentSaleId
+        );
+
+      } catch (error) {
+
+        console.error(error);
+
+        showMessage(
+          error.message ||
+          t.paymentError,
+          true
+        );
+
+        button.disabled =
+          false;
+      }
     }
 
     async function openInvoiceById(saleId) {
@@ -3322,7 +3948,6 @@
             translations[currentLanguage]
               .invoiceLoadError
           );
-
         }
 
         if (
@@ -3333,7 +3958,6 @@
             translations[currentLanguage]
               .invoiceNotFound
           );
-
         }
 
         openInvoiceModal(
@@ -3350,9 +3974,7 @@
             .invoiceLoadError,
           true
         );
-
       }
-
     }
 
     function openInvoiceModal(invoiceData) {
@@ -3427,7 +4049,6 @@
       ) {
 
         total = 0;
-
       }
 
       let subtotal =
@@ -3440,7 +4061,6 @@
       ) {
 
         subtotal = total;
-
       }
 
       let discount =
@@ -3453,7 +4073,6 @@
       ) {
 
         discount = 0;
-
       }
 
       let tax =
@@ -3466,7 +4085,6 @@
       ) {
 
         tax = 0;
-
       }
 
       document.getElementById(
@@ -3512,7 +4130,6 @@
           originalStatus === "paid"
             ? total
             : 0;
-
       }
 
       if (paidAmount < 0) {
@@ -3535,7 +4152,6 @@
             paidAmount,
             0
           );
-
       }
 
       remainingAmount =
@@ -3565,7 +4181,6 @@
 
         paymentStatus =
           "unpaid";
-
       }
 
       document.getElementById(
@@ -3615,7 +4230,6 @@
         "invoiceModal"
       ).style.display =
         "flex";
-
     }
 
     function renderInvoiceItems(items) {
@@ -3638,17 +4252,14 @@
           );
 
         row.innerHTML = `
-
           <td colspan="4">
             -
           </td>
-
         `;
 
         table.appendChild(row);
 
         return;
-
       }
 
       items.forEach(item => {
@@ -3683,13 +4294,10 @@
               item.total || 0
             ).toFixed(2)}
           </td>
-
         `;
 
         table.appendChild(row);
-
       });
-
     }
 
     function translatePaymentStatus(status) {
@@ -3705,29 +4313,22 @@
       if (
         normalized === "paid"
       ) {
-
         return t.paid;
-
       }
 
       if (
         normalized === "unpaid"
       ) {
-
         return t.unpaid;
-
       }
 
       if (
         normalized === "partial"
       ) {
-
         return t.partial;
-
       }
 
       return status || "-";
-
     }
 
     function translatePaymentMethod(method) {
@@ -3743,37 +4344,28 @@
       if (
         normalized === "cash"
       ) {
-
         return t.cash;
-
       }
 
       if (
         normalized === "card"
       ) {
-
         return t.card;
-
       }
 
       if (
         normalized === "transfer"
       ) {
-
         return t.transfer;
-
       }
 
       if (
         normalized === "other"
       ) {
-
         return t.other;
-
       }
 
       return method || "-";
-
     }
 
     function updateInvoicePaymentClass(status) {
@@ -3820,9 +4412,7 @@
         element.classList.add(
           "status-default"
         );
-
       }
-
     }
 
     function closeInvoiceModal() {
@@ -3831,13 +4421,10 @@
         "invoiceModal"
       ).style.display =
         "none";
-
     }
 
     function printInvoice() {
-
       window.print();
-
     }
 
     function formatInvoiceDate(date) {
@@ -3856,7 +4443,6 @@
             minute: "2-digit"
           }
         );
-
       }
 
       return date.toLocaleString(
@@ -3869,7 +4455,6 @@
           minute: "2-digit"
         }
       );
-
     }
 
     function renderSalesHistory() {
@@ -3897,7 +4482,6 @@
           "block";
 
         return;
-
       }
 
       empty.style.display =
@@ -3930,6 +4514,23 @@
           getPaymentStatusClass(
             sale.paymentStatus
           );
+
+        const normalizedSaleStatus =
+          String(
+            sale.status || ""
+          ).toLowerCase();
+
+        const remaining =
+          getSaleRemainingAmount(
+            sale
+          );
+
+        const canPay =
+          normalizedSaleStatus !== "cancelled" &&
+          normalizedSaleStatus !== "canceled" &&
+          remaining > 0.001 &&
+          sale.customer &&
+          sale.customer.id;
 
         row.innerHTML = `
 
@@ -3994,16 +4595,26 @@
                 ${t.viewInvoice}
               </button>
 
+              ${
+                canPay
+                  ? `
+                    <button
+                      class="payment-btn"
+                      onclick="openDebtPaymentModal(${sale.id})"
+                    >
+                      ${t.payment}
+                    </button>
+                  `
+                  : ""
+              }
+
             </div>
 
           </td>
-
         `;
 
         table.appendChild(row);
-
       });
-
     }
 
     function getPaymentStatusClass(status) {
@@ -4016,29 +4627,22 @@
       if (
         normalized === "paid"
       ) {
-
         return "status-paid";
-
       }
 
       if (
         normalized === "unpaid"
       ) {
-
         return "status-unpaid";
-
       }
 
       if (
         normalized === "partial"
       ) {
-
         return "status-partial";
-
       }
 
       return "status-default";
-
     }
 
     function translateSaleStatus(status) {
@@ -4054,31 +4658,24 @@
       if (
         normalized === "completed"
       ) {
-
         return t.statusCompleted;
-
       }
 
       if (
         normalized === "cancelled" ||
         normalized === "canceled"
       ) {
-
         return t.statusCancelled;
-
       }
 
       if (
         normalized === "pending"
       ) {
-
         return t.statusPending;
-
       }
 
       return status ||
         t.statusUnknown;
-
     }
 
     async function deleteProduct(id) {
@@ -4125,7 +4722,6 @@
             data.error ||
             "Failed to delete product"
           );
-
         }
 
         products =
@@ -4152,9 +4748,7 @@
             : "Error deleting product",
           true
         );
-
       }
-
     }
 
     function openCustomerEditModal(id) {
@@ -4197,7 +4791,6 @@
         "customerEditModal"
       ).style.display =
         "flex";
-
     }
 
     function closeCustomerEditModal() {
@@ -4209,7 +4802,6 @@
         "customerEditModal"
       ).style.display =
         "none";
-
     }
 
     async function saveCustomerEdit() {
@@ -4297,7 +4889,6 @@
             data.error ||
             "Failed to update customer"
           );
-
         }
 
         const updatedCustomer =
@@ -4314,7 +4905,6 @@
 
           customers[index] =
             updatedCustomer;
-
         }
 
         renderCustomers();
@@ -4338,9 +4928,7 @@
           t.customerUpdateError,
           true
         );
-
       }
-
     }
 
     async function deleteCustomer(id) {
@@ -4390,7 +4978,6 @@
             data.error ||
             "Failed to delete customer"
           );
-
         }
 
         customers =
@@ -4419,9 +5006,7 @@
           t.customerDeleteError,
           true
         );
-
       }
-
     }
 
     function showMessage(
@@ -4454,7 +5039,6 @@
           "none";
 
       }, 2500);
-
     }
 
     function escapeHtml(text) {
@@ -4468,30 +5052,21 @@
         text;
 
       return div.innerHTML;
-
     }
 
     async function initializeApp() {
 
       await Promise.all([
-
         loadProducts(),
-
         loadSales(),
-
         loadCustomers(),
-
         loadSalesHistory()
-
       ]);
-
     }
 
     applyLanguage();
 
     initializeApp();
 
-  </script>
-
-</body>
+  </script></body>
 </html>
