@@ -2441,13 +2441,6 @@
               ${t.sell}
             </button>
 
-            <button
-              class="danger-btn"
-              onclick="deleteProduct(${product.id})"
-            >
-              ${t.delete}
-            </button>
-
           </td>
         `;
 
@@ -2892,6 +2885,8 @@
     }
 
     async function confirmSale() {
+      if (selectedProductId === null) return;
+
       const button = document.getElementById("confirmSaleButton");
       const productId = Number(selectedProductId);
       const customerId = document.getElementById("saleCustomerSelect").value || null;
