@@ -2,7 +2,11 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>نظام المبيعات الذكي</title>  <style>
+  <title>نظام المبيعات الذكي</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="/src/supabase-client.js"></script>
+  <script src="/src/commercial-auth.js"></script>
+  <style>
     * {
       box-sizing: border-box;
       margin: 0;
@@ -5066,7 +5070,14 @@
 
     applyLanguage();
 
-    initializeApp();
+    window.initializeCommercialApp = initializeApp;
+
+    SmartSalesAuth.start({
+      onReady: async function (commercialContext) {
+        window.SmartSalesContext = commercialContext;
+        await initializeApp(commercialContext);
+      }
+    });
 
   </script></body>
 </html>
