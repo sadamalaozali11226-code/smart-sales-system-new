@@ -472,6 +472,11 @@
   }
 
   async function start(options) {
+    window.initializeCommercialApp =
+      options && typeof options.onReady === "function"
+        ? options.onReady
+        : null;
+
     createGate();
 
     const labels = getLabels()[document.documentElement.lang === "en" ? "en" : "ar"];
@@ -520,9 +525,6 @@
       setMessage(error.message || labels.error, "error");
     }
 
-    if (options && typeof options.onReady === "function") {
-      window.initializeCommercialApp = options.onReady;
-    }
   }
 
   window.SmartSalesAuth = Object.freeze({
