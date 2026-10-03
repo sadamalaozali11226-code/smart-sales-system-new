@@ -2274,368 +2274,106 @@
     }
 
     async function loadProducts() {
-
       try {
-
-        const response =
-          await fetch("/api/products");
-
-        if (!response.ok) {
-          throw new Error(
-            "Failed to load products"
-          );
-        }
-
-        products =
-          await response.json();
-
+        products = await SmartSalesAPI.products();
         renderProducts();
-
       } catch (error) {
-
         console.error(error);
-
-        showMessage(
-          translations[currentLanguage]
-            .productsLoadError,
-          true
-        );
+        showMessage(error.message || translations[currentLanguage].productsLoadError, true);
       }
     }
 
     async function loadSales() {
-
       try {
-
-        const response =
-          await fetch("/api/sales");
-
-        if (!response.ok) {
-          throw new Error(
-            "Failed to load sales"
-          );
-        }
-
-        const data =
-          await response.json();
-
-        document.getElementById(
-          "salesTotal"
-        ).textContent =
-          Number(
-            data.total || 0
-          ).toFixed(2);
-
+        const data = await SmartSalesAPI.sales();
+        document.getElementById("salesTotal").textContent = Number(data.total || 0).toFixed(2);
       } catch (error) {
-
         console.error(error);
-
-        document.getElementById(
-          "salesTotal"
-        ).textContent =
-          "0.00";
+        document.getElementById("salesTotal").textContent = "0.00";
       }
     }
 
     async function loadSalesHistory() {
-
-      const table =
-        document.getElementById(
-          "salesHistoryTable"
-        );
-
+      const table = document.getElementById("salesHistoryTable");
       table.innerHTML = "";
-
       try {
-
-        const response =
-          await fetch("/api/sales-history");
-
-        if (!response.ok) {
-          throw new Error(
-            "Failed to load sales history"
-          );
-        }
-
-        const data =
-          await response.json();
-
-        salesHistory =
-          Array.isArray(data.sales)
-            ? data.sales
-            : [];
-
+        salesHistory = await SmartSalesAPI.salesHistory();
         renderSalesHistory();
-
       } catch (error) {
-
         console.error(error);
-
         salesHistory = [];
-
         renderSalesHistory();
-
-        showMessage(
-          translations[currentLanguage]
-            .salesHistoryLoadError,
-          true
-        );
+        showMessage(error.message || translations[currentLanguage].salesHistoryLoadError, true);
       }
     }
 
     async function loadCustomers() {
-
       try {
-
-        const response =
-          await fetch("/api/customers");
-
-        if (!response.ok) {
-          throw new Error(
-            "Failed to load customers"
-          );
-        }
-
-        customers =
-          await response.json();
-
+        customers = await SmartSalesAPI.customers();
         renderCustomers();
-
       } catch (error) {
-
         console.error(error);
-
         customers = [];
-
         renderCustomers();
-
-        showMessage(
-          translations[currentLanguage]
-            .customersLoadError,
-          true
-        );
+        showMessage(error.message || translations[currentLanguage].customersLoadError, true);
       }
     }
 
     async function addProduct() {
+      const name = document.getElementById("productName").value.trim();
+      const price = document.getElementById("productPrice").value;
+      const quantity = document.getElementById("productQuantity").value;
+      const t = translations[currentLanguage];
 
-      const name =
-        document
-          .getElementById("productName")
-          .value
-          .trim();
-
-      const price =
-        document
-          .getElementById("productPrice")
-          .value;
-
-      const quantity =
-        document
-          .getElementById("productQuantity")
-          .value;
-
-      const t =
-        translations[currentLanguage];
-
-      if (
-        !name ||
-        price === "" ||
-        quantity === ""
-      ) {
-
-        showMessage(
-          t.invalid,
-          true
-        );
-
+      if (!name || price === "" || quantity === "") {
+        showMessage(t.invalid, true);
         return;
       }
-
-      if (
-        Number(price) < 0 ||
-        Number(quantity) < 0
-      ) {
-
-        showMessage(
-          t.invalid,
-          true
-        );
-
+      if (Number(price) < 0 || Number(quantity) < 0) {
+        showMessage(t.invalid, true);
         return;
       }
 
       try {
-
-        const response =
-          await fetch(
-            "/api/products",
-            {
-              method: "POST",
-
-              headers: {
-                "Content-Type":
-                  "application/json"
-              },
-
-              body: JSON.stringify({
-                name,
-                price,
-                quantity
-              })
-            }
-          );
-
-        if (!response.ok) {
-
-          let data = {};
-
-          try {
-            data =
-              await response.json();
-          } catch {}
-
-          throw new Error(
-            data.error || t.invalid
-          );
-        }
-
-        document
-          .getElementById("productName")
-          .value = "";
-
-        document
-          .getElementById("productPrice")
-          .value = "";
-
-        document
-          .getElementById("productQuantity")
-          .value = "";
-
-        showMessage(
-          t.added
-        );
-
+        await SmartSalesAPI.createProduct({ name, price, quantity });
+        document.getElementById("productName").value = "";
+        document.getElementById("productPrice").value = "";
+        document.getElementById("productQuantity").value = "";
+        showMessage(t.added);
         await loadProducts();
-
       } catch (error) {
-
         console.error(error);
-
-        showMessage(
-          error.message ||
-          t.connectionError,
-          true
-        );
+        showMessage(error.message || t.connectionError, true);
       }
     }
 
     async function addCustomer() {
-
-      const name =
-        document
-          .getElementById("customerName")
-          .value
-          .trim();
-
-      const phone =
-        document
-          .getElementById("customerPhone")
-          .value
-          .trim();
-
-      const address =
-        document
-          .getElementById("customerAddress")
-          .value
-          .trim();
-
-      const notes =
-        document
-          .getElementById("customerNotes")
-          .value
-          .trim();
-
-      const t =
-        translations[currentLanguage];
+      const name = document.getElementById("customerName").value.trim();
+      const phone = document.getElementById("customerPhone").value.trim();
+      const address = document.getElementById("customerAddress").value.trim();
+      const notes = document.getElementById("customerNotes").value.trim();
+      const t = translations[currentLanguage];
 
       if (!name) {
-
-        showMessage(
-          t.customerNameRequired,
-          true
-        );
-
+        showMessage(t.customerNameRequired, true);
         return;
       }
 
       try {
-
-        const response =
-          await fetch(
-            "/api/customers",
-            {
-              method: "POST",
-
-              headers: {
-                "Content-Type":
-                  "application/json"
-              },
-
-              body: JSON.stringify({
-                name,
-                phone,
-                address,
-                notes
-              })
-            }
-          );
-
-        const data =
-          await response.json();
-
-        if (!response.ok) {
-
-          throw new Error(
-            data.error ||
-            "Failed to add customer"
-          );
-        }
-
-        document
-          .getElementById("customerName")
-          .value = "";
-
-        document
-          .getElementById("customerPhone")
-          .value = "";
-
-        document
-          .getElementById("customerAddress")
-          .value = "";
-
-        document
-          .getElementById("customerNotes")
-          .value = "";
-
-        showMessage(
-          t.customerAdded
-        );
-
+        await SmartSalesAPI.createCustomer({ name, phone, address, notes });
+        document.getElementById("customerName").value = "";
+        document.getElementById("customerPhone").value = "";
+        document.getElementById("customerAddress").value = "";
+        document.getElementById("customerNotes").value = "";
+        showMessage(t.customerAdded);
         await loadCustomers();
-
       } catch (error) {
-
         console.error(error);
-
-        showMessage(
-          error.message ||
-          t.connectionError,
-          true
-        );
+        showMessage(error.message || t.connectionError, true);
       }
     }
 
+    function renderProducts() {
     function renderProducts() {
 
       const table =
@@ -2797,12 +2535,6 @@
                 ${t.edit}
               </button>
 
-              <button
-                class="danger-btn"
-                onclick="deleteCustomer(${customer.id})"
-              >
-                ${t.delete}
-              </button>
 
             </div>
 
@@ -3160,269 +2892,81 @@
     }
 
     async function confirmSale() {
+      const button = document.getElementById("confirmSaleButton");
+      const productId = Number(selectedProductId);
+      const customerId = document.getElementById("saleCustomerSelect").value || null;
+      const paymentStatus = document.getElementById("salePaymentStatus").value;
+      const paidAmountInput = document.getElementById("salePaidAmount");
+      const paymentMethod = document.getElementById("salePaymentMethod").value;
+      const reference = document.getElementById("salePaymentReference").value.trim();
+      const total = Number(document.getElementById("saleTotalAmount").textContent || 0);
+      const t = translations[currentLanguage];
 
-      if (
-        selectedProductId === null
-      ) {
-        return;
-      }
-
-      const button =
-        document.getElementById(
-          "confirmSaleButton"
-        );
-
-      if (button.disabled) {
-        return;
-      }
-
-      const select =
-        document.getElementById(
-          "saleCustomerSelect"
-        );
-
-      const paymentStatus =
-        document.getElementById(
-          "salePaymentStatus"
-        ).value;
-
-      const paidAmountInput =
-        document.getElementById(
-          "salePaidAmount"
-        );
-
-      const paymentMethod =
-        document.getElementById(
-          "salePaymentMethod"
-        ).value;
-
-      const reference =
-        document.getElementById(
-          "salePaymentReference"
-        ).value.trim();
-
-      const selectedCustomerId =
-        select.value === ""
-          ? null
-          : Number(select.value);
-
-      const productId =
-        selectedProductId;
-
-      const total =
-        Number(currentSaleTotal);
-
-      let paidAmount =
-        Number(
-          paidAmountInput.value
-        );
-
-      const t =
-        translations[currentLanguage];
-
-      if (
-        !Number.isFinite(total) ||
-        total <= 0
-      ) {
-
-        showMessage(
-          t.invalid,
-          true
-        );
-
-        return;
-      }
-
-      if (
-        !Number.isFinite(paidAmount) ||
-        paidAmount < 0
-      ) {
-
-        showMessage(
-          t.invalidPaidAmount,
-          true
-        );
-
-        return;
-      }
-
-      if (
-        (
-          paymentStatus === "partial" ||
-          paymentStatus === "unpaid"
-        ) &&
-        selectedCustomerId === null
-      ) {
-
-        showMessage(
-          t.customerRequiredForDebt,
-          true
-        );
-
-        select.focus();
-
-        return;
-      }
-
-      if (
-        paymentStatus === "paid"
-      ) {
-
-        paidAmount =
-          total;
-
-      } else if (
-        paymentStatus === "partial"
-      ) {
-
-        if (
-          paidAmount <= 0 ||
-          paidAmount >= total
-        ) {
-
-          showMessage(
-            t.partialAmountInvalid,
-            true
-          );
-
-          paidAmountInput.focus();
-
-          return;
-        }
-
-      } else if (
-        paymentStatus === "unpaid"
-      ) {
-
-        paidAmount =
-          0;
-
-      } else {
-
-        showMessage(
-          t.invalid,
-          true
-        );
-
-        return;
-      }
-
-      if (
-        paidAmount > total
-      ) {
-
-        showMessage(
-          t.invalidPaidAmount,
-          true
-        );
-
+      let paidAmount = Number(paidAmountInput.value);
+      if (!Number.isFinite(paidAmount) || paidAmount < 0) {
+        showMessage(t.invalid, true);
         paidAmountInput.focus();
-
+        return;
+      }
+      if (paymentStatus === "paid") {
+        paidAmount = total;
+      } else if (paymentStatus === "unpaid") {
+        paidAmount = 0;
+      } else if (paymentStatus !== "partial") {
+        showMessage(t.invalid, true);
+        return;
+      }
+      if (paymentStatus !== "paid" && !customerId) {
+        showMessage(t.invalid, true);
+        return;
+      }
+      if (paymentStatus === "partial" && paidAmount <= 0) {
+        showMessage(t.invalidPaidAmount, true);
+        paidAmountInput.focus();
+        return;
+      }
+      if (paidAmount > total) {
+        showMessage(t.invalidPaidAmount, true);
+        paidAmountInput.focus();
         return;
       }
 
-      button.disabled =
-        true;
-
+      button.disabled = true;
       try {
-
-        const response =
-          await fetch(
-            "/api/sell",
-            {
-              method: "POST",
-
-              headers: {
-                "Content-Type":
-                  "application/json"
-              },
-
-              body: JSON.stringify({
-
-                id:
-                  productId,
-
-                customerId:
-                  selectedCustomerId,
-
-                paymentStatus:
-                  paymentStatus,
-
-                paidAmount:
-                  paidAmount,
-
-                paymentMethod:
-                  paymentMethod,
-
-                reference:
-                  reference || null
-              })
-            }
-          );
-
-        const data =
-          await response.json();
-
-        if (!response.ok) {
-
-          throw new Error(
-            data.error ||
-            "Failed to record sale"
-          );
-        }
-
-        if (data.product) {
-
-          const index =
-            products.findIndex(
-              p =>
-                Number(p.id) ===
-                Number(productId)
-            );
-
-          if (index !== -1) {
-
-            products[index] =
-              data.product;
-          }
-        }
+        const data = await SmartSalesAPI.createSale({
+          id: productId,
+          customerId,
+          paymentStatus,
+          paidAmount,
+          paymentMethod,
+          reference: reference || null
+        });
 
         closeSaleModal();
-
         await loadProducts();
         await loadSales();
         await loadSalesHistory();
-
-        showMessage(
-          t.sold
-        );
+        showMessage(t.sold);
 
         if (data.saleId) {
-
-          await openInvoiceById(
-            data.saleId
-          );
+          await openInvoiceById(data.saleId);
         }
-
       } catch (error) {
-
         console.error(error);
-
         showMessage(
           error.message ||
-          (
-            currentLanguage === "ar"
-              ? "حدث خطأ أثناء تسجيل البيع"
-              : "Error recording sale"
-          ),
+          (currentLanguage === "ar"
+            ? "حدث خطأ أثناء تسجيل البيع"
+            : "Error recording sale"),
           true
         );
-
-        button.disabled =
-          false;
+        button.disabled = false;
       }
     }
 
+    /*
+      ==============================
+      DEBT PAYMENT
     /*
       ==============================
       DEBT PAYMENT
@@ -3742,243 +3286,68 @@
     }
 
     async function confirmDebtPayment() {
+      if (selectedPaymentSaleId === null || !selectedPaymentInvoice) return;
 
-      if (
-        selectedPaymentSaleId === null ||
-        !selectedPaymentInvoice
-      ) {
+      const button = document.getElementById("confirmPaymentButton");
+      const amountInput = document.getElementById("debtPaymentAmount");
+      const paymentMethod = document.getElementById("debtPaymentMethod").value;
+      const reference = document.getElementById("debtPaymentReference").value.trim();
+      const amount = Number(amountInput.value);
+      const sale = selectedPaymentInvoice;
+      const status = String(sale.status || "").toLowerCase();
+      const t = translations[currentLanguage];
+
+      if (status === "cancelled" || status === "canceled") {
+        showMessage(t.paymentInvoiceCancelled, true);
         return;
       }
-
-      const button =
-        document.getElementById(
-          "confirmDebtPaymentButton"
-        );
-
-      if (button.disabled) {
-        return;
-      }
-
-      const t =
-        translations[currentLanguage];
-
-      const amountInput =
-        document.getElementById(
-          "debtPaymentAmount"
-        );
-
-      const paymentMethod =
-        document.getElementById(
-          "debtPaymentMethod"
-        ).value;
-
-      const reference =
-        document.getElementById(
-          "debtPaymentReference"
-        ).value.trim();
-
-      const amount =
-        Number(
-          amountInput.value
-        );
-
-      const sale =
-        selectedPaymentInvoice;
-
-      const status =
-        String(
-          sale.status || ""
-        ).toLowerCase();
-
-      if (
-        status === "cancelled" ||
-        status === "canceled"
-      ) {
-
-        showMessage(
-          t.paymentInvoiceCancelled,
-          true
-        );
-
-        return;
-      }
-
-      if (
-        !Number.isFinite(amount) ||
-        amount <= 0
-      ) {
-
-        showMessage(
-          t.paymentAmountRequired,
-          true
-        );
-
+      if (!Number.isFinite(amount) || amount <= 0) {
+        showMessage(t.paymentAmountRequired, true);
         amountInput.focus();
-
         return;
       }
-
-      if (
-        !Number.isFinite(currentPaymentRemaining) ||
-        currentPaymentRemaining <= 0
-      ) {
-
-        showMessage(
-          t.paymentInvoiceAlreadyPaid,
-          true
-        );
-
+      if (!Number.isFinite(currentPaymentRemaining) || currentPaymentRemaining <= 0) {
+        showMessage(t.paymentInvoiceAlreadyPaid, true);
         return;
       }
-
-      if (
-        amount > currentPaymentRemaining + 0.001
-      ) {
-
-        showMessage(
-          t.paymentAmountTooLarge,
-          true
-        );
-
+      if (amount > currentPaymentRemaining + 0.001) {
+        showMessage(t.paymentAmountTooLarge, true);
         amountInput.focus();
-
         return;
       }
 
-      button.disabled =
-        true;
-
+      button.disabled = true;
       try {
-
-        /*
-          The payment is sent to the dedicated
-          /api/payment endpoint.
-
-          The server remains responsible for the
-          atomic financial operation.
-        */
-
-        const response =
-          await fetch(
-            "/api/payment",
-            {
-              method: "POST",
-
-              headers: {
-                "Content-Type":
-                  "application/json"
-              },
-
-              body: JSON.stringify({
-
-                saleId:
-                  Number(
-                    selectedPaymentSaleId
-                  ),
-
-                amount:
-                  Number(
-                    amount.toFixed(2)
-                  ),
-
-                paymentMethod:
-                  paymentMethod,
-
-                reference:
-                  reference || null
-              })
-            }
-          );
-
-        let data = {};
-
-        try {
-          data =
-            await response.json();
-        } catch {}
-
-        if (!response.ok) {
-
-          throw new Error(
-            data.error ||
-            t.paymentError
-          );
-        }
+        const invoiceSaleId = Number(selectedPaymentSaleId);
+        await SmartSalesAPI.payment({
+          saleId: invoiceSaleId,
+          amount: Number(amount.toFixed(2)),
+          paymentMethod,
+          reference: reference || null
+        });
 
         closePaymentModal();
-
         await loadSalesHistory();
         await loadSales();
-
-        showMessage(
-          t.paymentSuccess
-        );
-
-        await openInvoiceById(
-          selectedPaymentSaleId
-        );
-
+        showMessage(t.paymentSuccess);
+        await openInvoiceById(invoiceSaleId);
       } catch (error) {
-
         console.error(error);
-
-        showMessage(
-          error.message ||
-          t.paymentError,
-          true
-        );
-
-        button.disabled =
-          false;
+        showMessage(error.message || t.paymentError, true);
+        button.disabled = false;
       }
     }
 
     async function openInvoiceById(saleId) {
-
       try {
-
-        const response =
-          await fetch(
-            "/api/invoice?id=" +
-            encodeURIComponent(saleId)
-          );
-
-        const data =
-          await response.json();
-
-        if (!response.ok) {
-
-          throw new Error(
-            data.error ||
-            translations[currentLanguage]
-              .invoiceLoadError
-          );
+        const invoice = await SmartSalesAPI.saleInvoice(saleId);
+        if (!invoice) {
+          throw new Error(translations[currentLanguage].invoiceNotFound);
         }
-
-        if (
-          !data.invoice
-        ) {
-
-          throw new Error(
-            translations[currentLanguage]
-              .invoiceNotFound
-          );
-        }
-
-        openInvoiceModal(
-          data.invoice
-        );
-
+        openInvoiceModal(invoice);
       } catch (error) {
-
         console.error(error);
-
-        showMessage(
-          error.message ||
-          translations[currentLanguage]
-            .invoiceLoadError,
-          true
-        );
+        showMessage(error.message || translations[currentLanguage].invoiceLoadError, true);
       }
     }
 
@@ -4683,79 +4052,6 @@
         t.statusUnknown;
     }
 
-    async function deleteProduct(id) {
-
-      const product =
-        products.find(
-          p =>
-            Number(p.id) ===
-            Number(id)
-        );
-
-      if (!product) {
-        return;
-      }
-
-      const confirmed =
-        confirm(
-          currentLanguage === "ar"
-            ? `هل أنت متأكد من حذف المنتج "${product.name}"؟`
-            : `Are you sure you want to delete "${product.name}"?`
-        );
-
-      if (!confirmed) {
-        return;
-      }
-
-      try {
-
-        const response =
-          await fetch(
-            "/api/delete-product?id=" +
-            id,
-            {
-              method: "DELETE"
-            }
-          );
-
-        const data =
-          await response.json();
-
-        if (!response.ok) {
-
-          throw new Error(
-            data.error ||
-            "Failed to delete product"
-          );
-        }
-
-        products =
-          products.filter(
-            product =>
-              Number(product.id) !==
-              Number(id)
-          );
-
-        renderProducts();
-
-        showMessage(
-          translations[currentLanguage]
-            .deleted
-        );
-
-      } catch (error) {
-
-        console.error(error);
-
-        showMessage(
-          currentLanguage === "ar"
-            ? "حدث خطأ أثناء حذف المنتج"
-            : "Error deleting product",
-          true
-        );
-      }
-    }
-
     function openCustomerEditModal(id) {
 
       const customer =
@@ -4810,207 +4106,38 @@
     }
 
     async function saveCustomerEdit() {
+      if (selectedCustomerId === null) return;
 
-      if (
-        selectedCustomerId === null
-      ) {
-        return;
-      }
-
-      const name =
-        document
-          .getElementById(
-            "editCustomerName"
-          )
-          .value
-          .trim();
-
-      const phone =
-        document
-          .getElementById(
-            "editCustomerPhone"
-          )
-          .value
-          .trim();
-
-      const address =
-        document
-          .getElementById(
-            "editCustomerAddress"
-          )
-          .value
-          .trim();
-
-      const notes =
-        document
-          .getElementById(
-            "editCustomerNotes"
-          )
-          .value
-          .trim();
-
-      const t =
-        translations[currentLanguage];
+      const name = document.getElementById("editCustomerName").value.trim();
+      const phone = document.getElementById("editCustomerPhone").value.trim();
+      const address = document.getElementById("editCustomerAddress").value.trim();
+      const notes = document.getElementById("editCustomerNotes").value.trim();
+      const t = translations[currentLanguage];
 
       if (!name) {
-
-        showMessage(
-          t.customerNameRequired,
-          true
-        );
-
+        showMessage(t.customerNameRequired, true);
         return;
       }
 
       try {
+        const updatedCustomer = await SmartSalesAPI.updateCustomer(
+          selectedCustomerId,
+          { name, phone, address, notes }
+        );
 
-        const response =
-          await fetch(
-            "/api/customers?id=" +
-            selectedCustomerId,
-            {
-              method: "PUT",
-
-              headers: {
-                "Content-Type":
-                  "application/json"
-              },
-
-              body: JSON.stringify({
-                name,
-                phone,
-                address,
-                notes
-              })
-            }
-          );
-
-        const data =
-          await response.json();
-
-        if (!response.ok) {
-
-          throw new Error(
-            data.error ||
-            "Failed to update customer"
-          );
-        }
-
-        const updatedCustomer =
-          data.customer;
-
-        const index =
-          customers.findIndex(
-            customer =>
-              Number(customer.id) ===
-              Number(selectedCustomerId)
-          );
-
-        if (index !== -1) {
-
-          customers[index] =
-            updatedCustomer;
-        }
+        const index = customers.findIndex(
+          customer => Number(customer.id) === Number(selectedCustomerId)
+        );
+        if (index !== -1) customers[index] = updatedCustomer;
 
         renderCustomers();
-
         renderSaleCustomerOptions();
-
         closeCustomerEditModal();
-
-        showMessage(
-          t.customerUpdated
-        );
-
+        showMessage(t.customerUpdated);
         await loadSalesHistory();
-
       } catch (error) {
-
         console.error(error);
-
-        showMessage(
-          error.message ||
-          t.customerUpdateError,
-          true
-        );
-      }
-    }
-
-    async function deleteCustomer(id) {
-
-      const customer =
-        customers.find(
-          item =>
-            Number(item.id) ===
-            Number(id)
-        );
-
-      if (!customer) {
-        return;
-      }
-
-      const t =
-        translations[currentLanguage];
-
-      const confirmed =
-        confirm(
-          currentLanguage === "ar"
-            ? `هل أنت متأكد من حذف العميل "${customer.name}"؟`
-            : `Are you sure you want to delete "${customer.name}"?`
-        );
-
-      if (!confirmed) {
-        return;
-      }
-
-      try {
-
-        const response =
-          await fetch(
-            "/api/customers?id=" +
-            id,
-            {
-              method: "DELETE"
-            }
-          );
-
-        const data =
-          await response.json();
-
-        if (!response.ok) {
-
-          throw new Error(
-            data.error ||
-            "Failed to delete customer"
-          );
-        }
-
-        customers =
-          customers.filter(
-            item =>
-              Number(item.id) !==
-              Number(id)
-          );
-
-        renderCustomers();
-
-        renderSaleCustomerOptions();
-
-        showMessage(
-          t.customerDeleted
-        );
-
-        await loadSalesHistory();
-
-      } catch (error) {
-
-        console.error(error);
-
-        showMessage(
-          error.message ||
-          t.customerDeleteError,
-          true
-        );
+        showMessage(error.message || t.customerUpdateError, true);
       }
     }
 
