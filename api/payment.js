@@ -49,109 +49,22 @@ export default async function handler(req, res) {
       });
     }
 
-    // Get sale
-    const saleResponse =
+    const normalizedPaymentMethod =
+      typeof paymentMethod === "string" &&
+      paymentMethod.trim()
+        ? paymentMethod.trim()
+        : "cash";
+
+    const normalizedReference =
+      typeof reference === "string" &&
+      reference.trim()
+        ? reference.trim()
+        : null;
+
+    // Record payment atomically through PostgreSQL RPC
+    const rpcResponse =
       await fetch(
-        `${supabaseUrl}/rest/v1/sales?id=eq.${parsedSaleId}&select=id,invoice_number,total,payment_status,status`,
-        {
-          headers: {
-            apikey: supabaseKey,
-            Authorization:
-              `Bearer ${supabaseKey}`
-          }
-        }
-      );
-
-    if (!saleResponse.ok) {
-      throw new Error(
-        "Failed to load sale"
-      );
-    }
-
-    const sales =
-      await saleResponse.json();
-
-    if (!sales.length) {
-      return res.status(404).json({
-        error: "Sale not found"
-      });
-    }
-
-    const sale = sales[0];
-
-    if (sale.status === "cancelled") {
-      return res.status(400).json({
-        error: "Cannot pay a cancelled sale"
-      });
-    }
-
-    const total =
-      Number(sale.total);
-
-    if (
-      !Number.isFinite(total) ||
-      total <= 0
-    ) {
-      return res.status(400).json({
-        error: "Invalid sale total"
-      });
-    }
-
-    // Get previous payments
-    const paymentsResponse =
-      await fetch(
-        `${supabaseUrl}/rest/v1/payments?sale_id=eq.${parsedSaleId}&select=id,amount,payment_method,reference,paid_at&order=paid_at.asc`,
-        {
-          headers: {
-            apikey: supabaseKey,
-            Authorization:
-              `Bearer ${supabaseKey}`
-          }
-        }
-      );
-
-    if (!paymentsResponse.ok) {
-      throw new Error(
-        "Failed to load previous payments"
-      );
-    }
-
-    const payments =
-      await paymentsResponse.json();
-
-    const paidBefore =
-      payments.reduce(
-        (sum, payment) =>
-          sum + Number(payment.amount || 0),
-        0
-      );
-
-    const remainingBefore =
-      Math.max(
-        total - paidBefore,
-        0
-      );
-
-    if (remainingBefore <= 0) {
-      return res.status(400).json({
-        error: "Invoice is already fully paid"
-      });
-    }
-
-    if (
-      paymentAmount >
-      remainingBefore
-    ) {
-      return res.status(400).json({
-        error:
-          `Payment exceeds remaining amount. Remaining: ${remainingBefore}`
-      });
-    }
-
-    // Insert payment
-    const paymentResponse =
-      await fetch(
-        `${supabaseUrl}/rest/v1/payments`,
+        `${supabaseUrl}/rest/v1/rpc/record_sale_payment`,
         {
           method: "POST",
           headers: {
@@ -159,119 +72,142 @@ export default async function handler(req, res) {
             Authorization:
               `Bearer ${supabaseKey}`,
             "Content-Type":
-              "application/json",
-            Prefer:
-              "return=representation"
+              "application/json"
           },
           body: JSON.stringify({
-            sale_id: parsedSaleId,
-            amount: paymentAmount,
-            payment_method:
-              paymentMethod || "cash",
-            reference:
-              reference || null,
-            paid_at:
-              new Date().toISOString()
+            p_sale_id:
+              parsedSaleId,
+            p_amount:
+              paymentAmount,
+            p_payment_method:
+              normalizedPaymentMethod,
+            p_reference:
+              normalizedReference
           })
         }
       );
 
-    if (!paymentResponse.ok) {
-      const errorText =
-        await paymentResponse.text();
+    const responseText =
+      await rpcResponse.text();
 
-      throw new Error(
-        errorText ||
-        "Failed to record payment"
-      );
+    let result = null;
+
+    try {
+      result = responseText
+        ? JSON.parse(responseText)
+        : null;
+    } catch {
+      result = null;
     }
 
-    const insertedPayments =
-      await paymentResponse.json();
+    if (!rpcResponse.ok) {
+      const rpcError =
+        result?.message ||
+        result?.error ||
+        responseText ||
+        "Failed to record payment";
 
-    const insertedPayment =
-      insertedPayments[0];
-
-    const paidAmount =
-      paidBefore +
-      paymentAmount;
-
-    const remainingAmount =
-      Math.max(
-        total - paidAmount,
-        0
-      );
-
-    let paymentStatus =
-      "unpaid";
-
-    if (remainingAmount <= 0.001) {
-      paymentStatus = "paid";
-    } else if (paidAmount > 0) {
-      paymentStatus = "partial";
-    }
-
-    // Update sale payment status
-    const updateResponse =
-      await fetch(
-        `${supabaseUrl}/rest/v1/sales?id=eq.${parsedSaleId}`,
-        {
-          method: "PATCH",
-          headers: {
-            apikey: supabaseKey,
-            Authorization:
-              `Bearer ${supabaseKey}`,
-            "Content-Type":
-              "application/json",
-            Prefer:
-              "return=minimal"
-          },
-          body: JSON.stringify({
-            payment_status:
-              paymentStatus
-          })
-        }
-      );
-
-    if (!updateResponse.ok) {
-      // Roll back inserted payment
-      if (insertedPayment?.id) {
-        await fetch(
-          `${supabaseUrl}/rest/v1/payments?id=eq.${insertedPayment.id}`,
-          {
-            method: "DELETE",
-            headers: {
-              apikey: supabaseKey,
-              Authorization:
-                `Bearer ${supabaseKey}`
-            }
-          }
-        );
+      if (
+        rpcError.includes("Sale not found")
+      ) {
+        return res.status(404).json({
+          error: "Sale not found"
+        });
       }
 
-      throw new Error(
-        "Failed to update sale payment status"
+      if (
+        rpcError.includes(
+          "Cannot pay a cancelled sale"
+        )
+      ) {
+        return res.status(400).json({
+          error:
+            "Cannot pay a cancelled sale"
+        });
+      }
+
+      if (
+        rpcError.includes(
+          "Invoice is already fully paid"
+        )
+      ) {
+        return res.status(400).json({
+          error:
+            "Invoice is already fully paid"
+        });
+      }
+
+      if (
+        rpcError.includes(
+          "Payment exceeds remaining amount"
+        )
+      ) {
+        return res.status(400).json({
+          error: rpcError
+        });
+      }
+
+      if (
+        rpcError.includes(
+          "Invalid payment amount"
+        )
+      ) {
+        return res.status(400).json({
+          error:
+            "Invalid payment amount"
+        });
+      }
+
+      console.error(
+        "Payment RPC error:",
+        rpcError
       );
+
+      return res.status(500).json({
+        error:
+          "Failed to record payment"
+      });
+    }
+
+    if (
+      !result ||
+      result.success !== true
+    ) {
+      console.error(
+        "Invalid payment RPC response:",
+        result
+      );
+
+      return res.status(500).json({
+        error:
+          "Invalid payment response"
+      });
     }
 
     return res.status(200).json({
       success: true,
-      saleId: parsedSaleId,
+      saleId:
+        result.sale_id,
       invoiceNumber:
-        sale.invoice_number,
-      total,
+        result.invoice_number,
+      total:
+        result.total,
       previousPaidAmount:
-        paidBefore,
-      paymentAmount,
-      paidAmount,
-      remainingAmount,
-      paymentStatus,
+        result.previousPaidAmount,
+      paymentAmount:
+        result.paymentAmount,
+      paidAmount:
+        result.paidAmount,
+      remainingAmount:
+        result.remainingAmount,
+      paymentStatus:
+        result.paymentStatus,
       paymentMethod:
-        paymentMethod || "cash",
+        result.paymentMethod,
       reference:
-        reference || null,
-      payment:
-        insertedPayment || null
+        result.reference,
+      paymentId:
+        result.paymentId
     });
 
   } catch (error) {
@@ -282,7 +218,6 @@ export default async function handler(req, res) {
 
     return res.status(500).json({
       error:
-        error.message ||
         "Failed to record payment"
     });
   }
