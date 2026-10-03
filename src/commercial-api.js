@@ -2,7 +2,9 @@
   "use strict";
 
   function client() {
-    if (!window.SmartSalesAuth) throw new Error("Authentication is not ready.");
+    if (!window.SmartSalesAuth) {
+      throw new Error("Authentication is not ready.");
+    }
     return window.SmartSalesAuth.getClient();
   }
 
@@ -14,37 +16,264 @@
     return value;
   }
 
+  function normalizeCustomer(value) {
+    if (!value) return null;
+    return {
+      id: Number(value.id),
+      name: value.name || "",
+      phone: value.phone || null,
+      address: value.address || null,
+      notes: value.notes || null,
+      created_at: value.created_at || null
+    };
+  }
+
+  function normalizePayment(value) {
+    return {
+      id: Number(value.id),
+      saleId: value.sale_id == null ? null : Number(value.sale_id),
+      amount: Number(value.amount || 0),
+      paymentMethod: value.payment_method || null,
+      reference: value.reference || null,
+      paidAt: value.paid_at || null
+    };
+  }
+
+  function normalizeSaleItem(value) {
+    return {
+      id: Number(value.id),
+      productId: value.product_id == null ? null : Number(value.product_id),
+      productName: value.product_name || "",
+      unitPrice: Number(value.unit_price || 0),
+      quantity: Number(value.quantity || 0),
+      discount: Number(value.discount || 0),
+      total: Number(value.total || 0)
+    };
+  }
+
+  function normalizeSale(value, customer, items, payments) {
+    const total = Number(value.total || 0);
+    const paidAmount = payments.reduce((sum, item) => sum + Number(item.amount || 0), 0);
+    const remainingAmount = Math.max(total - paidAmount, 0);
+    let paymentStatus = value.payment_status || "unpaid";
+
+    if (remainingAmount <= 0 && total > 0) {
+      paymentStatus = "paid";
+    } else if (paidAmount > 0) {
+      paymentStatus = "partial";
+    } else {
+      paymentStatus = "unpaid";
+    }
+
+    return {
+      id: Number(value.id),
+      invoiceNumber: value.invoice_number,
+      customerId: value.customer_id == null ? null : Number(value.customer_id),
+      customer,
+      subtotal: Number(value.subtotal || 0),
+      discount: Number(value.discount || 0),
+      tax: Number(value.tax || 0),
+      total,
+      paymentStatus,
+      paidAmount,
+      remainingAmount,
+      payments,
+      status: value.status,
+      notes: value.notes || null,
+      createdAt: value.created_at,
+      items
+    };
+  }
+
   async function products() {
     const supabase = client();
     const { store } = context();
+
     const [p, sp] = await Promise.all([
-      supabase.from("products").select("id,name,price,organization_id").order("id"),
-      supabase.from("store_products").select("product_id,quantity,reorder_level,average_cost").eq("store_id", store.id)
+      supabase
+        .from("products")
+        .select("id,name,price,organization_id")
+        .order("id"),
+      supabase
+        .from("store_products")
+        .select("product_id,quantity,reorder_level,average_cost")
+        .eq("store_id", store.id)
     ]);
+
     if (p.error) throw p.error;
     if (sp.error) throw sp.error;
-    const map = new Map((sp.data || []).map(x => [Number(x.product_id), x]));
-    return (p.data || []).map(x => ({
-      id: Number(x.id), name: x.name, price: Number(x.price || 0),
-      quantity: Number(map.get(Number(x.id))?.quantity || 0),
-      organization_id: x.organization_id
+
+    const map = new Map(
+      (sp.data || []).map(item => [Number(item.product_id), item])
+    );
+
+    return (p.data || []).map(item => ({
+      id: Number(item.id),
+      name: item.name,
+      price: Number(item.price || 0),
+      quantity: Number(map.get(Number(item.id))?.quantity || 0),
+      organization_id: item.organization_id
     }));
   }
 
   async function customers() {
-    const { data, error } = await client().from("customers")
-      .select("id,name,phone,address,notes,created_at").order("id");
+    const { data, error } = await client()
+      .from("customers")
+      .select("id,name,phone,address,notes,created_at")
+      .order("id");
+
     if (error) throw error;
-    return data || [];
+    return (data || []).map(normalizeCustomer);
   }
 
   async function sales() {
     const { store } = context();
-    const { data, error } = await client().from("sales")
+    const supabase = client();
+
+    const { data: salesData, error } = await supabase
+      .from("sales")
       .select("id,invoice_number,customer_id,subtotal,discount,tax,total,payment_status,status,notes,created_at")
-      .eq("store_id", store.id).order("created_at", { ascending: false });
+      .eq("store_id", store.id)
+      .order("created_at", { ascending: false });
+
     if (error) throw error;
-    return data || [];
+
+    const salesRows = salesData || [];
+    if (salesRows.length === 0) {
+      return { total: 0, paidTotal: 0, remainingTotal: 0, count: 0, sales: [] };
+    }
+
+    const saleIds = salesRows.map(item => Number(item.id));
+    const customerIds = [...new Set(
+      salesRows
+        .map(item => item.customer_id)
+        .filter(id => id != null)
+        .map(Number)
+    )];
+
+    const [paymentsResult, customersResult] = await Promise.all([
+      supabase
+        .from("payments")
+        .select("id,sale_id,amount,payment_method,reference,paid_at")
+        .in("sale_id", saleIds)
+        .order("paid_at", { ascending: true }),
+      customerIds.length
+        ? supabase
+            .from("customers")
+            .select("id,name,phone,address,notes,created_at")
+            .in("id", customerIds)
+        : Promise.resolve({ data: [], error: null })
+    ]);
+
+    if (paymentsResult.error) throw paymentsResult.error;
+    if (customersResult.error) throw customersResult.error;
+
+    const paymentMap = new Map();
+    (paymentsResult.data || []).forEach(item => {
+      const saleId = Number(item.sale_id);
+      if (!paymentMap.has(saleId)) paymentMap.set(saleId, []);
+      paymentMap.get(saleId).push(normalizePayment(item));
+    });
+
+    const customerMap = new Map(
+      (customersResult.data || []).map(item => [Number(item.id), normalizeCustomer(item)])
+    );
+
+    const normalizedSales = salesRows.map(item => normalizeSale(
+      item,
+      item.customer_id == null ? null : customerMap.get(Number(item.customer_id)) || null,
+      [],
+      paymentMap.get(Number(item.id)) || []
+    ));
+
+    return {
+      total: normalizedSales.reduce((sum, item) => sum + item.total, 0),
+      paidTotal: normalizedSales.reduce((sum, item) => sum + item.paidAmount, 0),
+      remainingTotal: normalizedSales.reduce((sum, item) => sum + item.remainingAmount, 0),
+      count: normalizedSales.length,
+      sales: normalizedSales
+    };
+  }
+
+  async function salesHistory() {
+    const supabase = client();
+    const summary = await sales();
+
+    if (summary.sales.length === 0) {
+      return summary.sales;
+    }
+
+    const saleIds = summary.sales.map(item => Number(item.id));
+    const { data: itemsData, error } = await supabase
+      .from("sale_items")
+      .select("id,sale_id,product_id,product_name,unit_price,quantity,discount,total")
+      .in("sale_id", saleIds)
+      .order("id", { ascending: true });
+
+    if (error) throw error;
+
+    const itemsMap = new Map();
+    (itemsData || []).forEach(item => {
+      const saleId = Number(item.sale_id);
+      if (!itemsMap.has(saleId)) itemsMap.set(saleId, []);
+      itemsMap.get(saleId).push(normalizeSaleItem(item));
+    });
+
+    return summary.sales.map(item => ({
+      ...item,
+      items: itemsMap.get(Number(item.id)) || []
+    }));
+  }
+
+  async function saleInvoice(saleId) {
+    const supabase = client();
+    const { store } = context();
+    const id = Number(saleId);
+
+    if (!Number.isInteger(id) || id <= 0) {
+      throw new Error("Invalid sale id");
+    }
+
+    const { data: sale, error: saleError } = await supabase
+      .from("sales")
+      .select("id,invoice_number,customer_id,subtotal,discount,tax,total,payment_status,status,notes,created_at")
+      .eq("id", id)
+      .eq("store_id", store.id)
+      .maybeSingle();
+
+    if (saleError) throw saleError;
+    if (!sale) return null;
+
+    const [itemsResult, paymentsResult, customerResult] = await Promise.all([
+      supabase
+        .from("sale_items")
+        .select("id,sale_id,product_id,product_name,unit_price,quantity,discount,total")
+        .eq("sale_id", id)
+        .order("id", { ascending: true }),
+      supabase
+        .from("payments")
+        .select("id,sale_id,amount,payment_method,reference,paid_at")
+        .eq("sale_id", id)
+        .order("paid_at", { ascending: true })
+        .order("id", { ascending: true }),
+      sale.customer_id == null
+        ? Promise.resolve({ data: null, error: null })
+        : supabase
+            .from("customers")
+            .select("id,name,phone,address,notes,created_at")
+            .eq("id", sale.customer_id)
+            .maybeSingle()
+    ]);
+
+    if (itemsResult.error) throw itemsResult.error;
+    if (paymentsResult.error) throw paymentsResult.error;
+    if (customerResult.error) throw customerResult.error;
+
+    const payments = (paymentsResult.data || []).map(normalizePayment);
+    const items = (itemsResult.data || []).map(normalizeSaleItem);
+    const customer = normalizeCustomer(customerResult.data);
+
+    return normalizeSale(sale, customer, items, payments);
   }
 
   async function createProduct(body) {
@@ -58,6 +287,7 @@
       p_organization_id: organization.id,
       p_store_id: store.id
     });
+
     if (error) throw error;
     return data;
   }
@@ -71,6 +301,7 @@
       p_notes: body.notes ? String(body.notes).trim() : null,
       p_organization_id: organization.id
     });
+
     if (error) throw error;
     return data;
   }
@@ -85,6 +316,7 @@
       p_notes: body.notes ? String(body.notes).trim() : null,
       p_organization_id: organization.id
     });
+
     if (error) throw error;
     return data;
   }
@@ -92,12 +324,18 @@
   async function createSale(body) {
     const { organization, store } = context();
     const productId = Number(body.id);
+
     const { data: product, error: productError } = await client()
-      .from("products").select("id,name,price").eq("id", productId).maybeSingle();
+      .from("products")
+      .select("id,name,price")
+      .eq("id", productId)
+      .maybeSingle();
+
     if (productError) throw productError;
     if (!product) throw new Error("Product not found.");
 
     const invoice = "INV-" + Date.now() + "-" + Math.floor(Math.random() * 1000);
+
     const { data, error } = await client().rpc("create_sale_transaction", {
       p_invoice_number: invoice,
       p_customer_id: body.customerId == null || body.customerId === "" ? null : Number(body.customerId),
@@ -111,8 +349,21 @@
       p_organization_id: organization.id,
       p_store_id: store.id
     });
+
     if (error) throw error;
-    return data;
+
+    const result = data || {};
+    return {
+      ...result,
+      saleId: result.sale_id == null ? null : Number(result.sale_id),
+      invoiceNumber: result.invoice_number || invoice,
+      product: {
+        id: Number(result.product_id || product.id),
+        name: result.product_name || product.name,
+        price: Number(result.price ?? product.price),
+        quantity: Number(result.quantity || 0)
+      }
+    };
   }
 
   async function payment(body) {
@@ -122,11 +373,21 @@
       p_payment_method: body.paymentMethod ? String(body.paymentMethod) : "cash",
       p_reference: body.reference ? String(body.reference) : null
     });
+
     if (error) throw error;
     return data;
   }
 
   window.SmartSalesAPI = Object.freeze({
-    products, customers, sales, createProduct, createCustomer, updateCustomer, createSale, payment
+    products,
+    customers,
+    sales,
+    salesHistory,
+    saleInvoice,
+    createProduct,
+    createCustomer,
+    updateCustomer,
+    createSale,
+    payment
   });
 })();
