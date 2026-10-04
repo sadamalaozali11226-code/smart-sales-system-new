@@ -1065,7 +1065,11 @@ if (!window.SmartSalesAPI) {
         flex-direction: column;
       }
     }
-  </style></head><body>  <div class="container"><header>
+  </style>
+  <style>
+    /* Fail closed until the commercial authentication bootstrap completes. */
+    #commercialAppShell { visibility: hidden; }
+  </style></head><body>  <div id="commercialAppShell" class="container"><header>
   <h1 id="title">نظام المبيعات الذكي</h1>
 
   <button
@@ -4661,11 +4665,29 @@ if (!window.SmartSalesAPI) {
 
     window.initializeCommercialApp = initializeApp;
 
-    SmartSalesAuth.start({
-      onReady: async function (commercialContext) {
-        window.SmartSalesContext = commercialContext;
-        await initializeApp(commercialContext);
+    async function bootCommercialAuthentication(attempt = 0) {
+      if (window.SmartSalesAuth && typeof window.SmartSalesAuth.start === "function") {
+        await window.SmartSalesAuth.start({
+          onReady: async function (commercialContext) {
+            window.SmartSalesContext = commercialContext;
+            document.getElementById("commercialAppShell").style.visibility = "visible";
+            await initializeApp(commercialContext);
+          }
+        });
+        return;
       }
+
+      if (attempt >= 20) {
+        console.error("COMMERCIAL AUTH BOOT FAILED: SmartSalesAuth is unavailable.");
+        return;
+      }
+
+      await new Promise(resolve => setTimeout(resolve, 150));
+      return bootCommercialAuthentication(attempt + 1);
+    }
+
+    bootCommercialAuthentication().catch(error => {
+      console.error("COMMERCIAL AUTH START ERROR:", error);
     });
 
   </script></body>
