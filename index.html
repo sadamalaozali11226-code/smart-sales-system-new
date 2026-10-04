@@ -362,6 +362,42 @@
       color: #991b1b;
     }
 
+    .sale-cart {
+      margin: 15px 0;
+      border: 1px solid #e5e7eb;
+      border-radius: 10px;
+      overflow: hidden;
+    }
+
+    .sale-cart-controls {
+      display: grid;
+      grid-template-columns: 1fr 120px auto;
+      gap: 8px;
+      padding: 10px;
+      background: #f8fafc;
+    }
+
+    .sale-cart table {
+      margin: 0;
+    }
+
+    .sale-cart th,
+    .sale-cart td {
+      padding: 8px;
+    }
+
+    .sale-cart-remove {
+      background: #dc2626;
+      color: white;
+      padding: 6px 10px;
+    }
+
+    .sale-cart-empty {
+      padding: 12px;
+      text-align: center;
+      color: #777;
+    }
+
     .modal-overlay {
       position: fixed;
       inset: 0;
@@ -865,171 +901,87 @@
 
 </div>
 
-  </div>  <!-- Sale Modal -->  <div
-    class="modal-overlay"
-    id="saleModal"
-  ><div class="modal">
+  </div>  <!-- Sale Modal -->
+  <div class="modal-overlay" id="saleModal">
+    <div class="modal">
+      <h3 id="saleModalTitle">إتمام البيع</h3>
 
-  <h3 id="saleModalTitle">
-    إتمام البيع
-  </h3>
+      <div class="sale-total-box">
+        <div class="sale-summary-row">
+          <span id="saleProductLabel">المنتجات</span>
+          <strong id="saleProductName">-</strong>
+        </div>
+        <div class="sale-summary-row">
+          <span id="saleUnitPriceLabel">عدد المنتجات</span>
+          <strong id="saleUnitPrice">0</strong>
+        </div>
+        <div class="sale-summary-row">
+          <span id="saleTotalLabel">إجمالي البيع</span>
+          <strong id="saleTotalAmount">0.00</strong>
+        </div>
+      </div>
 
-  <div class="sale-total-box">
+      <div class="sale-cart">
+        <div class="sale-cart-controls">
+          <select id="saleCartProductSelect"></select>
+          <input type="text" id="saleCartQuantity" inputmode="numeric" value="1" placeholder="الكمية">
+          <button type="button" class="sale-btn" onclick="addSaleCartItem()" id="addSaleCartItemButton">إضافة</button>
+        </div>
 
-    <div class="sale-summary-row">
-      <span id="saleProductLabel">المنتج</span>
-      <strong id="saleProductName">-</strong>
+        <table>
+          <thead>
+            <tr>
+              <th id="saleCartProductHeader">المنتج</th>
+              <th id="saleCartQuantityHeader">الكمية</th>
+              <th id="saleCartPriceHeader">السعر</th>
+              <th id="saleCartTotalHeader">الإجمالي</th>
+              <th id="saleCartActionHeader">الإجراء</th>
+            </tr>
+          </thead>
+          <tbody id="saleCartItemsBody"></tbody>
+        </table>
+
+        <div class="sale-cart-empty" id="saleCartEmpty">السلة فارغة</div>
+      </div>
+
+      <label for="saleCustomerSelect" id="saleCustomerLabel">العميل</label>
+      <select id="saleCustomerSelect" onchange="handleSaleCustomerChange()"></select>
+
+      <div class="sale-payment-section">
+        <label for="salePaymentStatus" id="salePaymentStatusLabel">حالة الدفع</label>
+        <select id="salePaymentStatus" onchange="handlePaymentStatusChange()">
+          <option value="paid">مدفوع</option>
+          <option value="partial">مدفوع جزئيًا</option>
+          <option value="unpaid">غير مدفوع / آجل</option>
+        </select>
+
+        <label for="salePaidAmount" id="salePaidAmountLabel">المبلغ المدفوع</label>
+        <input type="number" id="salePaidAmount" min="0" step="0.01" value="0" oninput="updatePaymentPreview()">
+
+        <div class="remaining-preview" id="saleRemainingPreview">المتبقي: 0.00</div>
+
+        <label for="salePaymentMethod" id="salePaymentMethodLabel">طريقة الدفع</label>
+        <select id="salePaymentMethod">
+          <option value="cash">نقدي</option>
+          <option value="card">بطاقة</option>
+          <option value="transfer">تحويل</option>
+          <option value="other">أخرى</option>
+        </select>
+
+        <label for="salePaymentReference" id="salePaymentReferenceLabel">المرجع</label>
+        <input type="text" id="salePaymentReference" placeholder="رقم المرجع أو العملية">
+
+        <div class="payment-help" id="salePaymentHelp">في البيع الآجل أو الجزئي يجب اختيار عميل.</div>
+      </div>
+
+      <div class="modal-buttons">
+        <button class="modal-confirm" onclick="confirmSale()" id="confirmSaleButton">تأكيد البيع</button>
+        <button class="modal-cancel" onclick="closeSaleModal()" id="cancelSaleButton">إلغاء</button>
+      </div>
     </div>
-
-    <div class="sale-summary-row">
-      <span id="saleUnitPriceLabel">سعر الوحدة</span>
-      <strong id="saleUnitPrice">0.00</strong>
-    </div>
-
-    <div class="sale-summary-row">
-      <span id="saleTotalLabel">إجمالي البيع</span>
-      <strong id="saleTotalAmount">0.00</strong>
-    </div>
-
   </div>
 
-  <label
-    for="saleCustomerSelect"
-    id="saleCustomerLabel"
-  >
-    العميل
-  </label>
-
-  <select
-    id="saleCustomerSelect"
-    onchange="handleSaleCustomerChange()"
-  ></select>
-
-  <div class="sale-payment-section">
-
-    <label
-      for="salePaymentStatus"
-      id="salePaymentStatusLabel"
-    >
-      حالة الدفع
-    </label>
-
-    <select
-      id="salePaymentStatus"
-      onchange="handlePaymentStatusChange()"
-    >
-
-      <option value="paid">
-        مدفوع
-      </option>
-
-      <option value="partial">
-        مدفوع جزئيًا
-      </option>
-
-      <option value="unpaid">
-        غير مدفوع / آجل
-      </option>
-
-    </select>
-
-    <label
-      for="salePaidAmount"
-      id="salePaidAmountLabel"
-    >
-      المبلغ المدفوع
-    </label>
-
-    <input
-      type="number"
-      id="salePaidAmount"
-      min="0"
-      step="0.01"
-      value="0"
-      oninput="updatePaymentPreview()"
-    >
-
-    <div
-      class="remaining-preview"
-      id="saleRemainingPreview"
-    >
-      المتبقي: 0.00
-    </div>
-
-    <label
-      for="salePaymentMethod"
-      id="salePaymentMethodLabel"
-    >
-      طريقة الدفع
-    </label>
-
-    <select
-      id="salePaymentMethod"
-    >
-
-      <option value="cash">
-        نقدي
-      </option>
-
-      <option value="card">
-        بطاقة
-      </option>
-
-      <option value="transfer">
-        تحويل
-      </option>
-
-      <option value="other">
-        أخرى
-      </option>
-
-    </select>
-
-    <label
-      for="salePaymentReference"
-      id="salePaymentReferenceLabel"
-    >
-      المرجع
-    </label>
-
-    <input
-      type="text"
-      id="salePaymentReference"
-      placeholder="رقم المرجع أو العملية"
-    >
-
-    <div
-      class="payment-help"
-      id="salePaymentHelp"
-    >
-      في البيع الآجل أو الجزئي يجب اختيار عميل.
-    </div>
-
-  </div>
-
-  <div class="modal-buttons">
-
-    <button
-      class="modal-confirm"
-      onclick="confirmSale()"
-      id="confirmSaleButton"
-    >
-      تأكيد البيع
-    </button>
-
-    <button
-      class="modal-cancel"
-      onclick="closeSaleModal()"
-      id="cancelSaleButton"
-    >
-      إلغاء
-    </button>
-
-  </div>
-
-</div>
-
-  </div>  <!-- Debt Payment Modal -->  <div
+  <!-- Debt Payment Modal -->  <div
     class="modal-overlay"
     id="paymentModal"
   ><div class="modal">
@@ -1464,6 +1416,7 @@
     let selectedProductId = null;
     let selectedCustomerId = null;
 
+    let saleCart = [];
     let currentSaleTotal = 0;
 
     let selectedPaymentSaleId = null;
@@ -1592,9 +1545,17 @@
 
         loading: "جارٍ التحميل...",
 
-        saleProduct: "المنتج",
-        saleUnitPrice: "سعر الوحدة",
+        saleProduct: "المنتجات",
+        saleUnitPrice: "عدد المنتجات",
         saleTotal: "إجمالي البيع",
+        saleCartProduct: "المنتج",
+        saleCartQuantity: "الكمية",
+        saleCartPrice: "السعر",
+        saleCartTotal: "الإجمالي",
+        saleCartAction: "الإجراء",
+        saleCartEmpty: "السلة فارغة",
+        addToCart: "إضافة",
+        removeFromCart: "حذف",
         saleCustomer: "العميل",
 
         paymentStatus: "حالة الدفع",
@@ -1771,9 +1732,17 @@
 
         loading: "Loading...",
 
-        saleProduct: "Product",
-        saleUnitPrice: "Unit Price",
+        saleProduct: "Products",
+        saleUnitPrice: "Items",
         saleTotal: "Sale Total",
+        saleCartProduct: "Product",
+        saleCartQuantity: "Quantity",
+        saleCartPrice: "Price",
+        saleCartTotal: "Total",
+        saleCartAction: "Action",
+        saleCartEmpty: "Cart is empty",
+        addToCart: "Add",
+        removeFromCart: "Remove",
         saleCustomer: "Customer",
 
         paymentStatus: "Payment Status",
@@ -1990,6 +1959,21 @@
 
       document.getElementById("saleTotalLabel").textContent =
         t.saleTotal;
+
+      document.getElementById("saleCartProductHeader").textContent =
+        t.saleCartProduct;
+      document.getElementById("saleCartQuantityHeader").textContent =
+        t.saleCartQuantity;
+      document.getElementById("saleCartPriceHeader").textContent =
+        t.saleCartPrice;
+      document.getElementById("saleCartTotalHeader").textContent =
+        t.saleCartTotal;
+      document.getElementById("saleCartActionHeader").textContent =
+        t.saleCartAction;
+      document.getElementById("saleCartEmpty").textContent =
+        t.saleCartEmpty;
+      document.getElementById("addSaleCartItemButton").textContent =
+        t.addToCart;
 
       document.getElementById("saleCustomerLabel").textContent =
         t.saleCustomer;
@@ -2616,108 +2600,168 @@
       }
     }
 
-    function openSaleModal(id) {
+    function renderSaleCartProductOptions() {
+      const select = document.getElementById("saleCartProductSelect");
+      const currentValue = select.value;
+      select.innerHTML = "";
 
-      const product =
-        products.find(
-          p =>
-            Number(p.id) ===
-            Number(id)
-        );
+      products
+        .filter(product => Number(product.quantity) > 0)
+        .forEach(product => {
+          const option = document.createElement("option");
+          option.value = product.id;
+          option.textContent = `${product.name} — ${Number(product.price || 0).toFixed(2)}`;
+          select.appendChild(option);
+        });
+
+      if (
+        currentValue &&
+        [...select.options].some(option => String(option.value) === String(currentValue))
+      ) {
+        select.value = currentValue;
+      }
+    }
+
+    function renderSaleCart() {
+      const table = document.getElementById("saleCartItemsBody");
+      const empty = document.getElementById("saleCartEmpty");
+      const t = translations[currentLanguage];
+
+      table.innerHTML = "";
+      empty.style.display = saleCart.length === 0 ? "block" : "none";
+
+      let total = 0;
+      let itemCount = 0;
+
+      saleCart.forEach((item, index) => {
+        const lineTotal = Number(item.price || 0) * Number(item.quantity || 0);
+        total += lineTotal;
+        itemCount += Number(item.quantity || 0);
+
+        const row = document.createElement("tr");
+        row.innerHTML = `
+          <td>${escapeHtml(item.name || "-")}</td>
+          <td>${Number(item.quantity || 0)}</td>
+          <td>${Number(item.price || 0).toFixed(2)}</td>
+          <td>${lineTotal.toFixed(2)}</td>
+          <td>
+            <button type="button" class="sale-cart-remove" onclick="removeSaleCartItem(${index})">
+              ${escapeHtml(t.removeFromCart)}
+            </button>
+          </td>
+        `;
+        table.appendChild(row);
+      });
+
+      currentSaleTotal = total;
+      document.getElementById("saleProductName").textContent =
+        saleCart.length === 0 ? "-" : saleCart.map(item => item.name).join(", ");
+      document.getElementById("saleUnitPrice").textContent = String(itemCount);
+      document.getElementById("saleTotalAmount").textContent = total.toFixed(2);
+
+      updatePaymentPreview();
+    }
+
+    function addSaleCartItem() {
+      const select = document.getElementById("saleCartProductSelect");
+      const quantityInput = document.getElementById("saleCartQuantity");
+      const productId = Number(select.value);
+      const quantityText = normalizeNumericInput(quantityInput.value).trim();
+      const quantity = Number(quantityText);
+      const t = translations[currentLanguage];
+      const product = products.find(item => Number(item.id) === productId);
 
       if (!product) {
+        showMessage(t.invalid, true);
         return;
       }
 
-      if (
-        Number(product.quantity) <= 0
-      ) {
+      if (quantityText === "" || !Number.isInteger(quantity) || quantity <= 0) {
+        showMessage(t.invalid, true);
+        quantityInput.focus();
+        return;
+      }
 
+      const existing = saleCart.find(item => Number(item.productId) === productId);
+      const existingQuantity = existing ? Number(existing.quantity) : 0;
+      const nextQuantity = existingQuantity + quantity;
+
+      if (nextQuantity > Number(product.quantity)) {
+        showMessage(
+          currentLanguage === "ar"
+            ? "الكمية المطلوبة تتجاوز المخزون المتاح."
+            : "Requested quantity exceeds available stock.",
+          true
+        );
+        quantityInput.focus();
+        return;
+      }
+
+      if (existing) {
+        existing.quantity = nextQuantity;
+      } else {
+        saleCart.push({
+          productId: Number(product.id),
+          name: product.name,
+          price: Number(product.price || 0),
+          quantity
+        });
+      }
+
+      quantityInput.value = "1";
+      renderSaleCart();
+    }
+
+    function removeSaleCartItem(index) {
+      saleCart.splice(index, 1);
+      renderSaleCart();
+    }
+
+    function openSaleModal(id) {
+      const product = products.find(p => Number(p.id) === Number(id));
+      if (!product) return;
+
+      if (Number(product.quantity) <= 0) {
         showMessage(
           currentLanguage === "ar"
             ? "المنتج غير متوفر في المخزون"
             : "Product is out of stock",
           true
         );
-
         return;
       }
 
-      selectedProductId =
-        Number(id);
+      selectedProductId = Number(id);
+      saleCart = [{
+        productId: Number(product.id),
+        name: product.name,
+        price: Number(product.price || 0),
+        quantity: 1
+      }];
 
-      currentSaleTotal =
-        Number(product.price || 0);
-
+      currentSaleTotal = Number(product.price || 0);
+      renderSaleCartProductOptions();
       renderSaleCustomerOptions();
 
-      document.getElementById(
-        "saleCustomerSelect"
-      ).value = "";
+      document.getElementById("saleCustomerSelect").value = "";
+      document.getElementById("saleCartProductSelect").value = String(product.id);
+      document.getElementById("saleCartQuantity").value = "1";
+      document.getElementById("salePaymentStatus").value = "paid";
+      document.getElementById("salePaidAmount").value = currentSaleTotal.toFixed(2);
+      document.getElementById("salePaymentMethod").value = "cash";
+      document.getElementById("salePaymentReference").value = "";
+      document.getElementById("saleModal").style.display = "flex";
 
-      document.getElementById(
-        "saleProductName"
-      ).textContent =
-        product.name || "-";
-
-      document.getElementById(
-        "saleUnitPrice"
-      ).textContent =
-        currentSaleTotal.toFixed(2);
-
-      document.getElementById(
-        "saleTotalAmount"
-      ).textContent =
-        currentSaleTotal.toFixed(2);
-
-      document.getElementById(
-        "salePaymentStatus"
-      ).value =
-        "paid";
-
-      document.getElementById(
-        "salePaidAmount"
-      ).value =
-        currentSaleTotal.toFixed(2);
-
-      document.getElementById(
-        "salePaymentMethod"
-      ).value =
-        "cash";
-
-      document.getElementById(
-        "salePaymentReference"
-      ).value =
-        "";
-
-      document.getElementById(
-        "saleModal"
-      ).style.display =
-        "flex";
-
+      renderSaleCart();
       handlePaymentStatusChange();
     }
 
     function closeSaleModal() {
-
-      selectedProductId =
-        null;
-
-      currentSaleTotal =
-        0;
-
-      const button =
-        document.getElementById(
-          "confirmSaleButton"
-        );
-
-      button.disabled =
-        false;
-
-      document.getElementById(
-        "saleModal"
-      ).style.display =
-        "none";
+      selectedProductId = null;
+      saleCart = [];
+      currentSaleTotal = 0;
+      document.getElementById("confirmSaleButton").disabled = false;
+      document.getElementById("saleModal").style.display = "none";
     }
 
     function handleSaleCustomerChange() {
@@ -2903,24 +2947,28 @@
     }
 
     async function confirmSale() {
-      if (selectedProductId === null) return;
+      if (saleCart.length === 0) {
+        showMessage(translations[currentLanguage].invalid, true);
+        return;
+      }
 
       const button = document.getElementById("confirmSaleButton");
-      const productId = Number(selectedProductId);
       const customerId = document.getElementById("saleCustomerSelect").value || null;
       const paymentStatus = document.getElementById("salePaymentStatus").value;
       const paidAmountInput = document.getElementById("salePaidAmount");
       const paymentMethod = document.getElementById("salePaymentMethod").value;
       const reference = document.getElementById("salePaymentReference").value.trim();
-      const total = Number(document.getElementById("saleTotalAmount").textContent || 0);
+      const total = Number(currentSaleTotal || 0);
       const t = translations[currentLanguage];
 
       let paidAmount = Number(paidAmountInput.value);
+
       if (!Number.isFinite(paidAmount) || paidAmount < 0) {
         showMessage(t.invalid, true);
         paidAmountInput.focus();
         return;
       }
+
       if (paymentStatus === "paid") {
         paidAmount = total;
       } else if (paymentStatus === "unpaid") {
@@ -2929,15 +2977,18 @@
         showMessage(t.invalid, true);
         return;
       }
+
       if (paymentStatus !== "paid" && !customerId) {
         showMessage(t.invalid, true);
         return;
       }
+
       if (paymentStatus === "partial" && paidAmount <= 0) {
         showMessage(t.invalidPaidAmount, true);
         paidAmountInput.focus();
         return;
       }
+
       if (paidAmount > total) {
         showMessage(t.invalidPaidAmount, true);
         paidAmountInput.focus();
@@ -2945,9 +2996,14 @@
       }
 
       button.disabled = true;
+
       try {
         const data = await SmartSalesAPI.createSale({
-          id: productId,
+          items: saleCart.map(item => ({
+            product_id: Number(item.productId),
+            quantity: Number(item.quantity),
+            discount: 0
+          })),
           customerId,
           paymentStatus,
           paidAmount,
@@ -2976,12 +3032,6 @@
         button.disabled = false;
       }
     }
-
-    /*
-      ==============================
-      DEBT PAYMENT
-      ==============================
-    */
 
     function getSaleById(saleId) {
 
