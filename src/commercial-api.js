@@ -323,29 +323,38 @@
 
   async function createSale(body) {
     const { organization, store } = context();
-    const productId = Number(body.id);
+    const items = Array.isArray(body.items) ? body.items : [];
+    if (items.length === 0) {
+      throw new Error("At least one sale item is required.");
+    }
 
-    const { data: product, error: productError } = await client()
-      .from("products")
-      .select("id,name,price")
-      .eq("id", productId)
-      .maybeSingle();
+    const normalizedItems = items.map(item => ({
+      product_id: Number(item.product_id),
+      quantity: Number(item.quantity),
+      discount: Number(item.discount || 0)
+    }));
 
-    if (productError) throw productError;
-    if (!product) throw new Error("Product not found.");
+    if (normalizedItems.some(item =>
+      !Number.isInteger(item.product_id) ||
+      item.product_id <= 0 ||
+      !Number.isInteger(item.quantity) ||
+      item.quantity <= 0
+    )) {
+      throw new Error("Invalid sale items.");
+    }
 
     const invoice = "INV-" + Date.now() + "-" + Math.floor(Math.random() * 1000);
 
     const { data, error } = await client().rpc("create_sale_transaction", {
       p_invoice_number: invoice,
       p_customer_id: body.customerId == null || body.customerId === "" ? null : Number(body.customerId),
-      p_items: [{ product_id: productId, quantity: 1, discount: 0 }],
-      p_discount: 0,
-      p_tax: 0,
+      p_items: normalizedItems,
+      p_discount: Number(body.discount || 0),
+      p_tax: Number(body.tax || 0),
       p_paid_amount: Number(body.paidAmount || 0),
       p_payment_method: body.paymentMethod ? String(body.paymentMethod) : "cash",
       p_reference: body.reference ? String(body.reference) : null,
-      p_notes: null,
+      p_notes: body.notes ? String(body.notes) : null,
       p_organization_id: organization.id,
       p_store_id: store.id
     });
@@ -356,13 +365,7 @@
     return {
       ...result,
       saleId: result.sale_id == null ? null : Number(result.sale_id),
-      invoiceNumber: result.invoice_number || invoice,
-      product: {
-        id: Number(result.product_id || product.id),
-        name: result.product_name || product.name,
-        price: Number(result.price ?? product.price),
-        quantity: Number(result.quantity || 0)
-      }
+      invoiceNumber: result.invoice_number || invoice
     };
   }
 
