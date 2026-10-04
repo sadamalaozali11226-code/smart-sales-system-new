@@ -397,6 +397,28 @@
     setMessage("", "");
   }
 
+  function authErrorMessage(error, labels) {
+    const message = String((error && error.message) || "").toLowerCase();
+
+    if (message.includes("invalid login credentials")) {
+      return "بيانات الدخول غير صحيحة. إذا لم تنشئ الحساب بعد، استخدم «إنشاء حساب».";
+    }
+    if (message.includes("email not confirmed")) {
+      return "البريد الإلكتروني غير مؤكد. افتح رسالة التأكيد في بريدك الإلكتروني ثم حاول تسجيل الدخول.";
+    }
+    if (message.includes("user already registered") || message.includes("already registered")) {
+      return "هذا البريد مسجل مسبقًا. استخدم «دخول» بدل «إنشاء حساب».";
+    }
+    if (message.includes("password") && (message.includes("6") || message.includes("weak"))) {
+      return "كلمة المرور يجب أن تكون من 6 أحرف على الأقل.";
+    }
+    if (message.includes("rate limit") || message.includes("too many")) {
+      return "تم تجاوز عدد المحاولات المسموح بها مؤقتًا. انتظر قليلًا ثم حاول مرة أخرى.";
+    }
+
+    return (error && error.message) || labels.error;
+  }
+
   async function signIn() {
     const supabase = ensureClient();
     const labels = getLabels()[document.documentElement.lang === "en" ? "en" : "ar"];
@@ -408,20 +430,24 @@
       return;
     }
 
-    setMessage(labels.loading, "");
+    setMessage("جارٍ تسجيل الدخول...", "");
 
-    const { error } = await supabase.auth.signInWithPassword({
+    const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password
     });
 
     if (error) {
-      setMessage(error.message || labels.error, "error");
+      setMessage(authErrorMessage(error, labels), "error");
       return;
     }
 
-    const user = (await supabase.auth.getUser()).data.user;
-    context = await loadContext(user.id);
+    if (!data || !data.user) {
+      setMessage(labels.error, "error");
+      return;
+    }
+
+    context = await loadContext(data.user.id);
 
     if (!context) {
       document.getElementById("commercialWorkspaceFields").classList.add("visible");
@@ -443,7 +469,12 @@
       return;
     }
 
-    setMessage(labels.loading, "");
+    if (password.length < 6) {
+      setMessage("كلمة المرور يجب أن تكون من 6 أحرف على الأقل.", "error");
+      return;
+    }
+
+    setMessage("جارٍ إنشاء الحساب...", "");
 
     const { data, error } = await supabase.auth.signUp({
       email,
@@ -451,12 +482,22 @@
     });
 
     if (error) {
-      setMessage(error.message || labels.error, "error");
+      setMessage(authErrorMessage(error, labels), "error");
+      return;
+    }
+
+    // Confirm Email is enabled in Supabase. When it is enabled, signUp()
+    // intentionally returns without a session until the email is confirmed.
+    if (!data || !data.user) {
+      setMessage(labels.error, "error");
       return;
     }
 
     if (!data.session) {
-      setMessage(labels.signupDone, "success");
+      setMessage(
+        "تم إنشاء الحساب بنجاح. افتح رسالة التأكيد في بريدك الإلكتروني، ثم ارجع واضغط «دخول».",
+        "success"
+      );
       return;
     }
 
@@ -494,10 +535,20 @@
 
     document.getElementById("commercialAuthForm").onsubmit = async function (event) {
       event.preventDefault();
+      // Enter in the form always means Sign in. Account creation is a
+      // separate explicit action and never falls through to signIn().
       await signIn();
     };
 
-    document.getElementById("commercialSignupButton").onclick = signUp;
+    document.getElementById("commercialLoginButton").onclick = async function (event) {
+      event.preventDefault();
+      await signIn();
+    };
+
+    document.getElementById("commercialSignupButton").onclick = async function (event) {
+      event.preventDefault();
+      await signUp();
+    };
     document.getElementById("commercialWorkspaceButton").onclick = bootstrapWorkspace;
 
     showGate();
