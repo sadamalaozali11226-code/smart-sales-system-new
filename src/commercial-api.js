@@ -482,6 +482,21 @@
     return data;
   }
 
+  async function cancelPurchase(purchaseReceiptId, reason) {
+    const { organization, store } = context();
+    const text = String(reason || "").trim();
+    if (!text) throw new Error("Cancellation reason is required.");
+
+    const { data, error } = await client().rpc("cancel_purchase", {
+      p_organization_id: organization.id,
+      p_store_id: store.id,
+      p_purchase_receipt_id: Number(purchaseReceiptId),
+      p_reason: text
+    });
+    if (error) throw error;
+    return data;
+  }
+
   async function recordSupplierPayment(body) {
     const { organization, store } = context();
     const allocations = Array.isArray(body.allocations) ? body.allocations : [];
@@ -530,6 +545,7 @@
     updateSupplier,
     createPurchase,
     recordSupplierPayment,
+    cancelPurchase,
     purchases
   });
 })();
