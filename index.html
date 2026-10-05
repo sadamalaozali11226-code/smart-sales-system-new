@@ -4914,14 +4914,13 @@ if (!window.SmartSalesAPI) {
           "message"
         );
 
-      const paymentModal =
-        document.getElementById(
-          "paymentModal"
-        );
+      const openModal = Array.from(
+        document.querySelectorAll(".modal-overlay")
+      ).find(
+        modal => modal.style.display === "flex"
+      );
 
-      const isPaymentModalOpen =
-        paymentModal &&
-        paymentModal.style.display === "flex";
+      const isModalOpen = Boolean(openModal);
 
       element.textContent =
         message;
@@ -4934,7 +4933,7 @@ if (!window.SmartSalesAPI) {
             : "success"
         ) +
         (
-          isPaymentModalOpen
+          isModalOpen
             ? " modal-message"
             : ""
         );
