@@ -3753,7 +3753,7 @@ if (!window.SmartSalesAPI) {
     async function confirmDebtPayment() {
       if (selectedPaymentSaleId === null || !selectedPaymentInvoice) return;
 
-      const button = document.getElementById("confirmPaymentButton");
+      const button = document.getElementById("confirmDebtPaymentButton");
       const amountInput = document.getElementById("debtPaymentAmount");
       const paymentMethod = document.getElementById("debtPaymentMethod").value;
       const reference = document.getElementById("debtPaymentReference").value.trim();
