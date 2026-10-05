@@ -6,7 +6,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="/src/supabase-client.js?v=20261004-3"></script>
   <script src="/src/commercial-auth.js?v=20261004-3"></script>
-  <script src="/src/commercial-api.js?v=20261004-4"></script>
+  <script src="/src/commercial-api.js?v=20261004-5"></script>
 <script>
 /* Deployment fallback: keep the commercial API available if the static JS asset is not loaded. */
 if (!window.SmartSalesAPI) {
@@ -407,6 +407,37 @@ if (!window.SmartSalesAPI) {
     return data;
   }
 
+  async function suppliers() {
+    const { organization } = context();
+    const { data, error } = await client().rpc("list_suppliers",{p_organization_id:organization.id});
+    if(error) throw error; return data||[];
+  }
+  async function purchases() {
+    const { organization, store } = context();
+    const { data, error } = await client().rpc("list_purchase_receipts",{p_organization_id:organization.id,p_store_id:store.id});
+    if(error) throw error; return data||[];
+  }
+  async function createSupplier(body) {
+    const { organization }=context();
+    const { data,error }=await client().rpc("create_supplier",{p_organization_id:organization.id,p_name:String(body.name||"").trim(),p_phone:body.phone||null,p_address:body.address||null,p_tax_number:body.taxNumber||null,p_notes:body.notes||null});
+    if(error) throw error; return data;
+  }
+  async function updateSupplier(id,body) {
+    const { organization }=context();
+    const { data,error }=await client().rpc("update_supplier",{p_organization_id:organization.id,p_supplier_id:Number(id),p_name:String(body.name||"").trim(),p_phone:body.phone||null,p_address:body.address||null,p_tax_number:body.taxNumber||null,p_notes:body.notes||null,p_status:body.status||"active"});
+    if(error) throw error; return data;
+  }
+  async function createPurchase(body) {
+    const { organization,store }=context();
+    const { data,error }=await client().rpc("create_purchase",{p_organization_id:organization.id,p_store_id:store.id,p_supplier_id:Number(body.supplierId),p_receipt_number:String(body.receiptNumber||"").trim(),p_items:body.items,p_discount:Number(body.discount||0),p_tax:Number(body.tax||0),p_paid_amount:Number(body.paidAmount||0),p_payment_method:body.paymentMethod||"cash",p_reference:body.reference||null,p_due_date:body.dueDate||null,p_notes:body.notes||null});
+    if(error) throw error; return data;
+  }
+  async function recordSupplierPayment(body) {
+    const { organization,store }=context();
+    const { data,error }=await client().rpc("record_supplier_payment",{p_organization_id:organization.id,p_store_id:store.id,p_supplier_id:Number(body.supplierId),p_amount:Number(body.amount),p_payment_method:body.paymentMethod||"cash",p_reference:body.reference||null,p_notes:body.notes||null,p_allocations:body.allocations||[]});
+    if(error) throw error; return data;
+  }
+
   window.SmartSalesAPI = Object.freeze({
     products,
     customers,
@@ -418,7 +449,13 @@ if (!window.SmartSalesAPI) {
     createCustomer,
     updateCustomer,
     createSale,
-    payment
+    payment,
+    suppliers,
+    purchases,
+    createSupplier,
+    updateSupplier,
+    createPurchase,
+    recordSupplierPayment
   });
 })();
 }
@@ -838,6 +875,13 @@ if (!window.SmartSalesAPI) {
       color: #777;
     }
 
+    .supplier-form, .purchase-form { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; margin-bottom:15px; }
+    .supplier-form .full-width, .purchase-form .full-width { grid-column:1 / -1; }
+    .supplier-actions { display:flex; gap:6px; flex-wrap:wrap; }
+    .purchase-cart { margin:15px 0; border:1px solid #e5e7eb; border-radius:10px; overflow:hidden; }
+    .purchase-summary { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin-top:10px; }
+    .purchase-summary div { padding:10px; background:#f8fafc; border-radius:8px; }
+    @media (max-width:700px) { .supplier-form, .purchase-form, .purchase-summary { grid-template-columns:1fr; } }
     .modal-overlay {
       position: fixed;
       inset: 0;
@@ -1205,6 +1249,69 @@ if (!window.SmartSalesAPI) {
     لا توجد منتجات حاليًا
   </div>
 
+</div>
+
+<!-- Suppliers and Purchases -->
+<div class="section">
+  <h2>إدارة الموردين</h2>
+  <div class="supplier-form">
+    <input id="supplierName" type="text" placeholder="اسم المورد">
+    <input id="supplierPhone" type="text" placeholder="الهاتف">
+    <input id="supplierAddress" class="full-width" type="text" placeholder="العنوان">
+    <input id="supplierTaxNumber" type="text" placeholder="الرقم الضريبي">
+    <select id="supplierStatus">
+      <option value="active">نشط</option>
+      <option value="inactive">غير نشط</option>
+    </select>
+    <textarea id="supplierNotes" class="full-width" placeholder="ملاحظات"></textarea>
+    <button id="supplierSaveButton" class="add-btn" onclick="saveSupplier()">إضافة مورد</button>
+    <button id="supplierCancelEditButton" class="modal-cancel" style="display:none" onclick="cancelSupplierEdit()">إلغاء التعديل</button>
+  </div>
+  <table>
+    <thead><tr><th>المورد</th><th>الهاتف</th><th>الحالة</th><th>الإجراء</th></tr></thead>
+    <tbody id="suppliersTable"></tbody>
+  </table>
+  <div class="empty" id="suppliersEmptyMessage">لا يوجد موردون حاليًا</div>
+</div>
+
+<div class="section">
+  <h2>المشتريات</h2>
+  <div class="purchase-form">
+    <select id="purchaseSupplier"><option value="">اختر المورد</option></select>
+    <input id="purchaseReceiptNumber" type="text" placeholder="رقم فاتورة الشراء">
+    <input id="purchaseDueDate" type="date" placeholder="تاريخ الاستحقاق">
+    <input id="purchaseDiscount" type="number" min="0" step="0.01" value="0" placeholder="الخصم">
+    <input id="purchaseTax" type="number" min="0" step="0.01" value="0" placeholder="الضريبة">
+    <select id="purchasePaymentMethod">
+      <option value="cash">نقدي</option><option value="bank">تحويل</option><option value="card">بطاقة</option>
+    </select>
+    <input id="purchasePaidAmount" type="number" min="0" step="0.01" value="0" placeholder="المدفوع">
+    <input id="purchaseReference" type="text" placeholder="مرجع الدفع">
+    <select id="purchaseProductSelect"><option value="">اختر المنتج</option></select>
+    <input id="purchaseItemQuantity" type="number" min="1" step="1" value="1" placeholder="الكمية">
+    <input id="purchaseItemCost" type="number" min="0" step="0.01" value="0" placeholder="تكلفة الوحدة">
+    <button class="add-btn" onclick="addPurchaseItem()">إضافة للصنف</button>
+    <textarea id="purchaseNotes" class="full-width" placeholder="ملاحظات"></textarea>
+  </div>
+  <div class="purchase-cart">
+    <table>
+      <thead><tr><th>المنتج</th><th>الكمية</th><th>تكلفة الوحدة</th><th>الإجمالي</th><th>الإجراء</th></tr></thead>
+      <tbody id="purchaseCartTable"></tbody>
+    </table>
+    <div class="empty" id="purchaseCartEmpty">لم تتم إضافة أصناف</div>
+  </div>
+  <div class="purchase-summary">
+    <div>الإجمالي الفرعي: <strong id="purchaseSubtotal">0.00</strong></div>
+    <div>الخصم: <strong id="purchaseSummaryDiscount">0.00</strong></div>
+    <div>الضريبة: <strong id="purchaseSummaryTax">0.00</strong></div>
+    <div>الإجمالي: <strong id="purchaseTotal">0.00</strong></div>
+  </div>
+  <button class="add-btn" onclick="createPurchaseFromForm()" style="margin-top:12px">حفظ فاتورة الشراء</button>
+  <table style="margin-top:20px">
+    <thead><tr><th>رقم الفاتورة</th><th>المورد</th><th>الإجمالي</th><th>الحالة</th><th>المتبقي</th><th>الإجراء</th></tr></thead>
+    <tbody id="purchasesTable"></tbody>
+  </table>
+  <div class="empty" id="purchasesEmptyMessage">لا توجد مشتريات حاليًا</div>
 </div>
 
 <!-- Customers -->
@@ -2362,7 +2469,7 @@ if (!window.SmartSalesAPI) {
           ? "en"
           : "ar";
 
-      applyLanguage();
+      document.getElementById("purchaseDiscount").addEventListener("input", updatePurchaseSummary);\n    document.getElementById("purchaseTax").addEventListener("input", updatePurchaseSummary);\n    renderPurchaseCart();\n\n    applyLanguage();
     }
 
     function applyLanguage() {
@@ -2829,6 +2936,164 @@ if (!window.SmartSalesAPI) {
 
       document.getElementById("closeInvoiceButton").textContent =
         t.closeInvoice;
+    }
+
+    async function loadSuppliers() {
+      try { suppliers = await SmartSalesAPI.suppliers(); renderSuppliers(); populatePurchaseSupplierOptions(); }
+      catch (error) { console.error(error); suppliers=[]; renderSuppliers(); showMessage(error.message || "تعذر تحميل الموردين", true); }
+    }
+
+    async function loadPurchases() {
+      try { purchases = await SmartSalesAPI.purchases(); renderPurchases(); }
+      catch (error) { console.error(error); purchases=[]; renderPurchases(); showMessage(error.message || "تعذر تحميل المشتريات", true); }
+    }
+
+    function renderSuppliers() {
+      const table=document.getElementById("suppliersTable"), empty=document.getElementById("suppliersEmptyMessage");
+      table.innerHTML="";
+      empty.style.display=suppliers.length?"none":"block";
+      suppliers.forEach(s=>{
+        const row=document.createElement("tr");
+        row.innerHTML='<td>'+escapeHtml(s.name||"")+'</td><td>'+escapeHtml(s.phone||"")+'</td><td>'+escapeHtml(s.status||"")+'</td><td><div class="supplier-actions"><button class="edit-btn" onclick="editSupplier('+Number(s.id)+')">تعديل</button></div></td>';
+        table.appendChild(row);
+      });
+    }
+
+    function populatePurchaseSupplierOptions() {
+      const select=document.getElementById("purchaseSupplier"), old=select.value;
+      select.innerHTML='<option value="">اختر المورد</option>';
+      suppliers.filter(s=>s.status==="active").forEach(s=>{const o=document.createElement("option");o.value=s.id;o.textContent=s.name;select.appendChild(o);});
+      if (old) select.value=old;
+    }
+
+    function editSupplier(id) {
+      const s=suppliers.find(x=>Number(x.id)===Number(id)); if(!s)return;
+      editingSupplierId=Number(id);
+      document.getElementById("supplierName").value=s.name||"";
+      document.getElementById("supplierPhone").value=s.phone||"";
+      document.getElementById("supplierAddress").value=s.address||"";
+      document.getElementById("supplierTaxNumber").value=s.tax_number||"";
+      document.getElementById("supplierStatus").value=s.status||"active";
+      document.getElementById("supplierNotes").value=s.notes||"";
+      document.getElementById("supplierSaveButton").textContent="حفظ التعديل";
+      document.getElementById("supplierCancelEditButton").style.display="block";
+      document.getElementById("supplierName").focus();
+    }
+
+    function cancelSupplierEdit() {
+      editingSupplierId=null;
+      ["supplierName","supplierPhone","supplierAddress","supplierTaxNumber","supplierNotes"].forEach(id=>document.getElementById(id).value="");
+      document.getElementById("supplierStatus").value="active";
+      document.getElementById("supplierSaveButton").textContent="إضافة مورد";
+      document.getElementById("supplierCancelEditButton").style.display="none";
+    }
+
+    async function saveSupplier() {
+      const body={name:document.getElementById("supplierName").value,phone:document.getElementById("supplierPhone").value,address:document.getElementById("supplierAddress").value,taxNumber:document.getElementById("supplierTaxNumber").value,notes:document.getElementById("supplierNotes").value,status:document.getElementById("supplierStatus").value};
+      try {
+        if(!body.name.trim()) return showMessage("اسم المورد مطلوب",true);
+        if(editingSupplierId) await SmartSalesAPI.updateSupplier(editingSupplierId,body); else await SmartSalesAPI.createSupplier(body);
+        cancelSupplierEdit(); await loadSuppliers(); showMessage("تم حفظ المورد");
+      } catch(error) { console.error(error); showMessage(error.message||"تعذر حفظ المورد",true); }
+    }
+
+    function renderPurchaseProductOptions() {
+      const select=document.getElementById("purchaseProductSelect"), old=select.value;
+      select.innerHTML='<option value="">اختر المنتج</option>';
+      products.forEach(p=>{const o=document.createElement("option");o.value=p.id;o.textContent=p.name;select.appendChild(o);});
+      if(old) select.value=old;
+    }
+
+    function renderPurchaseCart() {
+      const table=document.getElementById("purchaseCartTable"), empty=document.getElementById("purchaseCartEmpty");
+      table.innerHTML=""; empty.style.display=purchaseCart.length?"none":"block";
+      purchaseCart.forEach((item,index)=>{
+        const row=document.createElement("tr");
+        row.innerHTML='<td>'+escapeHtml(item.productName)+'</td><td>'+item.quantity+'</td><td>'+item.unit_cost.toFixed(2)+'</td><td>'+ (item.quantity*item.unit_cost).toFixed(2) +'</td><td><button class="sale-cart-remove" onclick="removePurchaseItem('+index+')">حذف</button></td>';
+        table.appendChild(row);
+      });
+      updatePurchaseSummary();
+    }
+
+    function addPurchaseItem() {
+      const pid=Number(document.getElementById("purchaseProductSelect").value), qty=Number(document.getElementById("purchaseItemQuantity").value), cost=Number(document.getElementById("purchaseItemCost").value);
+      const p=products.find(x=>Number(x.id)===pid);
+      if(!p || !Number.isInteger(qty) || qty<=0 || !Number.isFinite(cost) || cost<0) return showMessage("بيانات الصنف غير صحيحة",true);
+      if(purchaseCart.some(x=>Number(x.product_id)===pid)) return showMessage("المنتج مضاف بالفعل",true);
+      purchaseCart.push({product_id:pid,productName:p.name,quantity:qty,unit_cost:cost});
+      document.getElementById("purchaseProductSelect").value="";
+      renderPurchaseCart();
+    }
+
+    function removePurchaseItem(index) { purchaseCart.splice(index,1); renderPurchaseCart(); }
+
+    function updatePurchaseSummary() {
+      const subtotal=purchaseCart.reduce((s,x)=>s+x.quantity*x.unit_cost,0);
+      const discount=Math.max(0,Number(document.getElementById("purchaseDiscount").value||0));
+      const tax=Math.max(0,Number(document.getElementById("purchaseTax").value||0));
+      const total=subtotal-discount+tax;
+      document.getElementById("purchaseSubtotal").textContent=subtotal.toFixed(2);
+      document.getElementById("purchaseSummaryDiscount").textContent=discount.toFixed(2);
+      document.getElementById("purchaseSummaryTax").textContent=tax.toFixed(2);
+      document.getElementById("purchaseTotal").textContent=Math.max(total,0).toFixed(2);
+    }
+
+    async function createPurchaseFromForm() {
+      try {
+        const supplierId=Number(document.getElementById("purchaseSupplier").value);
+        const receiptNumber=document.getElementById("purchaseReceiptNumber").value.trim();
+        const discount=Number(document.getElementById("purchaseDiscount").value||0), tax=Number(document.getElementById("purchaseTax").value||0), paid=Number(document.getElementById("purchasePaidAmount").value||0);
+        if(!supplierId || !receiptNumber || purchaseCart.length===0) return showMessage("اختر المورد ورقم الفاتورة وأضف صنفًا واحدًا على الأقل",true);
+        const result=await SmartSalesAPI.createPurchase({supplierId,receiptNumber,items:purchaseCart,discount,tax,paidAmount:paid,paymentMethod:document.getElementById("purchasePaymentMethod").value,reference:document.getElementById("purchaseReference").value,dueDate:document.getElementById("purchaseDueDate").value||null,notes:document.getElementById("purchaseNotes").value});
+        showMessage("تم حفظ فاتورة الشراء: "+result.receipt_number);
+        purchaseCart=[]; ["purchaseReceiptNumber","purchaseReference","purchaseNotes","purchaseDueDate"].forEach(id=>document.getElementById(id).value=""); document.getElementById("purchasePaidAmount").value="0"; document.getElementById("purchaseDiscount").value="0"; document.getElementById("purchaseTax").value="0";
+        renderPurchaseCart(); await Promise.all([loadProducts(),loadPurchases()]);
+      } catch(error) { console.error(error); showMessage(error.message||"تعذر حفظ فاتورة الشراء",true); }
+    }
+
+    function renderPurchases() {
+      const table=document.getElementById("purchasesTable"), empty=document.getElementById("purchasesEmptyMessage");
+      table.innerHTML=""; empty.style.display=purchases.length?"none":"block";
+      purchases.forEach(p=>{
+        const paidStatus=p.payment_status||"unpaid";
+        const paidMap={paid:"مدفوعة",partial:"جزئي",unpaid:"غير مدفوعة"};
+        const allocated=purchasesPaymentAllocated ? Number(purchasesPaymentAllocated[p.id]||0) : null;
+        const remaining=Math.max(Number(p.total||0)-Number(paidAmountForPurchase(p.id)||0),0);
+        const row=document.createElement("tr");
+        row.innerHTML='<td>'+escapeHtml(p.receipt_number||"")+'</td><td>'+escapeHtml(p.supplier_name||"")+'</td><td>'+Number(p.total||0).toFixed(2)+'</td><td>'+paidMap[paidStatus]+'</td><td>'+remaining.toFixed(2)+'</td><td>'+ (remaining>0 && p.status==="completed" ? '<button class="payment-confirm" onclick="openSupplierPayment('+Number(p.id)+','+remaining+','+Number(p.supplier_id)+')">سداد</button>' : '') +'</td>';
+        table.appendChild(row);
+      });
+    }
+
+    function paidAmountForPurchase(id) {
+      const p=purchases.find(x=>Number(x.id)===Number(id));
+      if(!p)return 0;
+      if(p.payment_status==="paid")return Number(p.total||0);
+      if(p.payment_status==="unpaid")return 0;
+      return 0;
+    }
+
+    function openSupplierPayment(id,remaining,supplierId) {
+      selectedSupplierPaymentPurchaseId=Number(id);
+      document.getElementById("supplierPaymentAmount").value=remaining.toFixed(2);
+      document.getElementById("supplierPaymentAmount").max=remaining.toFixed(2);
+      document.getElementById("supplierPaymentPurchaseInfo").textContent="المتبقي: "+remaining.toFixed(2);
+      document.getElementById("supplierPaymentModal").style.display="flex";
+      window._supplierPaymentSupplierId=supplierId;
+    }
+
+    function closeSupplierPaymentModal() { document.getElementById("supplierPaymentModal").style.display="none"; }
+
+    async function confirmSupplierPayment() {
+      try {
+        const amount=Number(document.getElementById("supplierPaymentAmount").value);
+        const p=purchases.find(x=>Number(x.id)===selectedSupplierPaymentPurchaseId);
+        if(!p || !amount || amount<=0) return showMessage("مبلغ السداد غير صحيح",true);
+        const remaining=Math.max(Number(p.total||0)-(p.payment_status==="paid"?Number(p.total||0):0),0);
+        if(amount>remaining) return showMessage("مبلغ السداد أكبر من المتبقي",true);
+        await SmartSalesAPI.recordSupplierPayment({supplierId:Number(window._supplierPaymentSupplierId),amount,paymentMethod:document.getElementById("supplierPaymentMethod").value,reference:document.getElementById("supplierPaymentReference").value,notes:document.getElementById("supplierPaymentNotes").value,allocations:[{purchase_receipt_id:selectedSupplierPaymentPurchaseId,amount}]});
+        closeSupplierPaymentModal(); await loadPurchases(); showMessage("تم تسجيل سداد المورد");
+      } catch(error) { console.error(error); showMessage(error.message||"تعذر تسجيل سداد المورد",true); }
     }
 
     async function loadProducts() {
@@ -4972,7 +5237,9 @@ if (!window.SmartSalesAPI) {
         loadProducts(),
         loadSales(),
         loadCustomers(),
-        loadSalesHistory()
+        loadSalesHistory(),
+        loadSuppliers(),
+        loadPurchases()
       ]);
     }
 
