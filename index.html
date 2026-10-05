@@ -3057,8 +3057,7 @@ if (!window.SmartSalesAPI) {
       purchases.forEach(p=>{
         const paidStatus=p.payment_status||"unpaid";
         const paidMap={paid:"مدفوعة",partial:"جزئي",unpaid:"غير مدفوعة"};
-        const allocated=purchasesPaymentAllocated ? Number(purchasesPaymentAllocated[p.id]||0) : null;
-        const remaining=Math.max(Number(p.total||0)-Number(paidAmountForPurchase(p.id)||0),0);
+        const remaining=Math.max(Number(p.remaining_amount||0),0);
         const row=document.createElement("tr");
         row.innerHTML='<td>'+escapeHtml(p.receipt_number||"")+'</td><td>'+escapeHtml(p.supplier_name||"")+'</td><td>'+Number(p.total||0).toFixed(2)+'</td><td>'+paidMap[paidStatus]+'</td><td>'+remaining.toFixed(2)+'</td><td>'+ (remaining>0 && p.status==="completed" ? '<button class="payment-confirm" onclick="openSupplierPayment('+Number(p.id)+','+remaining+','+Number(p.supplier_id)+')">سداد</button>' : '') +'</td>';
         table.appendChild(row);
@@ -3067,10 +3066,7 @@ if (!window.SmartSalesAPI) {
 
     function paidAmountForPurchase(id) {
       const p=purchases.find(x=>Number(x.id)===Number(id));
-      if(!p)return 0;
-      if(p.payment_status==="paid")return Number(p.total||0);
-      if(p.payment_status==="unpaid")return 0;
-      return 0;
+      return p ? Number(p.paid_amount||0) : 0;
     }
 
     function openSupplierPayment(id,remaining,supplierId) {
@@ -3089,7 +3085,7 @@ if (!window.SmartSalesAPI) {
         const amount=Number(document.getElementById("supplierPaymentAmount").value);
         const p=purchases.find(x=>Number(x.id)===selectedSupplierPaymentPurchaseId);
         if(!p || !amount || amount<=0) return showMessage("مبلغ السداد غير صحيح",true);
-        const remaining=Math.max(Number(p.total||0)-(p.payment_status==="paid"?Number(p.total||0):0),0);
+        const remaining=Math.max(Number(p.remaining_amount||0),0);
         if(amount>remaining) return showMessage("مبلغ السداد أكبر من المتبقي",true);
         await SmartSalesAPI.recordSupplierPayment({supplierId:Number(window._supplierPaymentSupplierId),amount,paymentMethod:document.getElementById("supplierPaymentMethod").value,reference:document.getElementById("supplierPaymentReference").value,notes:document.getElementById("supplierPaymentNotes").value,allocations:[{purchase_receipt_id:selectedSupplierPaymentPurchaseId,amount}]});
         closeSupplierPaymentModal(); await loadPurchases(); showMessage("تم تسجيل سداد المورد");
