@@ -395,6 +395,114 @@
     return data;
   }
 
+
+  async function suppliers() {
+    const { data, error } = await client()
+      .from("suppliers")
+      .select("id,name,phone,address,tax_number,notes,status,created_at,updated_at")
+      .order("id");
+    if (error) throw error;
+    return data || [];
+  }
+
+  async function createSupplier(body) {
+    const { organization } = context();
+    const { data, error } = await client().rpc("create_supplier", {
+      p_organization_id: organization.id,
+      p_name: String(body.name || "").trim(),
+      p_phone: body.phone ? String(body.phone).trim() : null,
+      p_address: body.address ? String(body.address).trim() : null,
+      p_tax_number: body.taxNumber ? String(body.taxNumber).trim() : null,
+      p_notes: body.notes ? String(body.notes).trim() : null
+    });
+    if (error) throw error;
+    return data;
+  }
+
+  async function updateSupplier(id, body) {
+    const { organization } = context();
+    const { data, error } = await client().rpc("update_supplier", {
+      p_organization_id: organization.id,
+      p_supplier_id: Number(id),
+      p_name: String(body.name || "").trim(),
+      p_phone: body.phone ? String(body.phone).trim() : null,
+      p_address: body.address ? String(body.address).trim() : null,
+      p_tax_number: body.taxNumber ? String(body.taxNumber).trim() : null,
+      p_notes: body.notes ? String(body.notes).trim() : null,
+      p_status: body.status || "active"
+    });
+    if (error) throw error;
+    return data;
+  }
+
+  async function createPurchase(body) {
+    const { organization, store } = context();
+    const items = Array.isArray(body.items) ? body.items : [];
+    if (items.length === 0) throw new Error("At least one purchase item is required.");
+
+    const normalizedItems = items.map(item => ({
+      product_id: Number(item.product_id),
+      quantity: Number(item.quantity),
+      unit_cost: Number(item.unit_cost)
+    }));
+
+    if (normalizedItems.some(item =>
+      !Number.isInteger(item.product_id) || item.product_id <= 0 ||
+      !Number.isInteger(item.quantity) || item.quantity <= 0 ||
+      !Number.isFinite(item.unit_cost) || item.unit_cost < 0
+    )) {
+      throw new Error("Invalid purchase items.");
+    }
+
+    const { data, error } = await client().rpc("create_purchase", {
+      p_organization_id: organization.id,
+      p_store_id: store.id,
+      p_supplier_id: Number(body.supplierId),
+      p_receipt_number: String(body.receiptNumber || "").trim(),
+      p_items: normalizedItems,
+      p_discount: Number(body.discount || 0),
+      p_tax: Number(body.tax || 0),
+      p_paid_amount: Number(body.paidAmount || 0),
+      p_payment_method: body.paymentMethod ? String(body.paymentMethod) : "cash",
+      p_reference: body.reference ? String(body.reference) : null,
+      p_due_date: body.dueDate || null,
+      p_notes: body.notes ? String(body.notes) : null
+    });
+    if (error) throw error;
+    return data;
+  }
+
+  async function recordSupplierPayment(body) {
+    const { organization, store } = context();
+    const allocations = Array.isArray(body.allocations) ? body.allocations : [];
+    const normalizedAllocations = allocations.map(item => ({
+      purchase_receipt_id: Number(item.purchase_receipt_id),
+      amount: Number(item.amount)
+    }));
+
+    if (normalizedAllocations.some(item =>
+      !Number.isInteger(item.purchase_receipt_id) ||
+      item.purchase_receipt_id <= 0 ||
+      !Number.isFinite(item.amount) ||
+      item.amount <= 0
+    )) {
+      throw new Error("Invalid supplier payment allocations.");
+    }
+
+    const { data, error } = await client().rpc("record_supplier_payment", {
+      p_organization_id: organization.id,
+      p_store_id: store.id,
+      p_supplier_id: Number(body.supplierId),
+      p_amount: Number(body.amount),
+      p_payment_method: body.paymentMethod ? String(body.paymentMethod) : "cash",
+      p_reference: body.reference ? String(body.reference) : null,
+      p_notes: body.notes ? String(body.notes) : null,
+      p_allocations: normalizedAllocations
+    });
+    if (error) throw error;
+    return data;
+  }
+
   window.SmartSalesAPI = Object.freeze({
     products,
     customers,
@@ -406,6 +514,11 @@
     createCustomer,
     updateCustomer,
     createSale,
-    payment
+    payment,
+    suppliers,
+    createSupplier,
+    updateSupplier,
+    createPurchase,
+    recordSupplierPayment
   });
 })();
