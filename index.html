@@ -889,7 +889,9 @@ if (!window.SmartSalesAPI) {
       color: #777;
     }
 
-    .supplier-form, .purchase-form { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; margin-bottom:15px; }
+    .supplier-form, .purchase-form { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px; margin-bottom:15px; }
+    .purchase-field { display:flex; flex-direction:column; gap:6px; min-width:0; }
+    .purchase-field label { display:block; font-weight:700; font-size:14px; color:#374151; }
     .supplier-form .full-width, .purchase-form .full-width { grid-column:1 / -1; }
     .supplier-actions { display:flex; gap:6px; flex-wrap:wrap; }
     .purchase-cart { margin:15px 0; border:1px solid #e5e7eb; border-radius:10px; overflow:hidden; }
@@ -1291,11 +1293,18 @@ if (!window.SmartSalesAPI) {
 <div class="section">
   <h2>المشتريات</h2>
   <div class="purchase-form">
-    <label for="purchaseSupplier">المورد</label>
-    <select id="purchaseSupplier"><option value="">اختر المورد</option></select>
-    <label for="purchaseSupplierInvoiceNumber">رقم فاتورة المورد</label>
-    <input id="purchaseSupplierInvoiceNumber" type="text" placeholder="أدخل رقم فاتورة المورد" required>
-    <input id="purchaseDueDate" type="date" placeholder="تاريخ الاستحقاق">
+    <div class="purchase-field">
+      <label for="purchaseSupplier">المورد</label>
+      <select id="purchaseSupplier"><option value="">اختر المورد</option></select>
+    </div>
+    <div class="purchase-field">
+      <label for="purchaseSupplierInvoiceNumber">رقم فاتورة المورد</label>
+      <input id="purchaseSupplierInvoiceNumber" type="text" placeholder="أدخل رقم فاتورة المورد" required>
+    </div>
+    <div class="purchase-field">
+      <label for="purchaseDueDate">تاريخ الاستحقاق</label>
+      <input id="purchaseDueDate" type="date">
+    </div>
     <input id="purchaseDiscount" type="number" min="0" step="0.01" value="0" placeholder="الخصم">
     <input id="purchaseTax" type="number" min="0" step="0.01" value="0" placeholder="الضريبة">
     <select id="purchasePaymentMethod">
