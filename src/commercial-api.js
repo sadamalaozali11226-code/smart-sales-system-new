@@ -292,6 +292,20 @@
     return data;
   }
 
+  async function updateProduct(id, body) {
+    const { organization, store } = context();
+    const { data, error } = await client().rpc("update_product_for_store", {
+      p_product_id: Number(id),
+      p_name: String(body.name || "").trim(),
+      p_price: Number(body.price),
+      p_quantity: Number(body.quantity),
+      p_organization_id: organization.id,
+      p_store_id: store.id
+    });
+    if (error) throw error;
+    return data;
+  }
+
   async function createCustomer(body) {
     const { organization } = context();
     const { data, error } = await client().rpc("create_customer", {
@@ -388,6 +402,7 @@
     salesHistory,
     saleInvoice,
     createProduct,
+    updateProduct,
     createCustomer,
     updateCustomer,
     createSale,
