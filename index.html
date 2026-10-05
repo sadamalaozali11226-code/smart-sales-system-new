@@ -1292,7 +1292,7 @@ if (!window.SmartSalesAPI) {
   <h2>المشتريات</h2>
   <div class="purchase-form">
     <select id="purchaseSupplier"><option value="">اختر المورد</option></select>
-    <input id="purchaseReceiptNumber" type="text" placeholder="رقم فاتورة الشراء">
+    <input id="purchaseSupplierInvoiceNumber" type="text" placeholder="رقم فاتورة المورد">
     <input id="purchaseDueDate" type="date" placeholder="تاريخ الاستحقاق">
     <input id="purchaseDiscount" type="number" min="0" step="0.01" value="0" placeholder="الخصم">
     <input id="purchaseTax" type="number" min="0" step="0.01" value="0" placeholder="الضريبة">
@@ -1322,7 +1322,7 @@ if (!window.SmartSalesAPI) {
   </div>
   <button class="add-btn" onclick="createPurchaseFromForm()" style="margin-top:12px">حفظ فاتورة الشراء</button>
   <table style="margin-top:20px">
-    <thead><tr><th>رقم الفاتورة</th><th>المورد</th><th>الإجمالي</th><th>الحالة</th><th>المتبقي</th><th>الإجراء</th></tr></thead>
+    <thead><tr><th>الرقم الداخلي</th><th>فاتورة المورد</th><th>المورد</th><th>الإجمالي</th><th>الحالة</th><th>المتبقي</th><th>الإجراء</th></tr></thead>
     <tbody id="purchasesTable"></tbody>
   </table>
   <div class="empty" id="purchasesEmptyMessage">لا توجد مشتريات حاليًا</div>
@@ -3063,12 +3063,12 @@ if (!window.SmartSalesAPI) {
     async function createPurchaseFromForm() {
       try {
         const supplierId=Number(document.getElementById("purchaseSupplier").value);
-        const receiptNumber=document.getElementById("purchaseReceiptNumber").value.trim();
+        const supplierInvoiceNumber=document.getElementById("purchaseSupplierInvoiceNumber").value.trim();
         const discount=Number(document.getElementById("purchaseDiscount").value||0), tax=Number(document.getElementById("purchaseTax").value||0), paid=Number(document.getElementById("purchasePaidAmount").value||0);
-        if(!supplierId || !receiptNumber || purchaseCart.length===0) return showMessage("اختر المورد ورقم الفاتورة وأضف صنفًا واحدًا على الأقل",true);
-        const result=await SmartSalesAPI.createPurchase({supplierId,receiptNumber,items:purchaseCart,discount,tax,paidAmount:paid,paymentMethod:document.getElementById("purchasePaymentMethod").value,reference:document.getElementById("purchaseReference").value,dueDate:document.getElementById("purchaseDueDate").value||null,notes:document.getElementById("purchaseNotes").value});
-        showMessage("تم حفظ فاتورة الشراء: "+result.receipt_number);
-        purchaseCart=[]; ["purchaseReceiptNumber","purchaseReference","purchaseNotes","purchaseDueDate"].forEach(id=>document.getElementById(id).value=""); document.getElementById("purchasePaidAmount").value="0"; document.getElementById("purchaseDiscount").value="0"; document.getElementById("purchaseTax").value="0";
+        if(!supplierId || !supplierInvoiceNumber || purchaseCart.length===0) return showMessage("اختر المورد ورقم فاتورة المورد وأضف صنفًا واحدًا على الأقل",true);
+        const result=await SmartSalesAPI.createPurchase({supplierId,supplierInvoiceNumber,items:purchaseCart,discount,tax,paidAmount:paid,paymentMethod:document.getElementById("purchasePaymentMethod").value,reference:document.getElementById("purchaseReference").value,dueDate:document.getElementById("purchaseDueDate").value||null,notes:document.getElementById("purchaseNotes").value});
+        showMessage("تم حفظ فاتورة الشراء الداخلية: "+result.receipt_number+" | فاتورة المورد: "+(result.supplier_invoice_number||supplierInvoiceNumber));
+        purchaseCart=[]; ["purchaseSupplierInvoiceNumber","purchaseReference","purchaseNotes","purchaseDueDate"].forEach(id=>document.getElementById(id).value=""); document.getElementById("purchasePaidAmount").value="0"; document.getElementById("purchaseDiscount").value="0"; document.getElementById("purchaseTax").value="0";
         renderPurchaseCart(); await Promise.all([loadProducts(),loadPurchases()]);
       } catch(error) { console.error(error); showMessage(error.message||"تعذر حفظ فاتورة الشراء",true); }
     }
