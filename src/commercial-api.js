@@ -397,10 +397,20 @@
 
 
   async function suppliers() {
-    const { data, error } = await client()
-      .from("suppliers")
-      .select("id,name,phone,address,tax_number,notes,status,created_at,updated_at")
-      .order("id");
+    const { organization } = context();
+    const { data, error } = await client().rpc("list_suppliers", {
+      p_organization_id: organization.id
+    });
+    if (error) throw error;
+    return data || [];
+  }
+
+  async function purchases() {
+    const { organization, store } = context();
+    const { data, error } = await client().rpc("list_purchase_receipts", {
+      p_organization_id: organization.id,
+      p_store_id: store.id
+    });
     if (error) throw error;
     return data || [];
   }
@@ -519,6 +529,7 @@
     createSupplier,
     updateSupplier,
     createPurchase,
-    recordSupplierPayment
+    recordSupplierPayment,
+    purchases
   });
 })();
