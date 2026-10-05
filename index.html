@@ -2483,7 +2483,11 @@ if (!window.SmartSalesAPI) {
           ? "en"
           : "ar";
 
-      document.getElementById("purchaseDiscount").addEventListener("input", updatePurchaseSummary);\n    document.getElementById("purchaseTax").addEventListener("input", updatePurchaseSummary);\n    renderPurchaseCart();\n\n    applyLanguage();
+      document.getElementById("purchaseDiscount").addEventListener("input", updatePurchaseSummary);
+      document.getElementById("purchaseTax").addEventListener("input", updatePurchaseSummary);
+      renderPurchaseCart();
+
+      applyLanguage();
     }
 
     function applyLanguage() {
