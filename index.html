@@ -1291,8 +1291,10 @@ if (!window.SmartSalesAPI) {
 <div class="section">
   <h2>المشتريات</h2>
   <div class="purchase-form">
+    <label for="purchaseSupplier">المورد</label>
     <select id="purchaseSupplier"><option value="">اختر المورد</option></select>
-    <input id="purchaseSupplierInvoiceNumber" type="text" placeholder="رقم فاتورة المورد">
+    <label for="purchaseSupplierInvoiceNumber">رقم فاتورة المورد</label>
+    <input id="purchaseSupplierInvoiceNumber" type="text" placeholder="أدخل رقم فاتورة المورد" required>
     <input id="purchaseDueDate" type="date" placeholder="تاريخ الاستحقاق">
     <input id="purchaseDiscount" type="number" min="0" step="0.01" value="0" placeholder="الخصم">
     <input id="purchaseTax" type="number" min="0" step="0.01" value="0" placeholder="الضريبة">
