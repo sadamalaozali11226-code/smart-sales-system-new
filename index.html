@@ -643,6 +643,18 @@ if (!window.SmartSalesAPI) {
       display: none;
     }
 
+    .message.modal-message {
+      position: fixed;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: min(90vw, 520px);
+      margin-top: 0;
+      z-index: 2000;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+      text-align: center;
+    }
+
     .success {
       background: #dcfce7;
       color: #166534;
@@ -4902,6 +4914,15 @@ if (!window.SmartSalesAPI) {
           "message"
         );
 
+      const paymentModal =
+        document.getElementById(
+          "paymentModal"
+        );
+
+      const isPaymentModalOpen =
+        paymentModal &&
+        paymentModal.style.display === "flex";
+
       element.textContent =
         message;
 
@@ -4911,6 +4932,11 @@ if (!window.SmartSalesAPI) {
           isError
             ? "error"
             : "success"
+        ) +
+        (
+          isPaymentModalOpen
+            ? " modal-message"
+            : ""
         );
 
       element.style.display =
@@ -4920,6 +4946,10 @@ if (!window.SmartSalesAPI) {
 
         element.style.display =
           "none";
+
+        element.classList.remove(
+          "modal-message"
+        );
 
       }, 2500);
     }
