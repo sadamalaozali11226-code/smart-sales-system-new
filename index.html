@@ -429,7 +429,7 @@ if (!window.SmartSalesAPI) {
   }
   async function createPurchase(body) {
     const { organization,store }=context();
-    const { data,error }=await client().rpc("create_purchase",{p_organization_id:organization.id,p_store_id:store.id,p_supplier_id:Number(body.supplierId),p_receipt_number:String(body.receiptNumber||"").trim(),p_items:body.items,p_discount:Number(body.discount||0),p_tax:Number(body.tax||0),p_paid_amount:Number(body.paidAmount||0),p_payment_method:body.paymentMethod||"cash",p_reference:body.reference||null,p_due_date:body.dueDate||null,p_notes:body.notes||null});
+    const { data,error }=await client().rpc("create_purchase",{p_organization_id:organization.id,p_store_id:store.id,p_supplier_id:Number(body.supplierId),p_receipt_number:String(body.supplierInvoiceNumber||"").trim(),p_items:body.items,p_discount:Number(body.discount||0),p_tax:Number(body.tax||0),p_paid_amount:Number(body.paidAmount||0),p_payment_method:body.paymentMethod||"cash",p_reference:body.reference||null,p_due_date:body.dueDate||null,p_notes:body.notes||null});
     if(error) throw error; return data;
   }
   async function cancelPurchase(purchaseReceiptId, reason) {
