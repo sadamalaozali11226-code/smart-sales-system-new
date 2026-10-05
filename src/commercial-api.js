@@ -468,7 +468,7 @@
       p_organization_id: organization.id,
       p_store_id: store.id,
       p_supplier_id: Number(body.supplierId),
-      p_receipt_number: String(body.receiptNumber || "").trim(),
+      p_receipt_number: String(body.supplierInvoiceNumber || "").trim(),
       p_items: normalizedItems,
       p_discount: Number(body.discount || 0),
       p_tax: Number(body.tax || 0),
