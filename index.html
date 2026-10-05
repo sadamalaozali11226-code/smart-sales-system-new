@@ -3146,6 +3146,7 @@ if (!window.SmartSalesAPI) {
       try {
         products = await SmartSalesAPI.products();
         renderProducts();
+        renderPurchaseProductOptions();
       } catch (error) {
         console.error(error);
         showMessage(error.message || translations[currentLanguage].productsLoadError, true);
