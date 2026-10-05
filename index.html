@@ -724,6 +724,18 @@ if (!window.SmartSalesAPI) {
       font-weight: bold;
     }
 
+    .sale-adjustments {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 15px;
+    }
+
+    .sale-adjustments label {
+      font-weight: bold;
+      margin-bottom: -5px;
+    }
+
     .sale-payment-section {
       margin-top: 15px;
       padding-top: 15px;
@@ -1349,6 +1361,20 @@ if (!window.SmartSalesAPI) {
         <div class="sale-cart-empty" id="saleCartEmpty">السلة فارغة</div>
       </div>
 
+      <div class="sale-adjustments">
+        <label for="saleDiscount" id="saleDiscountLabel">الخصم</label>
+        <input type="number" id="saleDiscount" min="0" step="0.01" value="0" placeholder="مبلغ الخصم" oninput="updateSaleTotals()">
+        <label for="saleTax" id="saleTaxLabel">الضريبة</label>
+        <input type="number" id="saleTax" min="0" step="0.01" value="0" placeholder="مبلغ الضريبة" oninput="updateSaleTotals()">
+      </div>
+
+      <div class="sale-total-box">
+        <div class="sale-summary-row"><span id="saleSubtotalLabel">المجموع الفرعي</span><strong id="saleSubtotalAmount">0.00</strong></div>
+        <div class="sale-summary-row"><span id="saleDiscountSummaryLabel">الخصم</span><strong id="saleDiscountAmount">0.00</strong></div>
+        <div class="sale-summary-row"><span id="saleTaxSummaryLabel">الضريبة</span><strong id="saleTaxAmount">0.00</strong></div>
+        <div class="sale-summary-row"><span id="saleGrandTotalLabel">الإجمالي</span><strong id="saleGrandTotalAmount">0.00</strong></div>
+      </div>
+
       <label for="saleCustomerSelect" id="saleCustomerLabel">العميل</label>
       <select id="saleCustomerSelect" onchange="handleSaleCustomerChange()"></select>
 
@@ -1822,6 +1848,9 @@ if (!window.SmartSalesAPI) {
     let selectedCustomerId = null;
 
     let saleCart = [];
+    let currentSaleSubtotal = 0;
+    let currentSaleDiscount = 0;
+    let currentSaleTax = 0;
     let currentSaleTotal = 0;
 
     let selectedPaymentSaleId = null;
@@ -1962,6 +1991,10 @@ if (!window.SmartSalesAPI) {
         addToCart: "إضافة",
         removeFromCart: "حذف",
         saleCustomer: "العميل",
+        saleDiscount: "الخصم",
+        saleTax: "الضريبة",
+        saleDiscountPlaceholder: "مبلغ الخصم",
+        saleTaxPlaceholder: "مبلغ الضريبة",
 
         paymentStatus: "حالة الدفع",
         paymentMethod: "طريقة الدفع",
@@ -2149,6 +2182,10 @@ if (!window.SmartSalesAPI) {
         addToCart: "Add",
         removeFromCart: "Remove",
         saleCustomer: "Customer",
+        saleDiscount: "Discount",
+        saleTax: "Tax",
+        saleDiscountPlaceholder: "Discount amount",
+        saleTaxPlaceholder: "Tax amount",
 
         paymentStatus: "Payment Status",
         paymentMethod: "Payment Method",
@@ -3035,12 +3072,12 @@ if (!window.SmartSalesAPI) {
       table.innerHTML = "";
       empty.style.display = saleCart.length === 0 ? "block" : "none";
 
-      let total = 0;
+      let subtotal = 0;
       let itemCount = 0;
 
       saleCart.forEach((item, index) => {
         const lineTotal = Number(item.price || 0) * Number(item.quantity || 0);
-        total += lineTotal;
+        subtotal += lineTotal;
         itemCount += Number(item.quantity || 0);
 
         const row = document.createElement("tr");
@@ -3058,12 +3095,33 @@ if (!window.SmartSalesAPI) {
         table.appendChild(row);
       });
 
-      currentSaleTotal = total;
+      currentSaleSubtotal = subtotal;
+      updateSaleTotals();
+
       document.getElementById("saleProductName").textContent =
         saleCart.length === 0 ? "-" : saleCart.map(item => item.name).join(", ");
       document.getElementById("saleUnitPrice").textContent = String(itemCount);
-      document.getElementById("saleTotalAmount").textContent = total.toFixed(2);
+    }
 
+    function updateSaleTotals() {
+      const discountInput = document.getElementById("saleDiscount");
+      const taxInput = document.getElementById("saleTax");
+      let discount = Number(discountInput?.value || 0);
+      let tax = Number(taxInput?.value || 0);
+      if (!Number.isFinite(discount) || discount < 0) discount = 0;
+      if (!Number.isFinite(tax) || tax < 0) tax = 0;
+      if (discount > currentSaleSubtotal) {
+        discount = currentSaleSubtotal;
+        if (discountInput) discountInput.value = discount.toFixed(2);
+      }
+      currentSaleDiscount = discount;
+      currentSaleTax = tax;
+      currentSaleTotal = Math.max(currentSaleSubtotal - discount + tax, 0);
+      document.getElementById("saleSubtotalAmount").textContent = currentSaleSubtotal.toFixed(2);
+      document.getElementById("saleDiscountAmount").textContent = currentSaleDiscount.toFixed(2);
+      document.getElementById("saleTaxAmount").textContent = currentSaleTax.toFixed(2);
+      document.getElementById("saleGrandTotalAmount").textContent = currentSaleTotal.toFixed(2);
+      document.getElementById("saleTotalAmount").textContent = currentSaleTotal.toFixed(2);
       updatePaymentPreview();
     }
 
@@ -3151,6 +3209,12 @@ if (!window.SmartSalesAPI) {
       document.getElementById("saleCustomerSelect").value = "";
       document.getElementById("saleCartProductSelect").value = String(product.id);
       document.getElementById("saleCartQuantity").value = "1";
+      document.getElementById("saleDiscount").value = "0";
+      document.getElementById("saleTax").value = "0";
+      currentSaleSubtotal = Number(product.price || 0);
+      currentSaleDiscount = 0;
+      currentSaleTax = 0;
+      currentSaleTotal = currentSaleSubtotal;
       document.getElementById("salePaymentStatus").value = "paid";
       document.getElementById("salePaidAmount").value = currentSaleTotal.toFixed(2);
       document.getElementById("salePaymentMethod").value = "cash";
@@ -3164,6 +3228,9 @@ if (!window.SmartSalesAPI) {
     function closeSaleModal() {
       selectedProductId = null;
       saleCart = [];
+      currentSaleSubtotal = 0;
+      currentSaleDiscount = 0;
+      currentSaleTax = 0;
       currentSaleTotal = 0;
       document.getElementById("confirmSaleButton").disabled = false;
       document.getElementById("saleModal").style.display = "none";
@@ -3364,6 +3431,8 @@ if (!window.SmartSalesAPI) {
       const paymentMethod = document.getElementById("salePaymentMethod").value;
       const reference = document.getElementById("salePaymentReference").value.trim();
       const total = Number(currentSaleTotal || 0);
+      const discount = Number(document.getElementById("saleDiscount").value || 0);
+      const tax = Number(document.getElementById("saleTax").value || 0);
       const t = translations[currentLanguage];
 
       let paidAmount = Number(paidAmountInput.value);
@@ -3394,6 +3463,11 @@ if (!window.SmartSalesAPI) {
         return;
       }
 
+      if (!Number.isFinite(discount) || discount < 0 || discount > currentSaleSubtotal || !Number.isFinite(tax) || tax < 0) {
+        showMessage(t.invalid, true);
+        return;
+      }
+
       if (paidAmount > total) {
         showMessage(t.invalidPaidAmount, true);
         paidAmountInput.focus();
@@ -3410,6 +3484,8 @@ if (!window.SmartSalesAPI) {
             discount: 0
           })),
           customerId,
+          discount,
+          tax,
           paymentStatus,
           paidAmount,
           paymentMethod,
