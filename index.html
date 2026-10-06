@@ -1432,7 +1432,7 @@ if (!window.SmartSalesAPI) {
     <button id="supplierCancelEditButton" class="modal-cancel" style="display:none" onclick="cancelSupplierEdit()">إلغاء التعديل</button>
   </div>
   <table>
-    <thead><tr><th>المورد</th><th>الهاتف</th><th>الحالة</th><th>الإجراء</th></tr></thead>
+    <thead><tr><th>المورد</th><th>الهاتف</th><th>الحالة</th><th>الرصيد</th><th>الإجراء</th></tr></thead>
     <tbody id="suppliersTable"></tbody>
   </table>
   <div class="empty" id="suppliersEmptyMessage">لا يوجد موردون حاليًا</div>
@@ -1566,6 +1566,7 @@ if (!window.SmartSalesAPI) {
         <th id="customerPhoneHeader">الهاتف</th>
         <th id="customerAddressHeader">العنوان</th>
         <th id="customerNotesHeader">الملاحظات</th>
+        <th>الرصيد</th>
         <th id="customerActionHeader">الإجراء</th>
       </tr>
 
@@ -3241,7 +3242,16 @@ if (!window.SmartSalesAPI) {
     }
 
     async function loadSuppliers() {
-      try { suppliers = await SmartSalesAPI.suppliers(); renderSuppliers(); populatePurchaseSupplierOptions(); }
+      try {
+        const [supplierData, supplierSummary] = await Promise.all([
+          SmartSalesAPI.suppliers(),
+          SmartSalesAPI.supplierAccountSummary()
+        ]);
+        const balanceMap = new Map((supplierSummary || []).map(item => [Number(item.supplier_id), Number(item.balance || 0)]));
+        suppliers = (supplierData || []).map(item => ({ ...item, accountBalance: balanceMap.get(Number(item.id)) || 0 }));
+        renderSuppliers();
+        populatePurchaseSupplierOptions();
+      }
       catch (error) { console.error(error); suppliers=[]; renderSuppliers(); showMessage(error.message || "تعذر تحميل الموردين", true); }
     }
 
@@ -3259,7 +3269,7 @@ if (!window.SmartSalesAPI) {
         const status=String(s.status||"").toLowerCase();
         const statusLabel=status==="active"?t.supplierActive:status==="inactive"?t.supplierInactive:(status||"-");
         const row=document.createElement("tr");
-        row.innerHTML='<td>'+escapeHtml(s.name||"")+'</td><td>'+escapeHtml(s.phone||"")+'</td><td>'+escapeHtml(statusLabel)+'</td><td><div class="supplier-actions"><button class="edit-btn" onclick="editSupplier('+Number(s.id)+')">'+escapeHtml(t.edit)+'</button><button class="sale-btn" onclick="openSupplierStatement('+Number(s.id)+')">كشف الحساب</button></div></td>';
+        row.innerHTML='<td>'+escapeHtml(s.name||"")+'</td><td>'+escapeHtml(s.phone||"")+'</td><td>'+escapeHtml(statusLabel)+'</td><td>'+Number(s.accountBalance||0).toFixed(2)+'</td><td><div class="supplier-actions"><button class="edit-btn" onclick="editSupplier('+Number(s.id)+')">'+escapeHtml(t.edit)+'</button><button class="sale-btn" onclick="openSupplierStatement('+Number(s.id)+')">كشف الحساب</button></div></td>';
         table.appendChild(row);
       });
     }
@@ -3510,7 +3520,12 @@ if (!window.SmartSalesAPI) {
 
     async function loadCustomers() {
       try {
-        customers = await SmartSalesAPI.customers();
+        const [customerData, customerSummary] = await Promise.all([
+          SmartSalesAPI.customers(),
+          SmartSalesAPI.customerAccountSummary()
+        ]);
+        const balanceMap = new Map((customerSummary || []).map(item => [Number(item.customer_id), Number(item.balance || 0)]));
+        customers = (customerData || []).map(item => ({ ...item, accountBalance: balanceMap.get(Number(item.id)) || 0 }));
         renderCustomers();
       } catch (error) {
         console.error(error);
@@ -3745,6 +3760,10 @@ if (!window.SmartSalesAPI) {
             ${escapeHtml(
               customer.notes || ""
             )}
+          </td>
+
+          <td>
+            ${Number(customer.accountBalance || 0).toFixed(2)}
           </td>
 
           <td>
@@ -5779,7 +5798,27 @@ if (!window.SmartSalesAPI) {
       if (modal) modal.style.display = "none";
     }
 
+    let accountStatementEntityId = null;
+    let accountStatementEntityType = null;
+
     function accountStatementMoney(value) { return Number(value || 0).toFixed(2); }
+
+    async function refreshAccountStatement() {
+      if (!accountStatementEntityId || !accountStatementEntityType) return;
+      const from = document.getElementById("accountStatementFrom").value || null;
+      const to = document.getElementById("accountStatementTo").value || null;
+      document.getElementById("accountStatementBody").innerHTML = '<tr><td colspan="6">جاري التحميل...</td></tr>';
+      try {
+        const rows = accountStatementEntityType === "customer"
+          ? await SmartSalesAPI.customerStatement(accountStatementEntityId, from, to)
+          : await SmartSalesAPI.supplierStatement(accountStatementEntityId, from, to);
+        renderAccountStatementRows(rows);
+      } catch (error) {
+        console.error(error);
+        document.getElementById("accountStatementBody").innerHTML = '<tr><td colspan="6">تعذر تحميل كشف الحساب</td></tr>';
+        showMessage(error.message || "تعذر تحميل كشف الحساب", true);
+      }
+    }
 
     function renderAccountStatementRows(rows) {
       const body = document.getElementById("accountStatementBody");
@@ -5805,6 +5844,8 @@ if (!window.SmartSalesAPI) {
       const customer = customers.find(x => Number(x.id) === Number(id));
       if (!customer) return;
       const modal = document.getElementById("accountStatementModal");
+      accountStatementEntityId = Number(id);
+      accountStatementEntityType = "customer";
       document.getElementById("accountStatementTitle").textContent = "كشف حساب العميل: " + (customer.name || "");
       document.getElementById("accountStatementType").textContent = "عميل";
       document.getElementById("accountStatementFrom").value = "";
@@ -5812,8 +5853,7 @@ if (!window.SmartSalesAPI) {
       document.getElementById("accountStatementBody").innerHTML = '<tr><td colspan="6">جاري التحميل...</td></tr>';
       modal.style.display = "flex";
       try {
-        const rows = await SmartSalesAPI.customerStatement(id, null, null);
-        renderAccountStatementRows(rows);
+        await refreshAccountStatement();
       } catch (error) {
         console.error(error);
         document.getElementById("accountStatementBody").innerHTML = '<tr><td colspan="6">تعذر تحميل كشف الحساب</td></tr>';
@@ -5825,6 +5865,8 @@ if (!window.SmartSalesAPI) {
       const supplier = suppliers.find(x => Number(x.id) === Number(id));
       if (!supplier) return;
       const modal = document.getElementById("accountStatementModal");
+      accountStatementEntityId = Number(id);
+      accountStatementEntityType = "supplier";
       document.getElementById("accountStatementTitle").textContent = "كشف حساب المورد: " + (supplier.name || "");
       document.getElementById("accountStatementType").textContent = "مورد";
       document.getElementById("accountStatementFrom").value = "";
@@ -5832,8 +5874,7 @@ if (!window.SmartSalesAPI) {
       document.getElementById("accountStatementBody").innerHTML = '<tr><td colspan="6">جاري التحميل...</td></tr>';
       modal.style.display = "flex";
       try {
-        const rows = await SmartSalesAPI.supplierStatement(id, null, null);
-        renderAccountStatementRows(rows);
+        await refreshAccountStatement();
       } catch (error) {
         console.error(error);
         document.getElementById("accountStatementBody").innerHTML = '<tr><td colspan="6">تعذر تحميل كشف الحساب</td></tr>';
@@ -5874,7 +5915,7 @@ if (!window.SmartSalesAPI) {
       <div style="display:flex;gap:10px;align-items:end;flex-wrap:wrap;margin-bottom:12px">
         <div><label>من</label><input id="accountStatementFrom" type="date"></div>
         <div><label>إلى</label><input id="accountStatementTo" type="date"></div>
-        <button class="refresh-btn" onclick="closeAccountStatementModal()">إغلاق</button>
+        <button class="refresh-btn" onclick="refreshAccountStatement()">تحديث</button><button class="refresh-btn" onclick="closeAccountStatementModal()">إغلاق</button>
       </div>
       <div style="overflow:auto">
         <table>
