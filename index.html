@@ -1514,6 +1514,33 @@ if (!window.SmartSalesAPI) {
   <div class="empty" id="purchasesEmptyMessage">لا توجد مشتريات حاليًا</div>
 </div>
 
+<!-- Expenses -->
+<div class="section">
+  <div class="section-header">
+    <h2 id="expensesTitle">المصروفات</h2>
+    <button class="refresh-btn" onclick="loadExpenses()">تحديث</button>
+  </div>
+  <div class="customer-form">
+    <input id="expenseCategory" type="text" placeholder="تصنيف المصروف (إيجار، كهرباء، نقل...)">
+    <input id="expenseAmount" type="number" min="0.01" step="0.01" placeholder="المبلغ">
+    <input id="expenseDate" type="date">
+    <select id="expensePaymentMethod">
+      <option value="cash">نقدًا</option>
+      <option value="transfer">تحويل</option>
+      <option value="card">بطاقة</option>
+      <option value="other">أخرى</option>
+    </select>
+    <input id="expenseReference" type="text" placeholder="المرجع (اختياري)">
+    <textarea id="expenseNotes" class="full-width" placeholder="ملاحظات (اختياري)"></textarea>
+    <button class="add-btn" onclick="saveExpense()">تسجيل المصروف</button>
+  </div>
+  <table>
+    <thead><tr><th>الرقم</th><th>التاريخ</th><th>التصنيف</th><th>المبلغ</th><th>طريقة الدفع</th><th>الحالة</th><th>الإجراء</th></tr></thead>
+    <tbody id="expensesTable"></tbody>
+  </table>
+  <div class="empty" id="expensesEmptyMessage">لا توجد مصروفات حاليًا</div>
+</div>
+
 <!-- Customers -->
 
 <div class="section">
@@ -5776,6 +5803,87 @@ if (!window.SmartSalesAPI) {
       return div.innerHTML;
     }
 
+    let expensesData = [];
+
+    async function loadExpenses() {
+      const body = document.getElementById("expensesTable");
+      if (!body) return;
+      body.innerHTML = '<tr><td colspan="7">جاري التحميل...</td></tr>';
+      try {
+        expensesData = await SmartSalesAPI.expenses();
+        renderExpenses();
+      } catch (error) {
+        console.error(error);
+        body.innerHTML = '<tr><td colspan="7">تعذر تحميل المصروفات</td></tr>';
+        showMessage(error.message || "تعذر تحميل المصروفات", true);
+      }
+    }
+
+    function renderExpenses() {
+      const body = document.getElementById("expensesTable");
+      const empty = document.getElementById("expensesEmptyMessage");
+      body.innerHTML = "";
+      if (!expensesData.length) {
+        empty.style.display = "block";
+        return;
+      }
+      empty.style.display = "none";
+      expensesData.forEach(expense => {
+        const tr = document.createElement("tr");
+        const status = expense.status === "cancelled" ? "ملغى" : "مكتمل";
+        const action = expense.status === "cancelled"
+          ? "-"
+          : '<button class="payment-confirm" onclick="cancelExpenseUI(' + Number(expense.id) + ')">إلغاء</button>';
+        tr.innerHTML =
+          "<td>" + escapeHtml(expense.expense_number || "-") + "</td>" +
+          "<td>" + escapeHtml(expense.expense_date || "-") + "</td>" +
+          "<td>" + escapeHtml(expense.category || "-") + "</td>" +
+          "<td>" + Number(expense.amount || 0).toFixed(2) + "</td>" +
+          "<td>" + escapeHtml(expense.payment_method || "-") + "</td>" +
+          "<td>" + status + "</td>" +
+          "<td>" + action + "</td>";
+        body.appendChild(tr);
+      });
+    }
+
+    async function saveExpense() {
+      const category = document.getElementById("expenseCategory").value.trim();
+      const amount = Number(document.getElementById("expenseAmount").value);
+      const expenseDate = document.getElementById("expenseDate").value || null;
+      const paymentMethod = document.getElementById("expensePaymentMethod").value || "cash";
+      const reference = document.getElementById("expenseReference").value.trim() || null;
+      const notes = document.getElementById("expenseNotes").value.trim() || null;
+      if (!category || !Number.isFinite(amount) || amount <= 0) {
+        showMessage("أدخل تصنيف المصروف والمبلغ بشكل صحيح.", true);
+        return;
+      }
+      try {
+        await SmartSalesAPI.createExpense({category, amount, expenseDate, paymentMethod, reference, notes});
+        document.getElementById("expenseCategory").value = "";
+        document.getElementById("expenseAmount").value = "";
+        document.getElementById("expenseReference").value = "";
+        document.getElementById("expenseNotes").value = "";
+        await loadExpenses();
+        showMessage("تم تسجيل المصروف بنجاح.");
+      } catch (error) {
+        console.error(error);
+        showMessage(error.message || "تعذر تسجيل المصروف", true);
+      }
+    }
+
+    async function cancelExpenseUI(id) {
+      const reason = prompt("سبب إلغاء المصروف:");
+      if (!reason || !reason.trim()) return;
+      try {
+        await SmartSalesAPI.cancelExpense(id, reason.trim());
+        await loadExpenses();
+        showMessage("تم إلغاء المصروف.");
+      } catch (error) {
+        console.error(error);
+        showMessage(error.message || "تعذر إلغاء المصروف", true);
+      }
+    }
+
     async function initializeApp() {
 
       await Promise.all([
@@ -5784,7 +5892,8 @@ if (!window.SmartSalesAPI) {
         loadCustomers(),
         loadSalesHistory(),
         loadSuppliers(),
-        loadPurchases()
+        loadPurchases(),
+        loadExpenses()
       ]);
     }
 
