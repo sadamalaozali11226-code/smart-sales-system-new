@@ -8,7 +8,7 @@ revoke execute on function public.commercial_reports(uuid,uuid,date,date) from p
 revoke execute on function public.customer_account_summary(uuid,uuid) from public;
 revoke execute on function public.customer_statement(uuid,bigint,uuid,date,date) from public;
 revoke execute on function public.supplier_account_summary(uuid,uuid) from public;
-revoke execute on function public.supplier_statement(uuid,bigint,date,date) from public;
+revoke execute on function public.supplier_statement(uuid,bigint,uuid,date,date) from public;
 
 revoke execute on function private.cancel_sale(uuid,bigint,text,text,text) from public;
 revoke execute on function private.cancel_sale(uuid,bigint,text) from public;
