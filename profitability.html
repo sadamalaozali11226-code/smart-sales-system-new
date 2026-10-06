@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>الأرباح والتكاليف - نظام المبيعات الذكي</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/src/supabase-client.js?v=20261004-3"></script>
+<script src="/src/commercial-auth.js?v=20261004-3"></script>
+<style>
+body{font-family:Arial,sans-serif;background:#f5f7fa;margin:0;color:#172033}.wrap{max-width:1100px;margin:30px auto;padding:0 16px}.card{background:#fff;border:1px solid #e3e7ee;border-radius:14px;padding:20px;margin-bottom:18px;box-shadow:0 2px 8px rgba(0,0,0,.04)}h1{margin-top:0}.filters{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}label{display:block;font-weight:700;margin-bottom:6px}input,button{width:100%;box-sizing:border-box;padding:11px;border:1px solid #ccd3df;border-radius:8px}button{cursor:pointer;background:#1f6feb;color:#fff;border:0;font-weight:700}.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}.metric{padding:16px;border:1px solid #e2e7ef;border-radius:10px;background:#fafbfd}.metric b{display:block;font-size:20px;margin-top:8px}.warning{background:#fff7e6;border:1px solid #f0c36d;padding:14px;border-radius:10px;margin-top:15px}.muted{color:#687386}@media(max-width:800px){.filters,.grid{grid-template-columns:1fr 1fr}}@media(max-width:520px){.filters,.grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body><div class="wrap">
+<div class="card"><h1>الأرباح والتكاليف</h1><p class="muted">تقرير محاسبي يعتمد على تكلفة البيع التاريخية المسجلة في بنود المبيعات.</p>
+<div class="filters"><div><label>من تاريخ</label><input id="from" type="date"></div><div><label>إلى تاريخ</label><input id="to" type="date"></div><div style="display:flex;align-items:end"><button onclick="loadReport()">تحديث التقرير</button></div></div></div>
+<div class="card"><div class="grid">
+<div class="metric">إجمالي المبيعات<b id="grossSales">-</b></div><div class="metric">مرتجعات المبيعات<b id="returns">-</b></div><div class="metric">صافي المبيعات<b id="netSales">-</b></div><div class="metric">تكلفة البضاعة COGS<b id="cogs">-</b></div>
+<div class="metric">الربح الإجمالي<b id="grossProfit">-</b></div><div class="metric">المصروفات<b id="expenses">-</b></div><div class="metric">الربح الصافي<b id="netProfit">-</b></div><div class="metric">هامش الربح الإجمالي<b id="grossMargin">-</b></div>
+</div><div id="warning" class="warning" style="display:none"></div></div>
+</div>
+<script>
+async function loadReport(){
+ try{
+  const auth=window.SmartSalesAuth;
+  if(!auth) throw new Error("نظام المصادقة غير جاهز.");
+  const ctx=auth.getContext();
+  if(!ctx||!ctx.organization||!ctx.store) throw new Error("لا توجد مؤسسة أو فرع محدد.");
+  const client=auth.getClient();
+  const {data,error}=await client.rpc("profitability_summary",{p_organization_id:ctx.organization.id,p_store_id:ctx.store.id,p_from_date:document.getElementById("from").value||null,p_to_date:document.getElementById("to").value||null});
+  if(error) throw error;
+  const n=v=>Number(v||0).toFixed(2);
+  document.getElementById("grossSales").textContent=n(data.gross_sales);
+  document.getElementById("returns").textContent=n(data.sales_returns);
+  document.getElementById("netSales").textContent=n(data.net_sales);
+  document.getElementById("cogs").textContent=n(data.cogs);
+  document.getElementById("grossProfit").textContent=n(data.gross_profit);
+  document.getElementById("expenses").textContent=n(data.expenses);
+  document.getElementById("netProfit").textContent=n(data.net_profit);
+  document.getElementById("grossMargin").textContent=n(data.gross_margin_percent)+"%";
+  const w=document.getElementById("warning");
+  if(data.warning){w.style.display="block";w.textContent=data.warning+" البنود بدون تكلفة: "+data.unknown_cost_items+"، الكمية: "+n(data.unknown_cost_quantity)+"، تغطية التكلفة: "+n(data.cost_coverage_percent)+"%."}else w.style.display="none";
+ }catch(e){alert(e.message||"تعذر تحميل التقرير");console.error(e)}
+}
+window.addEventListener("load",()=>setTimeout(loadReport,500));
+</script></body></html>
