@@ -1312,7 +1312,15 @@ if (!window.SmartSalesAPI) {
         flex-direction: column;
       }
     }
-  </style>
+  
+    .summary-card{padding:14px;border:1px solid #e5e7eb;border-radius:10px;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.04)}
+    .summary-card strong{display:block;font-size:13px;color:#666;margin-bottom:7px}
+    .summary-card div{font-size:20px;font-weight:700}
+    .report-panel{padding:14px;border:1px solid #e5e7eb;border-radius:10px;background:#fff;overflow:hidden}
+    .report-panel h3{margin:0 0 10px}
+    .report-panel table{width:100%;border-collapse:collapse}
+    .report-panel th,.report-panel td{padding:8px;border-bottom:1px solid #eee;text-align:right}
+</style>
   <style>
     /* Fail closed until the commercial authentication bootstrap completes. */
     #commercialAppShell { visibility: hidden; }
@@ -6373,8 +6381,8 @@ if (!window.SmartSalesAPI) {
       <div class="report-panel"><h3>المدفوعات حسب الطريقة</h3><table><thead><tr><th>الطريقة</th><th>المبلغ</th></tr></thead><tbody id="reportPaymentMethodsBody"></tbody></table></div>
       <div class="report-panel"><h3>أعلى الموردين شراءً</h3><table><thead><tr><th>المورد</th><th>المشتريات</th></tr></thead><tbody id="reportTopSuppliersBody"></tbody></table></div>
       <div class="report-panel"><h3>المصروفات حسب التصنيف</h3><table><thead><tr><th>التصنيف</th><th>المبلغ</th></tr></thead><tbody id="reportExpensesBody"></tbody></table></div>
-      <div class="report-panel" style="grid-column:1/-1"><h3>حسابات العملاء</h3><div style="overflow:auto"><table><thead><tr><th>العميل</th><th>المبيعات</th><th>المدفوعات</th><th>المرتجعات</th><th>الرصيد</th></tr></thead><tbody id="reportCustomersBody"></tbody></table></div></div>
-      <div class="report-panel" style="grid-column:1/-1"><h3>حسابات الموردين</h3><div style="overflow:auto"><table><thead><tr><th>المورد</th><th>المشتريات</th><th>المدفوعات</th><th>المرتجعات</th><th>الاستردادات</th><th>الرصيد</th></tr></thead><tbody id="reportSuppliersBody"></tbody></table></div></div>
+      <div class="report-panel" style="grid-column:1/-1"><h3>حسابات العملاء</h3><div style="overflow:auto"><table><thead><tr><th>العميل</th><th>مبيعات الفترة</th><th>مدفوعات الفترة</th><th>مرتجعات الفترة</th><th>الرصيد الحالي</th></tr></thead><tbody id="reportCustomersBody"></tbody></table></div></div>
+      <div class="report-panel" style="grid-column:1/-1"><h3>حسابات الموردين</h3><div style="overflow:auto"><table><thead><tr><th>المورد</th><th>مشتريات الفترة</th><th>مدفوعات الفترة</th><th>مرتجعات الفترة</th><th>استردادات الفترة</th><th>الرصيد الحالي</th></tr></thead><tbody id="reportSuppliersBody"></tbody></table></div></div>
       <div class="report-panel" style="grid-column:1/-1"><h3>حالة المخزون الحالية</h3><div style="overflow:auto"><table><thead><tr><th>الصنف</th><th>الكمية</th><th>حد إعادة الطلب</th><th>متوسط التكلفة</th><th>القيمة التقديرية</th></tr></thead><tbody id="reportInventoryBody"></tbody></table></div><p style="font-size:12px;color:#777;margin-top:8px">قيمة المخزون هنا تقديرية وفق متوسط التكلفة الحالي، وليست تكلفة تاريخية لحساب الأرباح.</p></div>
       <div class="report-panel" style="grid-column:1/-1"><h3>حركة المخزون</h3><table><thead><tr><th>نوع الحركة</th><th>صافي الكمية</th><th>عدد الحركات</th></tr></thead><tbody id="reportMovementsBody"></tbody></table></div>
     </div>
