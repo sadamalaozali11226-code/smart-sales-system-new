@@ -443,6 +443,50 @@
   }
 
 
+  async function recordCustomerPayment(body) {
+    const { organization, store } = context();
+    const amount = Number(body.amount);
+    if (!Number.isFinite(amount) || amount <= 0) throw new Error("Customer payment amount must be greater than zero.");
+    const { data, error } = await client().rpc("record_customer_payment", {
+      p_organization_id: organization.id,
+      p_store_id: store.id,
+      p_customer_id: Number(body.customerId),
+      p_amount: amount,
+      p_payment_method: body.paymentMethod ? String(body.paymentMethod) : "cash",
+      p_reference: body.reference ? String(body.reference).trim() : null,
+      p_notes: body.notes ? String(body.notes).trim() : null
+    });
+    if (error) throw error;
+    return data;
+  }
+
+  async function stores() {
+    const { organization } = context();
+    const { data, error } = await client()
+      .from("stores")
+      .select("id,name")
+      .eq("organization_id", organization.id)
+      .order("name");
+    if (error) throw error;
+    return data || [];
+  }
+
+  async function transferStock(body) {
+    const { organization, store } = context();
+    const quantity = Number(body.quantity);
+    if (!Number.isInteger(quantity) || quantity <= 0) throw new Error("Transfer quantity must be greater than zero.");
+    const { data, error } = await client().rpc("transfer_stock", {
+      p_organization_id: organization.id,
+      p_from_store_id: store.id,
+      p_to_store_id: String(body.toStoreId),
+      p_product_id: Number(body.productId),
+      p_quantity: quantity,
+      p_notes: body.notes ? String(body.notes).trim() : null
+    });
+    if (error) throw error;
+    return data;
+  }
+
   async function suppliers() {
     const { organization } = context();
     const { data, error } = await client().rpc("list_suppliers", {
@@ -696,6 +740,7 @@
     updateCustomer,
     createSale,
     payment,
+    recordCustomerPayment,
     returnSale,
     cancelSale,
     suppliers,
@@ -709,6 +754,8 @@
     customerStatement,
     supplierAccountSummary,
     supplierStatement,
+    stores,
+    transferStock,
     expenses,
     createExpense,
     cancelExpense
