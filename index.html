@@ -892,6 +892,10 @@ if (!window.SmartSalesAPI) {
     .supplier-form, .purchase-form { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px; margin-bottom:15px; }
     .purchase-field { display:flex; flex-direction:column; gap:6px; min-width:0; }
     .purchase-field label { display:block; font-weight:700; font-size:14px; color:#374151; }
+    .purchase-field input, .purchase-field select { margin:0; }
+    .purchase-inline-field { display:flex; flex-direction:column; gap:6px; min-width:0; }
+    .purchase-inline-field label { font-weight:700; font-size:14px; color:#374151; }
+    .purchase-inline-field input, .purchase-inline-field select { margin:0; }
     .supplier-form .full-width, .purchase-form .full-width { grid-column:1 / -1; }
     .supplier-actions { display:flex; gap:6px; flex-wrap:wrap; }
     .purchase-cart { margin:15px 0; border:1px solid #e5e7eb; border-radius:10px; overflow:hidden; }
@@ -1305,17 +1309,44 @@ if (!window.SmartSalesAPI) {
       <label for="purchaseDueDate">تاريخ الاستحقاق</label>
       <input id="purchaseDueDate" type="date">
     </div>
-    <input id="purchaseDiscount" type="number" min="0" step="0.01" value="0" placeholder="الخصم">
-    <input id="purchaseTax" type="number" min="0" step="0.01" value="0" placeholder="الضريبة">
-    <select id="purchasePaymentMethod">
-      <option value="cash">نقدي</option><option value="bank">تحويل</option><option value="card">بطاقة</option>
-    </select>
-    <input id="purchasePaidAmount" type="number" min="0" step="0.01" value="0" placeholder="المدفوع">
-    <input id="purchaseReference" type="text" placeholder="مرجع الدفع">
-    <select id="purchaseProductSelect"><option value="">اختر المنتج</option></select>
-    <input id="purchaseItemQuantity" type="number" min="1" step="1" value="1" placeholder="الكمية">
-    <input id="purchaseItemCost" type="number" min="0" step="0.01" value="0" placeholder="تكلفة الوحدة">
-    <button class="add-btn" onclick="addPurchaseItem()">إضافة للصنف</button>
+    <div class="purchase-inline-field">
+      <label for="purchaseDiscount">الخصم</label>
+      <input id="purchaseDiscount" type="number" min="0" step="0.01" value="0" placeholder="0.00">
+    </div>
+    <div class="purchase-inline-field">
+      <label for="purchaseTax">الضريبة</label>
+      <input id="purchaseTax" type="number" min="0" step="0.01" value="0" placeholder="0.00">
+    </div>
+    <div class="purchase-inline-field">
+      <label for="purchasePaymentMethod">طريقة الدفع</label>
+      <select id="purchasePaymentMethod">
+        <option value="cash">نقدي</option><option value="bank">تحويل</option><option value="card">بطاقة</option>
+      </select>
+    </div>
+    <div class="purchase-inline-field">
+      <label for="purchasePaidAmount">المدفوع</label>
+      <input id="purchasePaidAmount" type="number" min="0" step="0.01" value="0" placeholder="0.00">
+    </div>
+    <div class="purchase-inline-field">
+      <label for="purchaseReference">مرجع الدفع</label>
+      <input id="purchaseReference" type="text" placeholder="رقم المرجع أو العملية">
+    </div>
+    <div class="purchase-inline-field">
+      <label for="purchaseProductSelect">المنتج</label>
+      <select id="purchaseProductSelect"><option value="">اختر المنتج</option></select>
+    </div>
+    <div class="purchase-inline-field">
+      <label for="purchaseItemQuantity">الكمية</label>
+      <input id="purchaseItemQuantity" type="number" min="1" step="1" value="1" placeholder="1">
+    </div>
+    <div class="purchase-inline-field">
+      <label for="purchaseItemCost">تكلفة الوحدة</label>
+      <input id="purchaseItemCost" type="number" min="0" step="0.01" value="0" placeholder="0.00">
+    </div>
+    <div class="purchase-inline-field">
+      <label>&nbsp;</label>
+      <button class="add-btn" onclick="addPurchaseItem()">إضافة للصنف</button>
+    </div>
     <textarea id="purchaseNotes" class="full-width" placeholder="ملاحظات"></textarea>
   </div>
   <div class="purchase-cart">
@@ -2282,7 +2313,9 @@ if (!window.SmartSalesAPI) {
         paymentInvoiceCancelled: "لا يمكن سداد فاتورة ملغاة.",
         paymentInvoiceInvalid: "بيانات الفاتورة غير صالحة.",
         paymentSuccess: "تم تسجيل السداد بنجاح.",
-        paymentError: "حدث خطأ أثناء تسجيل السداد."
+        paymentError: "حدث خطأ أثناء تسجيل السداد.",
+        supplierActive: "نشط",
+        supplierInactive: "غير نشط"
       },
 
       en: {
@@ -2488,7 +2521,9 @@ if (!window.SmartSalesAPI) {
         paymentInvoiceCancelled: "A cancelled invoice cannot receive a payment.",
         paymentInvoiceInvalid: "Invalid invoice data.",
         paymentSuccess: "Payment recorded successfully.",
-        paymentError: "An error occurred while recording the payment."
+        paymentError: "An error occurred while recording the payment.",
+        supplierActive: "Active",
+        supplierInactive: "Inactive"
       }
     };
 
@@ -2985,9 +3020,12 @@ if (!window.SmartSalesAPI) {
       const table=document.getElementById("suppliersTable"), empty=document.getElementById("suppliersEmptyMessage");
       table.innerHTML="";
       empty.style.display=suppliers.length?"none":"block";
+      const t=translations[currentLanguage];
       suppliers.forEach(s=>{
+        const status=String(s.status||"").toLowerCase();
+        const statusLabel=status==="active"?t.supplierActive:status==="inactive"?t.supplierInactive:(status||"-");
         const row=document.createElement("tr");
-        row.innerHTML='<td>'+escapeHtml(s.name||"")+'</td><td>'+escapeHtml(s.phone||"")+'</td><td>'+escapeHtml(s.status||"")+'</td><td><div class="supplier-actions"><button class="edit-btn" onclick="editSupplier('+Number(s.id)+')">تعديل</button></div></td>';
+        row.innerHTML='<td>'+escapeHtml(s.name||"")+'</td><td>'+escapeHtml(s.phone||"")+'</td><td>'+escapeHtml(statusLabel)+'</td><td><div class="supplier-actions"><button class="edit-btn" onclick="editSupplier('+Number(s.id)+')">'+escapeHtml(t.edit)+'</button></div></td>';
         table.appendChild(row);
       });
     }
