@@ -4747,6 +4747,15 @@ if (!window.SmartSalesAPI) {
           paymentStatus
         );
 
+      const returnButton = document.getElementById("returnInvoiceButton");
+      if (returnButton) {
+        const invoiceStatus = String(invoiceData.status || "").toLowerCase();
+        returnButton.style.display =
+          invoiceStatus === "completed" || invoiceStatus === "partially_returned"
+            ? ""
+            : "none";
+      }
+
       document.getElementById(
         "invoicePaymentStatus"
       ).textContent =
