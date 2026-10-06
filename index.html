@@ -6087,7 +6087,7 @@ if (!window.SmartSalesAPI) {
           return;
         }
         const { organization, store } = SmartSalesAuth.getContext();
-        const { data, error } = await SmartSalesAuth.getClient().rpc("profitability_summary", {
+        const { data, error } = await SmartSalesAuth.getClient().rpc("profitability_report_v2", {
           p_organization_id: organization.id,
           p_store_id: store.id,
           p_from_date: from,
@@ -6113,6 +6113,12 @@ if (!window.SmartSalesAPI) {
         }
       } catch (error) {
         console.error(error);
+        if (warning) {
+          warning.style.display = "block";
+          warning.style.background = "#fef2f2";
+          warning.style.color = "#991b1b";
+          warning.textContent = "تعذر تحميل تقرير الأرباح والتكاليف: " + (error.message || "خطأ غير معروف");
+        }
         showMessage(error.message || "تعذر تحميل تقرير الأرباح والتكاليف", true);
       }
     }
