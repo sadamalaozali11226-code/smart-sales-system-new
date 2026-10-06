@@ -1351,6 +1351,34 @@ if (!window.SmartSalesAPI) {
   </button>
 </header>
 
+<section class="section" id="commercialReportsSection" style="margin-top:20px">
+  <div class="section-header">
+    <h2>التقارير التجارية</h2>
+    <button class="refresh-btn" onclick="loadCommercialReports()">تحديث التقارير</button>
+  </div>
+  <div style="display:flex;gap:10px;align-items:end;flex-wrap:wrap;margin-bottom:14px">
+    <div><label for="commercialReportsFrom">من</label><input id="commercialReportsFrom" type="date"></div>
+    <div><label for="commercialReportsTo">إلى</label><input id="commercialReportsTo" type="date"></div>
+  </div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">
+    <button class="refresh-btn" onclick="selectCommercialReport('sales')">المبيعات</button>
+    <button class="refresh-btn" onclick="selectCommercialReport('purchases')">المشتريات</button>
+    <button class="refresh-btn" onclick="selectCommercialReport('inventory')">المخزون</button>
+    <button class="refresh-btn" onclick="selectCommercialReport('customers')">مديونيات العملاء</button>
+    <button class="refresh-btn" onclick="selectCommercialReport('suppliers')">مستحقات الموردين</button>
+    <button class="refresh-btn" onclick="selectCommercialReport('expenses')">المصروفات</button>
+    <button class="refresh-btn" onclick="selectCommercialReport('movements')">حركة المخزون</button>
+    <button class="refresh-btn" onclick="selectCommercialReport('transfers')">التحويلات</button>
+  </div>
+  <div id="commercialReportsStatus" style="display:none;margin-bottom:12px"></div>
+  <div style="overflow:auto">
+    <table>
+      <thead id="commercialReportsHead"></thead>
+      <tbody id="commercialReportsBody"></tbody>
+    </table>
+  </div>
+</section>
+
 <div class="cards">
 
   <div class="card">
@@ -6068,6 +6096,108 @@ if (!window.SmartSalesAPI) {
         {value:r=>Number(r.quantity||0)},
         {value:r=>Number(r.count||0)}
       ], "لا توجد حركة مخزون");
+    }
+
+    let commercialReportsData = {};
+    let selectedCommercialReport = "sales";
+
+    function commercialReportMoney(value) {
+      return Number(value || 0).toFixed(2);
+    }
+
+    function selectCommercialReport(type) {
+      selectedCommercialReport = type;
+      renderCommercialReport();
+    }
+
+    function setCommercialReportsStatus(message, isError = false) {
+      const el = document.getElementById("commercialReportsStatus");
+      if (!el) return;
+      el.textContent = message || "";
+      el.style.display = message ? "block" : "none";
+      el.style.padding = message ? "10px" : "0";
+      el.style.borderRadius = "8px";
+      el.style.background = isError ? "#fef2f2" : "#f8fafc";
+      el.style.border = message ? "1px solid #e2e8f0" : "0";
+      el.style.color = isError ? "#991b1b" : "#334155";
+    }
+
+    function renderCommercialReport() {
+      const head = document.getElementById("commercialReportsHead");
+      const body = document.getElementById("commercialReportsBody");
+      if (!head || !body) return;
+      const rows = Array.isArray(commercialReportsData[selectedCommercialReport])
+        ? commercialReportsData[selectedCommercialReport] : [];
+      const configs = {
+        sales: {
+          headers:["الفاتورة","العميل","الإجمالي","الدفع","الحالة","التاريخ"],
+          cells:r=>[r.invoice_number,r.customer_name,commercialReportMoney(r.total),r.payment_status,r.status,new Date(r.created_at).toLocaleString("ar")]
+        },
+        purchases: {
+          headers:["رقم النظام","فاتورة المورد","المورد","الإجمالي","الدفع","الحالة","التاريخ"],
+          cells:r=>[r.receipt_number,r.supplier_invoice_number||"-",r.supplier_name,commercialReportMoney(r.total),r.payment_status,r.status,new Date(r.created_at).toLocaleString("ar")]
+        },
+        inventory: {
+          headers:["المنتج","الكمية","حد إعادة الطلب","متوسط التكلفة","قيمة المخزون"],
+          cells:r=>[r.product_name,r.quantity,r.reorder_level,commercialReportMoney(r.average_cost),commercialReportMoney(r.stock_value)]
+        },
+        customers: {
+          headers:["العميل","إجمالي المبيعات","مدفوع الفواتير","دفعات الحساب","المرتجعات","الرصيد"],
+          cells:r=>[r.customer_name,commercialReportMoney(r.sales_total),commercialReportMoney(r.invoice_payments),commercialReportMoney(r.account_payments),commercialReportMoney(r.sales_refunds),commercialReportMoney(r.balance)]
+        },
+        suppliers: {
+          headers:["المورد","المشتريات","دفعات الفواتير","مرتجعات الشراء","استردادات المورد","الرصيد"],
+          cells:r=>[r.supplier_name,commercialReportMoney(r.purchases_total),commercialReportMoney(r.invoice_payments),commercialReportMoney(r.purchase_returns),commercialReportMoney(r.supplier_refunds),commercialReportMoney(r.balance)]
+        },
+        expenses: {
+          headers:["الرقم","التصنيف","المبلغ","التاريخ","طريقة الدفع","الحالة"],
+          cells:r=>[r.expense_number,r.category,commercialReportMoney(r.amount),r.expense_date,r.payment_method,r.status]
+        },
+        movements: {
+          headers:["المنتج","نوع الحركة","التغير","المرجع","رقم المرجع","التاريخ","ملاحظات"],
+          cells:r=>[r.product_name||"-",r.movement_type,r.quantity_change,r.reference_type||"-",r.reference_id||"-",new Date(r.created_at).toLocaleString("ar"),r.notes||"-"]
+        },
+        transfers: {
+          headers:["المنتج","من فرع","إلى فرع","الكمية","التاريخ","ملاحظات"],
+          cells:r=>[r.product_name,r.from_store_name,r.to_store_name,r.quantity,new Date(r.created_at).toLocaleString("ar"),r.notes||"-"]
+        }
+      };
+      const config=configs[selectedCommercialReport]||configs.sales;
+      head.innerHTML="<tr>"+config.headers.map(h=>"<th>"+escapeHtml(h)+"</th>").join("")+"</tr>";
+      if(!rows.length){
+        body.innerHTML='<tr><td colspan="'+config.headers.length+'" class="empty">لا توجد بيانات في الفترة المحددة.</td></tr>';
+        return;
+      }
+      body.innerHTML=rows.map(row=>{
+        return "<tr>"+config.cells(row).map(v=>"<td>"+escapeHtml(String(v ?? "-"))+"</td>").join("")+"</tr>";
+      }).join("");
+    }
+
+    async function loadCommercialReports() {
+      try {
+        const from=document.getElementById("commercialReportsFrom")?.value||null;
+        const to=document.getElementById("commercialReportsTo")?.value||null;
+        if(from && to && from>to){
+          setCommercialReportsStatus("تاريخ البداية يجب ألا يتجاوز تاريخ النهاية.",true);
+          return;
+        }
+        setCommercialReportsStatus("جاري تحميل التقارير...");
+        const {organization,store}=SmartSalesAuth.getContext();
+        const {data,error}=await SmartSalesAuth.getClient().rpc("commercial_reports",{
+          p_organization_id:organization.id,
+          p_store_id:store.id,
+          p_from_date:from,
+          p_to_date:to
+        });
+        if(error) throw error;
+        commercialReportsData=data||{};
+        setCommercialReportsStatus("");
+        renderCommercialReport();
+      } catch(error) {
+        console.error(error);
+        setCommercialReportsStatus(error.message||"تعذر تحميل التقارير التجارية.",true);
+        document.getElementById("commercialReportsBody").innerHTML='<tr><td colspan="8">تعذر تحميل التقرير.</td></tr>';
+      }
     }
 
     async function initializeApp() {
