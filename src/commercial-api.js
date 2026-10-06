@@ -529,6 +529,46 @@
     return data;
   }
 
+  async function expenses() {
+    const { organization, store } = context();
+    const { data, error } = await client().from("expenses").select("*").eq("organization_id", organization.id).eq("store_id", store.id).order("expense_date", { ascending: false }).order("id", { ascending: false });
+    if (error) throw error;
+    return data || [];
+  }
+
+  async function createExpense(body) {
+    const { organization, store } = context();
+    const category = String(body.category || "").trim();
+    const amount = Number(body.amount);
+    if (!category) throw new Error("Expense category is required.");
+    if (!Number.isFinite(amount) || amount <= 0) throw new Error("Expense amount must be greater than zero.");
+    const { data, error } = await client().rpc("create_expense", {
+      p_organization_id: organization.id,
+      p_store_id: store.id,
+      p_category: category,
+      p_amount: amount,
+      p_expense_date: body.expenseDate || null,
+      p_payment_method: body.paymentMethod || "cash",
+      p_reference: body.reference ? String(body.reference).trim() : null,
+      p_notes: body.notes ? String(body.notes).trim() : null
+    });
+    if (error) throw error;
+    return data;
+  }
+
+  async function cancelExpense(id, reason) {
+    const { organization } = context();
+    const text = String(reason || "").trim();
+    if (!text) throw new Error("Cancellation reason is required.");
+    const { data, error } = await client().rpc("cancel_expense", {
+      p_organization_id: organization.id,
+      p_expense_id: Number(id),
+      p_reason: text
+    });
+    if (error) throw error;
+    return data;
+  }
+
   async function returnPurchase(body) {
     const { organization, store } = context();
     const items = Array.isArray(body.items) ? body.items : [];
@@ -668,6 +708,9 @@
     customerAccountSummary,
     customerStatement,
     supplierAccountSummary,
-    supplierStatement
+    supplierStatement,
+    expenses,
+    createExpense,
+    cancelExpense
   });
 })();
