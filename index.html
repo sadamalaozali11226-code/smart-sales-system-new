@@ -424,6 +424,21 @@ if (!window.SmartSalesAPI) {
     return data;
   }
 
+  async function cancelSale(body) {
+    const { organization } = context();
+    const reason = String(body.reason || "").trim();
+    if (!reason) throw new Error("Cancellation reason is required.");
+    const { data, error } = await client().rpc("cancel_sale", {
+      p_organization_id: organization.id,
+      p_sale_id: Number(body.saleId),
+      p_reason: reason,
+      p_refund_payment_method: body.refundPaymentMethod ? String(body.refundPaymentMethod) : "cash",
+      p_refund_reference: body.refundReference ? String(body.refundReference).trim() : null
+    });
+    if (error) throw error;
+    return data;
+  }
+
   async function payment(body) {
     const { data, error } = await client().rpc("record_sale_payment", {
       p_sale_id: Number(body.saleId),
@@ -492,6 +507,7 @@ if (!window.SmartSalesAPI) {
     updateCustomer,
     createSale,
     returnSale,
+    cancelSale,
     payment,
     suppliers,
     purchases,
@@ -1674,6 +1690,34 @@ if (!window.SmartSalesAPI) {
     </div>
   </div>
 
+  <!-- Sales Cancellation Modal -->
+  <div class="modal-overlay" id="saleCancelModal" style="display:none">
+    <div class="modal">
+      <h3 id="saleCancelModalTitle">إلغاء فاتورة البيع</h3>
+      <div class="payment-debt-summary">
+        <div class="debt-summary-row">
+          <span>المبلغ المدفوع الذي سيُرد</span>
+          <strong id="saleCancelRefundAmount">0.00</strong>
+        </div>
+      </div>
+      <label for="saleCancelReason" id="saleCancelReasonLabel">سبب الإلغاء</label>
+      <input type="text" id="saleCancelReason" maxlength="200">
+      <label for="saleCancelRefundMethod" id="saleCancelRefundMethodLabel">طريقة رد المبلغ</label>
+      <select id="saleCancelRefundMethod">
+        <option value="cash">نقدي</option>
+        <option value="card">بطاقة</option>
+        <option value="transfer">تحويل</option>
+        <option value="other">أخرى</option>
+      </select>
+      <label for="saleCancelRefundReference" id="saleCancelRefundReferenceLabel">مرجع رد المبلغ</label>
+      <input type="text" id="saleCancelRefundReference" maxlength="120">
+      <div class="modal-buttons">
+        <button class="modal-confirm" id="confirmSaleCancelButton" onclick="confirmSaleCancel()">تأكيد إلغاء الفاتورة</button>
+        <button class="modal-cancel" onclick="closeSaleCancelModal()">إلغاء</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Sales Return Modal -->
   <div class="modal-overlay" id="saleReturnModal" style="display:none">
     <div class="modal">
@@ -2169,6 +2213,14 @@ if (!window.SmartSalesAPI) {
 
     <button
       class="invoice-close-btn"
+      onclick="openSaleCancelFromCurrentInvoice()"
+      id="cancelInvoiceButton"
+    >
+      إلغاء الفاتورة
+    </button>
+
+    <button
+      class="invoice-close-btn"
       onclick="closeInvoiceModal()"
       id="closeInvoiceButton"
     >
@@ -2204,6 +2256,7 @@ if (!window.SmartSalesAPI) {
     let selectedPaymentInvoice = null;
     let currentPaymentRemaining = 0;
     let selectedReturnInvoice = null;
+    let selectedCancelInvoice = null;
 
     const translations = {
 
@@ -2331,6 +2384,13 @@ if (!window.SmartSalesAPI) {
         refundAmount: "مبلغ الاسترداد",
         returnReason: "سبب المرتجع",
         returnSuccess: "تم تسجيل مرتجع البيع وإعادة المخزون",
+        cancelSale: "إلغاء الفاتورة",
+        cancelSaleTitle: "إلغاء فاتورة البيع",
+        cancelReason: "سبب الإلغاء",
+        refundPaymentMethod: "طريقة رد المبلغ",
+        refundReference: "مرجع رد المبلغ",
+        cancelConfirm: "تأكيد إلغاء الفاتورة",
+        cancelSuccess: "تم إلغاء الفاتورة وإعادة المخزون وتسوية المبلغ المدفوع",
 
         withoutCustomer: "بدون عميل",
 
@@ -2546,6 +2606,13 @@ if (!window.SmartSalesAPI) {
         refundAmount: "Refund amount",
         returnReason: "Return reason",
         returnSuccess: "Sales return recorded and stock restored",
+        cancelSale: "Cancel invoice",
+        cancelSaleTitle: "Cancel sales invoice",
+        cancelReason: "Cancellation reason",
+        refundPaymentMethod: "Refund payment method",
+        refundReference: "Refund reference",
+        cancelConfirm: "Confirm cancellation",
+        cancelSuccess: "Invoice cancelled, stock restored, and paid amount refunded",
 
         withoutCustomer: "Without customer",
 
@@ -4748,12 +4815,16 @@ if (!window.SmartSalesAPI) {
         );
 
       const returnButton = document.getElementById("returnInvoiceButton");
+      const cancelButton = document.getElementById("cancelInvoiceButton");
       if (returnButton) {
         const invoiceStatus = String(invoiceData.status || "").toLowerCase();
         returnButton.style.display =
           invoiceStatus === "completed" || invoiceStatus === "partially_returned"
             ? ""
             : "none";
+      }
+      if (cancelButton) {
+        cancelButton.style.display = invoiceStatus === "completed" ? "" : "none";
       }
 
       document.getElementById(
@@ -4968,6 +5039,65 @@ if (!window.SmartSalesAPI) {
         element.classList.add(
           "status-default"
         );
+      }
+    }
+
+    function openSaleCancelFromCurrentInvoice() {
+      if (!window.__currentInvoiceData) return;
+      openSaleCancelModal(window.__currentInvoiceData);
+    }
+
+    function openSaleCancelModal(invoiceData) {
+      if (!invoiceData) return;
+      const status = String(invoiceData.status || "").toLowerCase();
+      if (status !== "completed") {
+        showMessage("لا يمكن إلغاء هذه الفاتورة بهذه الحالة.", true);
+        return;
+      }
+      selectedCancelInvoice = invoiceData;
+      const t = translations[currentLanguage];
+      document.getElementById("saleCancelModalTitle").textContent = t.cancelSaleTitle;
+      document.getElementById("saleCancelReason").value = "";
+      document.getElementById("saleCancelRefundReference").value = "";
+      const paid = Number(invoiceData.paidAmount || 0);
+      document.getElementById("saleCancelRefundAmount").textContent = paid.toFixed(2);
+      document.getElementById("saleCancelModal").style.display = "flex";
+    }
+
+    function closeSaleCancelModal() {
+      document.getElementById("saleCancelModal").style.display = "none";
+      selectedCancelInvoice = null;
+    }
+
+    async function confirmSaleCancel() {
+      if (!selectedCancelInvoice) return;
+      const reason = document.getElementById("saleCancelReason").value.trim();
+      if (!reason) {
+        showMessage(translations[currentLanguage].cancelReason + " مطلوب.", true);
+        return;
+      }
+      const button = document.getElementById("confirmSaleCancelButton");
+      button.disabled = true;
+      try {
+        await SmartSalesAPI.cancelSale({
+          saleId: Number(selectedCancelInvoice.id),
+          reason,
+          refundPaymentMethod: document.getElementById("saleCancelRefundMethod").value,
+          refundReference: document.getElementById("saleCancelRefundReference").value.trim() || null
+        });
+        const saleId = Number(selectedCancelInvoice.id);
+        closeSaleCancelModal();
+        closeInvoiceModal();
+        await loadProducts();
+        await loadSales();
+        await loadSalesHistory();
+        showMessage(translations[currentLanguage].cancelSuccess);
+        await openInvoiceById(saleId);
+      } catch (error) {
+        console.error(error);
+        showMessage(error.message || translations[currentLanguage].cancelSale, true);
+      } finally {
+        button.disabled = false;
       }
     }
 
