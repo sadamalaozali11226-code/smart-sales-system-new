@@ -6315,30 +6315,35 @@ if (!window.SmartSalesAPI) {
       }).join("");
     }
 
+    // The legacy commercial report loader above is superseded by the in-app summary report.
+    // Keep one authoritative loader to avoid calling the removed legacy RPC.
     async function loadCommercialReports() {
+      const errorBox = document.getElementById("commercialReportsError");
+      const loading = document.getElementById("commercialReportsLoading");
+      if (!errorBox || !loading) return;
+      errorBox.style.display = "none";
+      loading.style.display = "block";
       try {
-        const from=document.getElementById("commercialReportsFrom")?.value||null;
-        const to=document.getElementById("commercialReportsTo")?.value||null;
-        if(from && to && from>to){
-          setCommercialReportsStatus("تاريخ البداية يجب ألا يتجاوز تاريخ النهاية.",true);
-          return;
+        const from = document.getElementById("reportsFrom").value || null;
+        const to = document.getElementById("reportsTo").value || null;
+        if (from && to && from > to) {
+          throw new Error("تاريخ البداية يجب ألا يتجاوز تاريخ النهاية.");
         }
-        setCommercialReportsStatus("جاري تحميل التقارير...");
-        const {organization,store}=SmartSalesAuth.getContext();
-        const {data,error}=await SmartSalesAuth.getClient().rpc("commercial_reports",{
-          p_organization_id:organization.id,
-          p_store_id:store.id,
-          p_from_date:from,
-          p_to_date:to
+        const { organization, store } = SmartSalesAuth.getContext();
+        const { data, error } = await SmartSalesAuth.getClient().rpc("commercial_reports_summary", {
+          p_organization_id: organization.id,
+          p_store_id: store.id,
+          p_from_date: from,
+          p_to_date: to
         });
-        if(error) throw error;
-        commercialReportsData=data||{};
-        setCommercialReportsStatus("");
-        renderCommercialReport();
-      } catch(error) {
+        if (error) throw error;
+        renderCommercialReports(data || {});
+      } catch (error) {
         console.error(error);
-        setCommercialReportsStatus(error.message||"تعذر تحميل التقارير التجارية.",true);
-        document.getElementById("commercialReportsBody").innerHTML='<tr><td colspan="8">تعذر تحميل التقرير.</td></tr>';
+        errorBox.textContent = error.message || "تعذر تحميل التقارير التجارية.";
+        errorBox.style.display = "block";
+      } finally {
+        loading.style.display = "none";
       }
     }
 
