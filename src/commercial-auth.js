@@ -273,6 +273,9 @@
         "</button>";
       bar.style.display = "flex";
       document.getElementById("commercialLogoutButton").onclick = signOut;
+      document.getElementById("commercialStoreSelector").onchange = function(event) {
+        switchStore(event.target.value);
+      };
     }
   }
 
@@ -338,8 +341,24 @@
       userId,
       membership: memberships[0],
       organization: organizations[0],
+      stores,
       store: stores[0]
     };
+  }
+
+  async function switchStore(storeId) {
+    if (!context || !storeId) return;
+    const nextStore = (context.stores || []).find(function(store) {
+      return String(store.id) === String(storeId);
+    });
+    if (!nextStore || String(nextStore.id) === String(context.store.id)) return;
+
+    context = Object.assign({}, context, { store: nextStore });
+    hideGate();
+
+    if (typeof window.initializeCommercialApp === "function") {
+      await window.initializeCommercialApp(context);
+    }
   }
 
   async function bootstrapWorkspace() {
