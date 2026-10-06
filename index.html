@@ -3918,6 +3918,7 @@ if (!window.SmartSalesAPI) {
                 ${t.edit}
               </button>
               <button class="sale-btn" onclick="openCustomerStatement(${customer.id})">كشف الحساب</button>
+               <button class="payment-btn" onclick="openCustomerPaymentModal(${customer.id})">سداد على الحساب</button>
 
 
             </div>
@@ -5889,6 +5890,50 @@ if (!window.SmartSalesAPI) {
       }
     }
 
+    let selectedCustomerPaymentId = null;
+
+    function openCustomerPaymentModal(id) {
+      const customer = customers.find(x => Number(x.id) === Number(id));
+      if (!customer) return;
+      selectedCustomerPaymentId = Number(id);
+      document.getElementById("customerPaymentInfo").textContent =
+        "العميل: " + (customer.name || "-") + " — الرصيد الحالي: " + Number(customer.accountBalance || 0).toFixed(2);
+      document.getElementById("customerPaymentAmount").value = "";
+      document.getElementById("customerPaymentReference").value = "";
+      document.getElementById("customerPaymentNotes").value = "";
+      document.getElementById("customerPaymentModal").style.display = "flex";
+    }
+
+    function closeCustomerPaymentModal() {
+      selectedCustomerPaymentId = null;
+      document.getElementById("customerPaymentModal").style.display = "none";
+    }
+
+    async function confirmCustomerPayment() {
+      try {
+        if (!selectedCustomerPaymentId) return;
+        const customer = customers.find(x => Number(x.id) === Number(selectedCustomerPaymentId));
+        const amount = Number(document.getElementById("customerPaymentAmount").value);
+        const balance = Math.max(Number(customer && customer.accountBalance || 0), 0);
+        if (!Number.isFinite(amount) || amount <= 0) return showMessage("مبلغ السداد غير صحيح", true);
+        if (amount > balance + 0.001) return showMessage("مبلغ السداد أكبر من مديونية العميل", true);
+        await SmartSalesAPI.recordCustomerPayment({
+          customerId: selectedCustomerPaymentId,
+          amount,
+          paymentMethod: document.getElementById("customerPaymentMethod").value,
+          reference: document.getElementById("customerPaymentReference").value.trim() || null,
+          notes: document.getElementById("customerPaymentNotes").value.trim() || null
+        });
+        closeCustomerPaymentModal();
+        await loadCustomers();
+        await loadSalesHistory();
+        showMessage("تم تسجيل سداد العميل");
+      } catch (error) {
+        console.error(error);
+        showMessage(error.message || "تعذر تسجيل سداد العميل", true);
+      }
+    }
+
     function showMessage(
       message,
       isError = false
@@ -6297,10 +6342,55 @@ if (!window.SmartSalesAPI) {
       }
     }
 
+    let transferStores = [];
+
+    async function loadTransferStores() {
+      try {
+        transferStores = await SmartSalesAPI.stores();
+        const context = SmartSalesAuth.getContext();
+        const destination = document.getElementById("transferDestinationStore");
+        const product = document.getElementById("transferProduct");
+        if (!destination || !product) return;
+        destination.innerHTML = '<option value="">اختر الفرع المستلم</option>';
+        (transferStores || []).filter(store => String(store.id) !== String(context.store.id)).forEach(store => {
+          destination.innerHTML += '<option value="' + escapeHtml(store.id) + '">' + escapeHtml(store.name || store.id) + '</option>';
+        });
+        product.innerHTML = '<option value="">اختر المنتج</option>';
+        (products || []).forEach(item => {
+          product.innerHTML += '<option value="' + Number(item.id) + '">' + escapeHtml(item.name || "") + ' — المتاح: ' + Number(item.quantity || 0) + '</option>';
+        });
+      } catch (error) {
+        console.error(error);
+        showMessage(error.message || "تعذر تحميل الفروع", true);
+      }
+    }
+
+    async function submitStockTransfer() {
+      try {
+        const toStoreId = document.getElementById("transferDestinationStore").value;
+        const productId = Number(document.getElementById("transferProduct").value);
+        const quantity = Number(document.getElementById("transferQuantity").value);
+        const notes = document.getElementById("transferNotes").value.trim() || null;
+        if (!toStoreId) return showMessage("الفرع المستلم مطلوب", true);
+        if (!Number.isInteger(productId) || productId <= 0) return showMessage("المنتج مطلوب", true);
+        if (!Number.isInteger(quantity) || quantity <= 0) return showMessage("كمية التحويل يجب أن تكون أكبر من صفر", true);
+        await SmartSalesAPI.transferStock({ toStoreId, productId, quantity, notes });
+        document.getElementById("transferQuantity").value = "";
+        document.getElementById("transferNotes").value = "";
+        await loadProducts();
+        await loadTransferStores();
+        showMessage("تم تحويل المخزون بنجاح");
+      } catch (error) {
+        console.error(error);
+        showMessage(error.message || "تعذر تحويل المخزون", true);
+      }
+    }
+
     async function initializeApp() {
 
       await Promise.all([
         loadProducts(),
+        loadTransferStores(),
         loadSales(),
         loadCustomers(),
         loadSalesHistory(),
@@ -6433,6 +6523,22 @@ if (!window.SmartSalesAPI) {
 
   </script>
 
+  <section id="stockTransferSection" style="margin-top:24px">
+    <div class="section-header" style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
+      <div>
+        <h2 style="margin:0">تحويل المخزون بين الفروع</h2>
+        <p style="margin:6px 0 0;color:#666">يتم خصم الكمية من الفرع الحالي وإضافتها للفرع المستلم مع تسجيل حركة التحويل.</p>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;align-items:end">
+      <div><label>الفرع المستلم</label><select id="transferDestinationStore"><option value="">اختر الفرع المستلم</option></select></div>
+      <div><label>المنتج</label><select id="transferProduct"><option value="">اختر المنتج</option></select></div>
+      <div><label>الكمية</label><input id="transferQuantity" type="number" min="1" step="1" placeholder="الكمية"></div>
+      <div><label>ملاحظات</label><input id="transferNotes" type="text" maxlength="200" placeholder="ملاحظات اختيارية"></div>
+      <div><button class="payment-confirm" onclick="submitStockTransfer()">تنفيذ التحويل</button></div>
+    </div>
+  </section>
+
   <section id="commercialReportsSection" style="margin-top:24px">
     <div class="section-header" style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
       <div>
@@ -6491,6 +6597,26 @@ if (!window.SmartSalesAPI) {
           <thead><tr><th>التاريخ</th><th>المرجع</th><th>البيان</th><th>مدين</th><th>دائن</th><th>الرصيد</th></tr></thead>
           <tbody id="accountStatementBody"></tbody>
         </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="customerPaymentModal" style="display:none">
+    <div class="modal">
+      <h3>سداد حساب العميل</h3>
+      <p id="customerPaymentInfo">العميل: -</p>
+      <input id="customerPaymentAmount" type="number" min="0.01" step="0.01" placeholder="مبلغ السداد">
+      <select id="customerPaymentMethod">
+        <option value="cash">نقدًا</option>
+        <option value="transfer">تحويل</option>
+        <option value="card">بطاقة</option>
+        <option value="other">أخرى</option>
+      </select>
+      <input id="customerPaymentReference" type="text" placeholder="المرجع">
+      <textarea id="customerPaymentNotes" placeholder="ملاحظات"></textarea>
+      <div class="modal-actions">
+        <button class="payment-confirm" onclick="confirmCustomerPayment()">تأكيد السداد</button>
+        <button class="secondary-btn" onclick="closeCustomerPaymentModal()">إغلاق</button>
       </div>
     </div>
   </div>
