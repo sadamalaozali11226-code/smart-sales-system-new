@@ -415,6 +415,21 @@
     return data;
   }
 
+  async function cancelSale(body) {
+    const { organization } = context();
+    const reason = String(body.reason || "").trim();
+    if (!reason) throw new Error("Cancellation reason is required.");
+    const { data, error } = await client().rpc("cancel_sale", {
+      p_organization_id: organization.id,
+      p_sale_id: Number(body.saleId),
+      p_reason: reason,
+      p_refund_payment_method: body.refundPaymentMethod ? String(body.refundPaymentMethod) : "cash",
+      p_refund_reference: body.refundReference ? String(body.refundReference).trim() : null
+    });
+    if (error) throw error;
+    return data;
+  }
+
   async function payment(body) {
     const { data, error } = await client().rpc("record_sale_payment", {
       p_sale_id: Number(body.saleId),
@@ -573,6 +588,7 @@
     createSale,
     payment,
     returnSale,
+    cancelSale,
     suppliers,
     createSupplier,
     updateSupplier,
