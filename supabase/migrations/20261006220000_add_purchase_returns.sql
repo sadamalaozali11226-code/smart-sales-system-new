@@ -150,3 +150,32 @@ end;
 $$;
 revoke execute on function public.return_purchase_items(uuid,uuid,bigint,jsonb,text,numeric,text,text,text) from public,anon;
 grant execute on function public.return_purchase_items(uuid,uuid,bigint,jsonb,text,numeric,text,text,text) to authenticated;
+
+
+create or replace function private.purchase_return_details(
+ p_organization_id uuid,p_store_id uuid,p_purchase_receipt_id bigint
+) returns jsonb language plpgsql security definer set search_path='public','private'
+as $$
+declare v_purchase public.purchase_receipts%rowtype;
+begin
+ if auth.uid() is null then raise exception 'authentication required'; end if;
+ if not private.is_org_store_member(p_organization_id,p_store_id) then raise exception 'organization/store access denied'; end if;
+ if not private.has_org_permission(p_organization_id,'purchases.view') then raise exception 'purchases.view permission required'; end if;
+ select * into v_purchase from public.purchase_receipts where id=p_purchase_receipt_id and organization_id=p_organization_id and store_id=p_store_id;
+ if not found then raise exception 'purchase receipt not found'; end if;
+ return jsonb_build_object(
+  'id',v_purchase.id,'receipt_number',v_purchase.receipt_number,'supplier_invoice_number',v_purchase.supplier_invoice_number,
+  'status',v_purchase.status,'total',v_purchase.total,
+  'items',coalesce((select jsonb_agg(jsonb_build_object(
+    'purchase_receipt_item_id',pri.id,'product_id',pri.product_id,'product_name',p.name,
+    'quantity',pri.quantity,'unit_cost',pri.unit_cost,
+    'returned_quantity',coalesce((select sum(pri2.quantity) from public.purchase_return_items pri2 join public.purchase_returns pr2 on pr2.id=pri2.purchase_return_id where pri2.purchase_receipt_item_id=pri.id and pr2.status='completed'),0),
+    'available_quantity',pri.quantity-coalesce((select sum(pri2.quantity) from public.purchase_return_items pri2 join public.purchase_returns pr2 on pr2.id=pri2.purchase_return_id where pri2.purchase_receipt_item_id=pri.id and pr2.status='completed'),0)
+  ) order by pri.id) from public.purchase_receipt_items pri join public.products p on p.id=pri.product_id where pri.receipt_id=v_purchase.id),'[]'::jsonb)
+ );
+end; $$;
+create or replace function public.purchase_return_details(p_organization_id uuid,p_store_id uuid,p_purchase_receipt_id bigint)
+returns jsonb language plpgsql security invoker set search_path='public','private'
+as $$ begin return private.purchase_return_details(p_organization_id,p_store_id,p_purchase_receipt_id); end; $$;
+revoke execute on function public.purchase_return_details(uuid,uuid,bigint) from public,anon;
+grant execute on function public.purchase_return_details(uuid,uuid,bigint) to authenticated;
