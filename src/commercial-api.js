@@ -529,6 +529,28 @@
     return data;
   }
 
+  async function returnPurchase(body) {
+    const { organization, store } = context();
+    const items = Array.isArray(body.items) ? body.items : [];
+    if (!Number(body.purchaseReceiptId)) throw new Error("Purchase receipt is required.");
+    if (!items.length) throw new Error("Purchase return items are required.");
+    const reason = String(body.reason || "").trim();
+    if (!reason) throw new Error("Return reason is required.");
+    const { data, error } = await client().rpc("return_purchase_items", {
+      p_organization_id: organization.id,
+      p_store_id: store.id,
+      p_purchase_receipt_id: Number(body.purchaseReceiptId),
+      p_items: items,
+      p_reason: reason,
+      p_refund_amount: Number(body.refundAmount || 0),
+      p_refund_payment_method: body.refundPaymentMethod || "cash",
+      p_refund_reference: body.refundReference ? String(body.refundReference).trim() : null,
+      p_notes: body.notes ? String(body.notes).trim() : null
+    });
+    if (error) throw error;
+    return data;
+  }
+
   async function cancelPurchase(purchaseReceiptId, reason) {
     const { organization, store } = context();
     const text = String(reason || "").trim();
