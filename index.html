@@ -1209,7 +1209,19 @@ if (!window.SmartSalesAPI) {
       flex: 1;
     }
 
+    @page {
+      size: A4;
+      margin: 12mm;
+    }
+
     @media print {
+      html,
+      body {
+        margin: 0 !important;
+        padding: 0 !important;
+        background: #fff !important;
+      }
+
       body * {
         visibility: hidden;
       }
@@ -1228,11 +1240,13 @@ if (!window.SmartSalesAPI) {
       }
 
       #invoiceModal .modal {
-        max-width: 100%;
-        width: 100%;
+        max-width: 190mm;
+        width: 190mm;
+        min-height: 0;
         box-shadow: none;
         border-radius: 0;
-        padding: 20px;
+        padding: 0;
+        margin: 0 auto;
       }
 
       #invoiceModal .invoice-buttons {
@@ -1241,6 +1255,26 @@ if (!window.SmartSalesAPI) {
 
       .invoice {
         width: 100%;
+        margin: 0;
+        padding: 0;
+        box-shadow: none;
+      }
+
+      .invoice-header {
+        border-bottom: 2px solid #111;
+        padding-bottom: 10px;
+        margin-bottom: 14px;
+      }
+
+      .invoice-table th,
+      .invoice-table td {
+        border-color: #222 !important;
+      }
+
+      .invoice-summary,
+      .invoice-total,
+      .payment-status {
+        break-inside: avoid;
       }
     }
 
@@ -1313,6 +1347,8 @@ if (!window.SmartSalesAPI) {
       }
     }
   
+    .invoice-business-info{display:flex;flex-direction:column;gap:3px;margin-top:8px;font-size:14px;color:#555}
+    .invoice-business-info strong{font-size:16px;color:#111}
     .summary-card{padding:14px;border:1px solid #e5e7eb;border-radius:10px;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.04)}
     .summary-card strong{display:block;font-size:13px;color:#666;margin-bottom:7px}
     .summary-card div{font-size:20px;font-weight:700}
@@ -2155,6 +2191,11 @@ if (!window.SmartSalesAPI) {
         نظام المبيعات الذكي
       </div>
 
+      <div class="invoice-business-info">
+        <strong id="invoiceOrganizationName">-</strong>
+        <span id="invoiceStoreName">-</span>
+      </div>
+
     </div>
 
     <div class="invoice-meta">
@@ -2185,6 +2226,16 @@ if (!window.SmartSalesAPI) {
         </strong>
 
         <span id="invoiceCustomer">
+          -
+        </span>
+      </div>
+
+      <div>
+        <strong id="invoiceCustomerPhoneLabel">
+          هاتف العميل:
+        </strong>
+
+        <span id="invoiceCustomerPhone">
           -
         </span>
       </div>
@@ -2498,6 +2549,7 @@ if (!window.SmartSalesAPI) {
         invoiceNumber: "رقم الفاتورة:",
         invoiceDate: "التاريخ:",
         invoiceCustomer: "العميل:",
+        invoiceCustomerPhone: "هاتف العميل:",
         invoicePayment: "حالة الدفع:",
         invoicePaymentMethod: "طريقة الدفع:",
         invoiceReference: "المرجع:",
@@ -3280,6 +3332,9 @@ if (!window.SmartSalesAPI) {
 
       document.getElementById("invoiceCustomerLabel").textContent =
         t.invoiceCustomer;
+
+      document.getElementById("invoiceCustomerPhoneLabel").textContent =
+        t.invoiceCustomerPhone;
 
       document.getElementById("invoicePaymentLabel").textContent =
         t.invoicePayment;
@@ -4839,10 +4894,44 @@ if (!window.SmartSalesAPI) {
           ? invoiceData.customer.name
           : t.withoutCustomer;
 
+      const authContext =
+        window.SmartSalesAuth &&
+        typeof window.SmartSalesAuth.getContext === "function"
+          ? window.SmartSalesAuth.getContext()
+          : null;
+
+      const organizationName =
+        authContext &&
+        authContext.organization &&
+        authContext.organization.name
+          ? authContext.organization.name
+          : "نظام المبيعات الذكي";
+
+      const storeName =
+        authContext &&
+        authContext.store &&
+        authContext.store.name
+          ? authContext.store.name
+          : "-";
+
+      document.getElementById("invoiceOrganizationName").textContent =
+        organizationName;
+
+      document.getElementById("invoiceStoreName").textContent =
+        storeName;
+
       document.getElementById(
         "invoiceCustomer"
       ).textContent =
         customerName;
+
+      document.getElementById(
+        "invoiceCustomerPhone"
+      ).textContent =
+        invoiceData.customer &&
+        invoiceData.customer.phone
+          ? invoiceData.customer.phone
+          : "-";
 
       const items =
         Array.isArray(
