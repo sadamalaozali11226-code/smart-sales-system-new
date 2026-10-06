@@ -597,6 +597,53 @@
     return data;
   }
 
+
+  async function customerAccountSummary() {
+    const { organization, store } = context();
+    const { data, error } = await client().rpc("customer_account_summary", {
+      p_organization_id: organization.id,
+      p_store_id: store.id
+    });
+    if (error) throw error;
+    return data || [];
+  }
+
+  async function customerStatement(customerId, from = null, to = null) {
+    const { organization, store } = context();
+    const { data, error } = await client().rpc("customer_statement", {
+      p_organization_id: organization.id,
+      p_customer_id: Number(customerId),
+      p_store_id: store.id,
+      p_from: from || null,
+      p_to: to || null
+    });
+    if (error) throw error;
+    return data || [];
+  }
+
+  async function supplierAccountSummary() {
+    const { organization, store } = context();
+    const { data, error } = await client().rpc("supplier_account_summary", {
+      p_organization_id: organization.id,
+      p_store_id: store.id
+    });
+    if (error) throw error;
+    return data || [];
+  }
+
+  async function supplierStatement(supplierId, from = null, to = null) {
+    const { organization, store } = context();
+    const { data, error } = await client().rpc("supplier_statement", {
+      p_organization_id: organization.id,
+      p_supplier_id: Number(supplierId),
+      p_store_id: store.id,
+      p_from: from || null,
+      p_to: to || null
+    });
+    if (error) throw error;
+    return data || [];
+  }
+
   window.SmartSalesAPI = Object.freeze({
     products,
     customers,
@@ -617,6 +664,10 @@
     createPurchase,
     recordSupplierPayment,
     cancelPurchase,
-    purchases
+    purchases,
+    customerAccountSummary,
+    customerStatement,
+    supplierAccountSummary,
+    supplierStatement
   });
 })();
