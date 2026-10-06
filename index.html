@@ -3089,13 +3089,20 @@ if (!window.SmartSalesAPI) {
       table.innerHTML=""; empty.style.display=purchases.length?"none":"block";
       purchases.forEach(p=>{
         const paidStatus=p.payment_status||"unpaid";
+        const purchaseStatus=String(p.status||"").toLowerCase();
         const paidMap={paid:"مدفوعة",partial:"جزئي",unpaid:"غير مدفوعة"};
+        const statusLabel=purchaseStatus==="cancelled"||purchaseStatus==="canceled"
+          ?"ملغاة"
+          :(paidMap[paidStatus]||paidStatus||"-");
         const remaining=Math.max(Number(p.remaining_amount||0),0);
+        const displayRemaining=(purchaseStatus==="cancelled"||purchaseStatus==="canceled")
+          ?"-"
+          :remaining.toFixed(2);
         const row=document.createElement("tr");
         const actions=[];
         if (remaining>0 && p.status==="completed") actions.push('<button class="payment-confirm" onclick="openSupplierPayment('+Number(p.id)+','+remaining+','+Number(p.supplier_id)+')">سداد</button>');
         if (p.status==="completed" && paidStatus==="unpaid") actions.push('<button class="payment-confirm" onclick="openPurchaseCancellation('+Number(p.id)+')">إلغاء</button>');
-        row.innerHTML='<td>'+escapeHtml(p.receipt_number||"")+'</td><td>'+escapeHtml(p.supplier_invoice_number||"-")+'</td><td>'+escapeHtml(p.supplier_name||"")+'</td><td>'+Number(p.total||0).toFixed(2)+'</td><td>'+paidMap[paidStatus]+'</td><td>'+remaining.toFixed(2)+'</td><td>'+actions.join(" ")+'</td>';
+        row.innerHTML='<td>'+escapeHtml(p.receipt_number||"")+'</td><td>'+escapeHtml(p.supplier_invoice_number||"-")+'</td><td>'+escapeHtml(p.supplier_name||"")+'</td><td>'+Number(p.total||0).toFixed(2)+'</td><td>'+escapeHtml(statusLabel)+'</td><td>'+displayRemaining+'</td><td>'+actions.join(" ")+'</td>';
         table.appendChild(row);
       });
     }
