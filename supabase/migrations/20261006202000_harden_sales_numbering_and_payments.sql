@@ -37,7 +37,14 @@ begin
     organization_id, document_type, next_number, updated_at
   )
   values (
-    p_organization_id, trim(p_document_type), 2, now()
+    p_organization_id,
+    trim(p_document_type),
+    case
+      when trim(p_document_type) = 'sale'
+        then coalesce((select count(*) from public.sales where organization_id = p_organization_id), 0) + 2
+      else 2
+    end,
+    now()
   )
   on conflict (organization_id, document_type)
   do update set
