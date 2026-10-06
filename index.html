@@ -461,6 +461,27 @@ if (!window.SmartSalesAPI) {
     const { data, error } = await client().rpc("list_purchase_receipts",{p_organization_id:organization.id,p_store_id:store.id});
     if(error) throw error; return data||[];
   }
+  async function customerAccountSummary() {
+    const { organization, store } = context();
+    const { data, error } = await client().rpc("customer_account_summary", { p_organization_id: organization.id, p_store_id: store.id });
+    if (error) throw error; return data || [];
+  }
+  async function customerStatement(customerId, from = null, to = null) {
+    const { organization, store } = context();
+    const { data, error } = await client().rpc("customer_statement", { p_organization_id: organization.id, p_customer_id: Number(customerId), p_store_id: store.id, p_from: from || null, p_to: to || null });
+    if (error) throw error; return data || [];
+  }
+  async function supplierAccountSummary() {
+    const { organization, store } = context();
+    const { data, error } = await client().rpc("supplier_account_summary", { p_organization_id: organization.id, p_store_id: store.id });
+    if (error) throw error; return data || [];
+  }
+  async function supplierStatement(supplierId, from = null, to = null) {
+    const { organization, store } = context();
+    const { data, error } = await client().rpc("supplier_statement", { p_organization_id: organization.id, p_supplier_id: Number(supplierId), p_store_id: store.id, p_from: from || null, p_to: to || null });
+    if (error) throw error; return data || [];
+  }
+
   async function createSupplier(body) {
     const { organization }=context();
     const { data,error }=await client().rpc("create_supplier",{p_organization_id:organization.id,p_name:String(body.name||"").trim(),p_phone:body.phone||null,p_address:body.address||null,p_tax_number:body.taxNumber||null,p_notes:body.notes||null});
@@ -542,6 +563,10 @@ if (!window.SmartSalesAPI) {
     purchases,
     createSupplier,
     updateSupplier,
+    customerAccountSummary,
+    customerStatement,
+    supplierAccountSummary,
+    supplierStatement,
     createPurchase,
     recordSupplierPayment,
     cancelPurchase,
@@ -3234,7 +3259,7 @@ if (!window.SmartSalesAPI) {
         const status=String(s.status||"").toLowerCase();
         const statusLabel=status==="active"?t.supplierActive:status==="inactive"?t.supplierInactive:(status||"-");
         const row=document.createElement("tr");
-        row.innerHTML='<td>'+escapeHtml(s.name||"")+'</td><td>'+escapeHtml(s.phone||"")+'</td><td>'+escapeHtml(statusLabel)+'</td><td><div class="supplier-actions"><button class="edit-btn" onclick="editSupplier('+Number(s.id)+')">'+escapeHtml(t.edit)+'</button></div></td>';
+        row.innerHTML='<td>'+escapeHtml(s.name||"")+'</td><td>'+escapeHtml(s.phone||"")+'</td><td>'+escapeHtml(statusLabel)+'</td><td><div class="supplier-actions"><button class="edit-btn" onclick="editSupplier('+Number(s.id)+')">'+escapeHtml(t.edit)+'</button><button class="sale-btn" onclick="openSupplierStatement('+Number(s.id)+')">كشف الحساب</button></div></td>';
         table.appendChild(row);
       });
     }
@@ -3732,6 +3757,7 @@ if (!window.SmartSalesAPI) {
               >
                 ${t.edit}
               </button>
+              <button class="sale-btn" onclick="openCustomerStatement(${customer.id})">كشف الحساب</button>
 
 
             </div>
@@ -5747,6 +5773,74 @@ if (!window.SmartSalesAPI) {
 
     window.initializeCommercialApp = initializeApp;
 
+
+    function closeAccountStatementModal() {
+      const modal = document.getElementById("accountStatementModal");
+      if (modal) modal.style.display = "none";
+    }
+
+    function accountStatementMoney(value) { return Number(value || 0).toFixed(2); }
+
+    function renderAccountStatementRows(rows) {
+      const body = document.getElementById("accountStatementBody");
+      body.innerHTML = "";
+      if (!rows.length) {
+        body.innerHTML = '<tr><td colspan="6" class="empty">لا توجد حركة في الفترة المحددة</td></tr>';
+        return;
+      }
+      rows.forEach(row => {
+        const tr = document.createElement("tr");
+        tr.innerHTML =
+          "<td>" + escapeHtml(new Date(row.occurred_at).toLocaleString("ar")) + "</td>" +
+          "<td>" + escapeHtml(row.reference_number || "-") + "</td>" +
+          "<td>" + escapeHtml(row.description || "") + "</td>" +
+          "<td>" + accountStatementMoney(row.debit) + "</td>" +
+          "<td>" + accountStatementMoney(row.credit) + "</td>" +
+          "<td>" + accountStatementMoney(row.balance) + "</td>";
+        body.appendChild(tr);
+      });
+    }
+
+    async function openCustomerStatement(id) {
+      const customer = customers.find(x => Number(x.id) === Number(id));
+      if (!customer) return;
+      const modal = document.getElementById("accountStatementModal");
+      document.getElementById("accountStatementTitle").textContent = "كشف حساب العميل: " + (customer.name || "");
+      document.getElementById("accountStatementType").textContent = "عميل";
+      document.getElementById("accountStatementFrom").value = "";
+      document.getElementById("accountStatementTo").value = "";
+      document.getElementById("accountStatementBody").innerHTML = '<tr><td colspan="6">جاري التحميل...</td></tr>';
+      modal.style.display = "flex";
+      try {
+        const rows = await SmartSalesAPI.customerStatement(id, null, null);
+        renderAccountStatementRows(rows);
+      } catch (error) {
+        console.error(error);
+        document.getElementById("accountStatementBody").innerHTML = '<tr><td colspan="6">تعذر تحميل كشف الحساب</td></tr>';
+        showMessage(error.message || "تعذر تحميل كشف الحساب", true);
+      }
+    }
+
+    async function openSupplierStatement(id) {
+      const supplier = suppliers.find(x => Number(x.id) === Number(id));
+      if (!supplier) return;
+      const modal = document.getElementById("accountStatementModal");
+      document.getElementById("accountStatementTitle").textContent = "كشف حساب المورد: " + (supplier.name || "");
+      document.getElementById("accountStatementType").textContent = "مورد";
+      document.getElementById("accountStatementFrom").value = "";
+      document.getElementById("accountStatementTo").value = "";
+      document.getElementById("accountStatementBody").innerHTML = '<tr><td colspan="6">جاري التحميل...</td></tr>';
+      modal.style.display = "flex";
+      try {
+        const rows = await SmartSalesAPI.supplierStatement(id, null, null);
+        renderAccountStatementRows(rows);
+      } catch (error) {
+        console.error(error);
+        document.getElementById("accountStatementBody").innerHTML = '<tr><td colspan="6">تعذر تحميل كشف الحساب</td></tr>';
+        showMessage(error.message || "تعذر تحميل كشف الحساب", true);
+      }
+    }
+
     async function bootCommercialAuthentication(attempt = 0) {
       if (window.SmartSalesAuth && typeof window.SmartSalesAuth.start === "function") {
         await window.SmartSalesAuth.start({
@@ -5773,6 +5867,24 @@ if (!window.SmartSalesAPI) {
     });
 
   </script>
+  <div class="modal-overlay" id="accountStatementModal" style="display:none">
+    <div class="modal" style="max-width:1100px;width:95%">
+      <h3 id="accountStatementTitle">كشف الحساب</h3>
+      <p id="accountStatementType"></p>
+      <div style="display:flex;gap:10px;align-items:end;flex-wrap:wrap;margin-bottom:12px">
+        <div><label>من</label><input id="accountStatementFrom" type="date"></div>
+        <div><label>إلى</label><input id="accountStatementTo" type="date"></div>
+        <button class="refresh-btn" onclick="closeAccountStatementModal()">إغلاق</button>
+      </div>
+      <div style="overflow:auto">
+        <table>
+          <thead><tr><th>التاريخ</th><th>المرجع</th><th>البيان</th><th>مدين</th><th>دائن</th><th>الرصيد</th></tr></thead>
+          <tbody id="accountStatementBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
   <div class="modal-overlay" id="supplierPaymentModal" style="display:none">
     <div class="modal">
       <h3>سداد المورد</h3>
