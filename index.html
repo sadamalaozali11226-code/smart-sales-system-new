@@ -369,7 +369,7 @@ if (!window.SmartSalesAPI) {
       throw new Error("Invalid sale items.");
     }
 
-    const invoice = "INV-" + Date.now() + "-" + Math.floor(Math.random() * 1000);
+    const invoice = null; // Invoice number is generated atomically by the database.
 
     const { data, error } = await client().rpc("create_sale_transaction", {
       p_invoice_number: invoice,
