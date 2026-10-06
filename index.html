@@ -1644,6 +1644,22 @@ if (!window.SmartSalesAPI) {
     </div>
   </div>
 
+  <!-- Sales Return Modal -->
+  <div class="modal-overlay" id="saleReturnModal" style="display:none">
+    <div class="modal">
+      <h3 id="saleReturnModalTitle">مرتجع بيع</h3>
+      <div id="saleReturnItems"></div>
+      <label for="saleReturnRefundAmount">مبلغ الاسترداد</label>
+      <input type="number" id="saleReturnRefundAmount" min="0" step="0.01" value="0">
+      <label for="saleReturnReason">سبب المرتجع</label>
+      <input type="text" id="saleReturnReason" maxlength="200">
+      <div class="modal-buttons">
+        <button class="modal-confirm" id="confirmSaleReturnButton" onclick="confirmSaleReturn()">تأكيد المرتجع</button>
+        <button class="modal-cancel" onclick="closeSaleReturnModal()">إلغاء</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Debt Payment Modal -->  <div
     class="modal-overlay"
     id="paymentModal"
@@ -2115,6 +2131,14 @@ if (!window.SmartSalesAPI) {
 
     <button
       class="invoice-close-btn"
+      onclick="openSaleReturnFromCurrentInvoice()"
+      id="returnInvoiceButton"
+    >
+      مرتجع بيع
+    </button>
+
+    <button
+      class="invoice-close-btn"
       onclick="closeInvoiceModal()"
       id="closeInvoiceButton"
     >
@@ -2149,6 +2173,7 @@ if (!window.SmartSalesAPI) {
     let selectedPaymentSaleId = null;
     let selectedPaymentInvoice = null;
     let currentPaymentRemaining = 0;
+    let selectedReturnInvoice = null;
 
     const translations = {
 
@@ -2269,6 +2294,13 @@ if (!window.SmartSalesAPI) {
 
         printInvoice: "طباعة الفاتورة",
         closeInvoice: "إغلاق",
+        returnSale: "مرتجع بيع",
+        returnSaleTitle: "مرتجع بيع",
+        confirmReturn: "تأكيد المرتجع",
+        returnQuantity: "الكمية المرتجعة",
+        refundAmount: "مبلغ الاسترداد",
+        returnReason: "سبب المرتجع",
+        returnSuccess: "تم تسجيل مرتجع البيع وإعادة المخزون",
 
         withoutCustomer: "بدون عميل",
 
@@ -2477,6 +2509,13 @@ if (!window.SmartSalesAPI) {
 
         printInvoice: "Print Invoice",
         closeInvoice: "Close",
+        returnSale: "Sales Return",
+        returnSaleTitle: "Sales Return",
+        confirmReturn: "Confirm Return",
+        returnQuantity: "Return quantity",
+        refundAmount: "Refund amount",
+        returnReason: "Return reason",
+        returnSuccess: "Sales return recorded and stock restored",
 
         withoutCustomer: "Without customer",
 
@@ -4455,6 +4494,7 @@ if (!window.SmartSalesAPI) {
     }
 
     function openInvoiceModal(invoiceData) {
+      window.__currentInvoiceData = invoiceData;
 
       if (
         !invoiceData ||
@@ -4889,6 +4929,80 @@ if (!window.SmartSalesAPI) {
         element.classList.add(
           "status-default"
         );
+      }
+    }
+
+    function openSaleReturnFromCurrentInvoice() {
+      if (!window.__currentInvoiceData) return;
+      openSaleReturnModal(window.__currentInvoiceData);
+    }
+
+    function openSaleReturnModal(invoiceData) {
+      if (!invoiceData || !Array.isArray(invoiceData.items)) return;
+      const status = String(invoiceData.status || "").toLowerCase();
+      if (status !== "completed" && status !== "partially_returned") {
+        showMessage("لا يمكن إرجاع هذه الفاتورة.", true);
+        return;
+      }
+      selectedReturnInvoice = invoiceData;
+      const t = translations[currentLanguage];
+      document.getElementById("saleReturnModalTitle").textContent = t.returnSaleTitle;
+      document.getElementById("saleReturnRefundAmount").value = "0";
+      document.getElementById("saleReturnReason").value = "";
+      document.getElementById("saleReturnItems").innerHTML = invoiceData.items.map(item => {
+        const sold = Number(item.quantity || 0);
+        return `<div style="display:grid;grid-template-columns:1fr 120px;gap:8px;align-items:center;margin:8px 0">
+          <span>${escapeHtml(item.productName || "-")} (المباع: ${sold})</span>
+          <input type="number" min="0" max="${sold}" step="1" value="0" data-return-sale-item="${Number(item.id)}">
+        </div>`;
+      }).join("");
+      document.getElementById("saleReturnModal").style.display = "flex";
+    }
+
+    function closeSaleReturnModal() {
+      document.getElementById("saleReturnModal").style.display = "none";
+      selectedReturnInvoice = null;
+    }
+
+    async function confirmSaleReturn() {
+      if (!selectedReturnInvoice) return;
+      const inputs = [...document.querySelectorAll("[data-return-sale-item]")];
+      const items = inputs.map(input => ({
+        sale_item_id: Number(input.dataset.returnSaleItem),
+        quantity: Number(input.value || 0),
+        refund_amount: 0
+      })).filter(item => item.quantity > 0);
+      if (!items.length) {
+        showMessage("أدخل كمية مرتجعة واحدة على الأقل.", true);
+        return;
+      }
+      const refundAmount = Number(document.getElementById("saleReturnRefundAmount").value || 0);
+      if (!Number.isFinite(refundAmount) || refundAmount < 0) {
+        showMessage("مبلغ الاسترداد غير صحيح.", true);
+        return;
+      }
+      const button = document.getElementById("confirmSaleReturnButton");
+      button.disabled = true;
+      try {
+        await SmartSalesAPI.returnSale({
+          saleId: Number(selectedReturnInvoice.id),
+          items,
+          refundAmount,
+          reason: document.getElementById("saleReturnReason").value.trim()
+        });
+        const saleId = Number(selectedReturnInvoice.id);
+        closeSaleReturnModal();
+        closeInvoiceModal();
+        await loadProducts();
+        await loadSalesHistory();
+        await loadSales();
+        showMessage(translations[currentLanguage].returnSuccess);
+        await openInvoiceById(saleId);
+      } catch (error) {
+        console.error(error);
+        showMessage(error.message || "تعذر تسجيل المرتجع", true);
+      } finally {
+        button.disabled = false;
       }
     }
 
