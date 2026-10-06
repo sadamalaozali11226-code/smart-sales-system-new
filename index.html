@@ -1317,10 +1317,27 @@ if (!window.SmartSalesAPI) {
     /* Fail closed until the commercial authentication bootstrap completes. */
     #commercialAppShell { visibility: hidden; }
   </style></head><body>
-<!-- SMART-SALES-PROFITABILITY-LINK -->
-<div style="margin:12px 0;padding:12px 16px;border:1px solid #ddd;border-radius:10px;background:#fff">
-  <a href="/profitability.html" style="font-weight:700;text-decoration:none">📊 الأرباح والتكاليف</a>
-  <span style="margin-right:8px;color:#666">تقرير الربحية والتكاليف حسب الفترة والفرع</span>
+<!-- SMART-SALES-PROFITABILITY-APP -->
+<div class="section" id="profitabilitySection">
+  <div class="section-header">
+    <h2>الأرباح والتكاليف</h2>
+    <button class="refresh-btn" onclick="loadProfitability()">تحديث</button>
+  </div>
+  <div style="display:flex;gap:10px;align-items:end;flex-wrap:wrap;margin-bottom:16px">
+    <div><label for="profitabilityFrom">من</label><input id="profitabilityFrom" type="date"></div>
+    <div><label for="profitabilityTo">إلى</label><input id="profitabilityTo" type="date"></div>
+  </div>
+  <div class="cards" style="margin-bottom:16px">
+    <div class="card"><h3>إجمالي المبيعات</h3><strong id="profitGrossSales">0.00</strong></div>
+    <div class="card"><h3>المرتجعات</h3><strong id="profitSalesReturns">0.00</strong></div>
+    <div class="card"><h3>صافي المبيعات</h3><strong id="profitNetSales">0.00</strong></div>
+    <div class="card"><h3>تكلفة البضاعة COGS</h3><strong id="profitCogs">0.00</strong></div>
+    <div class="card"><h3>الربح الإجمالي</h3><strong id="profitGrossProfit">0.00</strong></div>
+    <div class="card"><h3>المصروفات</h3><strong id="profitExpenses">0.00</strong></div>
+    <div class="card"><h3>الربح الصافي</h3><strong id="profitNetProfit">0.00</strong></div>
+    <div class="card"><h3>هامش الربح الإجمالي</h3><strong id="profitGrossMargin">0.00%</strong></div>
+  </div>
+  <div id="profitabilityWarning" style="display:none;padding:12px;border-radius:8px;background:#fff7ed;border:1px solid #fed7aa;color:#9a3412"></div>
 </div>
   <div id="commercialAppShell" class="container"><header>
   <h1 id="title">نظام المبيعات الذكي</h1>
@@ -5890,6 +5907,46 @@ if (!window.SmartSalesAPI) {
       }
     }
 
+    async function loadProfitability() {
+      const warning = document.getElementById("profitabilityWarning");
+      try {
+        const from = document.getElementById("profitabilityFrom").value || null;
+        const to = document.getElementById("profitabilityTo").value || null;
+        if (from && to && from > to) {
+          showMessage("تاريخ البداية يجب ألا يتجاوز تاريخ النهاية.", true);
+          return;
+        }
+        const { organization, store } = SmartSalesAuth.getContext();
+        const { data, error } = await SmartSalesAuth.getClient().rpc("profitability_summary", {
+          p_organization_id: organization.id,
+          p_store_id: store.id,
+          p_from_date: from,
+          p_to_date: to
+        });
+        if (error) throw error;
+        const row = Array.isArray(data) ? (data[0] || {}) : (data || {});
+        const money = value => Number(value || 0).toFixed(2);
+        document.getElementById("profitGrossSales").textContent = money(row.gross_sales);
+        document.getElementById("profitSalesReturns").textContent = money(row.sales_returns);
+        document.getElementById("profitNetSales").textContent = money(row.net_sales);
+        document.getElementById("profitCogs").textContent = money(row.cogs);
+        document.getElementById("profitGrossProfit").textContent = money(row.gross_profit);
+        document.getElementById("profitExpenses").textContent = money(row.expenses);
+        document.getElementById("profitNetProfit").textContent = money(row.net_profit);
+        document.getElementById("profitGrossMargin").textContent = money(row.gross_margin_percent) + "%";
+        if (Number(row.unknown_cost_items || 0) > 0) {
+          warning.style.display = "block";
+          warning.textContent = "تنبيه: توجد " + Number(row.unknown_cost_items) + " بنود مبيعات بدون تكلفة تاريخية، لذلك لا تمثل الربحية السابقة تغطية تكلفة كاملة.";
+        } else {
+          warning.style.display = "none";
+          warning.textContent = "";
+        }
+      } catch (error) {
+        console.error(error);
+        showMessage(error.message || "تعذر تحميل تقرير الأرباح والتكاليف", true);
+      }
+    }
+
     async function initializeApp() {
 
       await Promise.all([
@@ -5899,7 +5956,8 @@ if (!window.SmartSalesAPI) {
         loadSalesHistory(),
         loadSuppliers(),
         loadPurchases(),
-        loadExpenses()
+        loadExpenses(),
+        loadProfitability()
       ]);
     }
 
