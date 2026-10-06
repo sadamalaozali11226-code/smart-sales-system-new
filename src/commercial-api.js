@@ -383,6 +383,38 @@
     };
   }
 
+  async function returnSale(body) {
+    const { organization, store } = context();
+    const items = Array.isArray(body.items) ? body.items : [];
+    if (!items.length) throw new Error("At least one return item is required.");
+
+    const normalizedItems = items.map(item => ({
+      sale_item_id: Number(item.sale_item_id),
+      quantity: Number(item.quantity),
+      refund_amount: Number(item.refund_amount || 0)
+    }));
+
+    if (normalizedItems.some(item =>
+      !Number.isInteger(item.sale_item_id) || item.sale_item_id <= 0 ||
+      !Number.isInteger(item.quantity) || item.quantity <= 0 ||
+      !Number.isFinite(item.refund_amount) || item.refund_amount < 0
+    )) throw new Error("Invalid sale return items.");
+
+    const { data, error } = await client().rpc("return_sale_items", {
+      p_organization_id: organization.id,
+      p_store_id: store.id,
+      p_sale_id: Number(body.saleId),
+      p_items: normalizedItems,
+      p_reason: body.reason ? String(body.reason).trim() : null,
+      p_notes: body.notes ? String(body.notes).trim() : null,
+      p_refund_amount: Number(body.refundAmount || 0),
+      p_refund_payment_method: body.refundPaymentMethod ? String(body.refundPaymentMethod) : "cash",
+      p_refund_reference: body.refundReference ? String(body.refundReference).trim() : null
+    });
+    if (error) throw error;
+    return data;
+  }
+
   async function payment(body) {
     const { data, error } = await client().rpc("record_sale_payment", {
       p_sale_id: Number(body.saleId),
@@ -540,6 +572,7 @@
     updateCustomer,
     createSale,
     payment,
+    returnSale,
     suppliers,
     createSupplier,
     updateSupplier,
