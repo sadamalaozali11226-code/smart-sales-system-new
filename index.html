@@ -5947,6 +5947,129 @@ if (!window.SmartSalesAPI) {
       }
     }
 
+
+    async function loadCommercialReports() {
+      const errorBox = document.getElementById("commercialReportsError");
+      const loading = document.getElementById("commercialReportsLoading");
+      if (!errorBox || !loading) return;
+      errorBox.style.display = "none";
+      loading.style.display = "block";
+      try {
+        const from = document.getElementById("reportsFrom").value || null;
+        const to = document.getElementById("reportsTo").value || null;
+        if (from && to && from > to) {
+          throw new Error("تاريخ البداية يجب ألا يتجاوز تاريخ النهاية.");
+        }
+        const { organization, store } = SmartSalesAuth.getContext();
+        const { data, error } = await SmartSalesAuth.getClient().rpc("commercial_reports_summary", {
+          p_organization_id: organization.id,
+          p_store_id: store.id,
+          p_from_date: from,
+          p_to_date: to
+        });
+        if (error) throw error;
+        renderCommercialReports(data || {});
+      } catch (error) {
+        console.error(error);
+        errorBox.textContent = error.message || "تعذر تحميل التقارير التجارية.";
+        errorBox.style.display = "block";
+      } finally {
+        loading.style.display = "none";
+      }
+    }
+
+    function reportMoney(value) {
+      return Number(value || 0).toFixed(2);
+    }
+
+    function renderReportTable(bodyId, rows, columns, emptyText) {
+      const body = document.getElementById(bodyId);
+      if (!body) return;
+      body.innerHTML = "";
+      if (!rows || !rows.length) {
+        body.innerHTML = '<tr><td colspan="' + columns.length + '" class="empty">' + escapeHtml(emptyText || "لا توجد بيانات") + '</td></tr>';
+        return;
+      }
+      rows.forEach(row => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = columns.map(column => {
+          const value = typeof column.value === "function" ? column.value(row) : row[column.key];
+          return "<td>" + escapeHtml(String(value == null ? "-" : value)) + "</td>";
+        }).join("");
+        body.appendChild(tr);
+      });
+    }
+
+    function renderCommercialReports(data) {
+      const sales = data.sales || {};
+      const purchases = data.purchases || {};
+      const inventory = data.inventory || {};
+      const expenses = data.expenses || {};
+
+      document.getElementById("reportSalesCount").textContent = Number(sales.count || 0);
+      document.getElementById("reportSalesTotal").textContent = reportMoney(sales.gross_total);
+      document.getElementById("reportSalesReturns").textContent = reportMoney(sales.returns_total);
+      document.getElementById("reportPurchasesCount").textContent = Number(purchases.count || 0);
+      document.getElementById("reportPurchasesTotal").textContent = reportMoney(purchases.total);
+      document.getElementById("reportPurchaseReturns").textContent = reportMoney(purchases.returns_total);
+      document.getElementById("reportInventoryQty").textContent = Number(inventory.quantity_total || 0);
+      document.getElementById("reportInventoryValue").textContent = reportMoney(inventory.estimated_value);
+      document.getElementById("reportLowStock").textContent = Number(inventory.low_stock_count || 0);
+      document.getElementById("reportExpenses").textContent = reportMoney(expenses.total);
+
+      renderReportTable("reportTopProductsBody", sales.top_products || [], [
+        {value:r=>r.product_name},
+        {value:r=>Number(r.quantity||0)},
+        {value:r=>reportMoney(r.sales_total)}
+      ], "لا توجد مبيعات");
+
+      renderReportTable("reportPaymentMethodsBody", sales.payment_methods || [], [
+        {value:r=>r.method},
+        {value:r=>reportMoney(r.amount)}
+      ], "لا توجد دفعات");
+
+      renderReportTable("reportTopSuppliersBody", purchases.top_suppliers || [], [
+        {value:r=>r.supplier_name},
+        {value:r=>reportMoney(r.total)}
+      ], "لا توجد مشتريات");
+
+      renderReportTable("reportCustomersBody", data.customers || [], [
+        {value:r=>r.customer_name},
+        {value:r=>reportMoney(r.sales_total)},
+        {value:r=>reportMoney(r.payments)},
+        {value:r=>reportMoney(r.refunds)},
+        {value:r=>reportMoney(r.balance)}
+      ], "لا توجد بيانات عملاء");
+
+      renderReportTable("reportSuppliersBody", data.suppliers || [], [
+        {value:r=>r.supplier_name},
+        {value:r=>reportMoney(r.purchases_total)},
+        {value:r=>reportMoney(r.payments)},
+        {value:r=>reportMoney(r.returns)},
+        {value:r=>reportMoney(r.refunds)},
+        {value:r=>reportMoney(r.balance)}
+      ], "لا توجد بيانات موردين");
+
+      renderReportTable("reportExpensesBody", expenses.by_category || [], [
+        {value:r=>r.category},
+        {value:r=>reportMoney(r.amount)}
+      ], "لا توجد مصروفات");
+
+      renderReportTable("reportInventoryBody", inventory.items || [], [
+        {value:r=>r.product_name},
+        {value:r=>Number(r.quantity||0)},
+        {value:r=>Number(r.reorder_level||0)},
+        {value:r=>reportMoney(r.average_cost)},
+        {value:r=>reportMoney(r.estimated_value)}
+      ], "لا توجد أصناف");
+
+      renderReportTable("reportMovementsBody", data.inventory_movements || [], [
+        {value:r=>r.movement_type},
+        {value:r=>Number(r.quantity||0)},
+        {value:r=>Number(r.count||0)}
+      ], "لا توجد حركة مخزون");
+    }
+
     async function initializeApp() {
 
       await Promise.all([
@@ -5957,7 +6080,8 @@ if (!window.SmartSalesAPI) {
         loadSuppliers(),
         loadPurchases(),
         loadExpenses(),
-        loadProfitability()
+        loadProfitability(),
+        loadCommercialReports()
       ]);
     }
 
@@ -6081,6 +6205,51 @@ if (!window.SmartSalesAPI) {
     });
 
   </script>
+
+  <section id="commercialReportsSection" style="margin-top:24px">
+    <div class="section-header" style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
+      <div>
+        <h2 style="margin:0">التقارير التجارية</h2>
+        <p style="margin:6px 0 0;color:#666">تقارير المبيعات والمشتريات والمخزون والحسابات والمصروفات وحركة المخزون داخل التطبيق.</p>
+      </div>
+      <button class="refresh-btn" onclick="loadCommercialReports()">تحديث التقارير</button>
+    </div>
+
+    <div style="display:flex;gap:10px;align-items:end;flex-wrap:wrap;margin:14px 0">
+      <div><label>من تاريخ</label><input id="reportsFrom" type="date"></div>
+      <div><label>إلى تاريخ</label><input id="reportsTo" type="date"></div>
+      <button class="refresh-btn" onclick="loadCommercialReports()">تطبيق الفترة</button>
+      <button class="secondary-btn" onclick="document.getElementById('reportsFrom').value='';document.getElementById('reportsTo').value='';loadCommercialReports()">كل الفترة</button>
+    </div>
+
+    <div id="commercialReportsLoading" style="display:none;padding:10px">جاري تحميل التقارير...</div>
+    <div id="commercialReportsError" style="display:none;padding:10px;margin-bottom:12px;background:#fff1f1;border-radius:8px"></div>
+
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-bottom:18px">
+      <div class="summary-card"><strong>عدد المبيعات</strong><div id="reportSalesCount">0</div></div>
+      <div class="summary-card"><strong>إجمالي المبيعات</strong><div id="reportSalesTotal">0.00</div></div>
+      <div class="summary-card"><strong>مرتجعات المبيعات</strong><div id="reportSalesReturns">0.00</div></div>
+      <div class="summary-card"><strong>عدد المشتريات</strong><div id="reportPurchasesCount">0</div></div>
+      <div class="summary-card"><strong>إجمالي المشتريات</strong><div id="reportPurchasesTotal">0.00</div></div>
+      <div class="summary-card"><strong>مرتجعات المشتريات</strong><div id="reportPurchaseReturns">0.00</div></div>
+      <div class="summary-card"><strong>كمية المخزون</strong><div id="reportInventoryQty">0</div></div>
+      <div class="summary-card"><strong>قيمة المخزون التقديرية</strong><div id="reportInventoryValue">0.00</div></div>
+      <div class="summary-card"><strong>أصناف منخفضة المخزون</strong><div id="reportLowStock">0</div></div>
+      <div class="summary-card"><strong>المصروفات</strong><div id="reportExpenses">0.00</div></div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:18px">
+      <div class="report-panel"><h3>أكثر المنتجات مبيعًا</h3><table><thead><tr><th>الصنف</th><th>الكمية</th><th>المبيعات</th></tr></thead><tbody id="reportTopProductsBody"></tbody></table></div>
+      <div class="report-panel"><h3>المدفوعات حسب الطريقة</h3><table><thead><tr><th>الطريقة</th><th>المبلغ</th></tr></thead><tbody id="reportPaymentMethodsBody"></tbody></table></div>
+      <div class="report-panel"><h3>أعلى الموردين شراءً</h3><table><thead><tr><th>المورد</th><th>المشتريات</th></tr></thead><tbody id="reportTopSuppliersBody"></tbody></table></div>
+      <div class="report-panel"><h3>المصروفات حسب التصنيف</h3><table><thead><tr><th>التصنيف</th><th>المبلغ</th></tr></thead><tbody id="reportExpensesBody"></tbody></table></div>
+      <div class="report-panel" style="grid-column:1/-1"><h3>حسابات العملاء</h3><div style="overflow:auto"><table><thead><tr><th>العميل</th><th>المبيعات</th><th>المدفوعات</th><th>المرتجعات</th><th>الرصيد</th></tr></thead><tbody id="reportCustomersBody"></tbody></table></div></div>
+      <div class="report-panel" style="grid-column:1/-1"><h3>حسابات الموردين</h3><div style="overflow:auto"><table><thead><tr><th>المورد</th><th>المشتريات</th><th>المدفوعات</th><th>المرتجعات</th><th>الاستردادات</th><th>الرصيد</th></tr></thead><tbody id="reportSuppliersBody"></tbody></table></div></div>
+      <div class="report-panel" style="grid-column:1/-1"><h3>حالة المخزون الحالية</h3><div style="overflow:auto"><table><thead><tr><th>الصنف</th><th>الكمية</th><th>حد إعادة الطلب</th><th>متوسط التكلفة</th><th>القيمة التقديرية</th></tr></thead><tbody id="reportInventoryBody"></tbody></table></div><p style="font-size:12px;color:#777;margin-top:8px">قيمة المخزون هنا تقديرية وفق متوسط التكلفة الحالي، وليست تكلفة تاريخية لحساب الأرباح.</p></div>
+      <div class="report-panel" style="grid-column:1/-1"><h3>حركة المخزون</h3><table><thead><tr><th>نوع الحركة</th><th>صافي الكمية</th><th>عدد الحركات</th></tr></thead><tbody id="reportMovementsBody"></tbody></table></div>
+    </div>
+  </section>
+
   <div class="modal-overlay" id="accountStatementModal" style="display:none">
     <div class="modal" style="max-width:1100px;width:95%">
       <h3 id="accountStatementTitle">كشف الحساب</h3>
