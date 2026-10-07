@@ -288,9 +288,12 @@
         "</button>";
       bar.style.display = "flex";
       document.getElementById("commercialLogoutButton").onclick = signOut;
-      document.getElementById("commercialStoreSelector").onchange = function(event) {
-        switchStore(event.target.value);
-      };
+      const storeSelector = document.getElementById("commercialStoreSelector");
+      if (storeSelector) {
+        storeSelector.onchange = function(event) {
+          switchStore(event.target.value);
+        };
+      }
     }
   }
 
