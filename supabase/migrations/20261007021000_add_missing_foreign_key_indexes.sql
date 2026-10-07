@@ -1,0 +1,13 @@
+create index if not exists idx_customer_payments_customer_id on public.customer_payments(customer_id);
+create index if not exists idx_customer_payments_store_id on public.customer_payments(store_id);
+create index if not exists idx_expenses_store_id on public.expenses(store_id);
+create index if not exists idx_organization_members_role_id on public.organization_members(role_id);
+create index if not exists idx_purchase_receipts_store_id on public.purchase_receipts(store_id);
+create index if not exists idx_role_permissions_permission_id on public.role_permissions(permission_id);
+create index if not exists idx_sale_return_items_product_id on public.sale_return_items(product_id);
+create index if not exists idx_sale_returns_store_id on public.sale_returns(store_id);
+create index if not exists idx_supplier_payment_allocations_purchase_receipt_org on public.supplier_payment_allocations(purchase_receipt_id, organization_id);
+create index if not exists idx_supplier_payment_allocations_supplier_payment_org on public.supplier_payment_allocations(supplier_payment_id, organization_id);
+create index if not exists idx_supplier_payments_store_id on public.supplier_payments(store_id);
+create index if not exists idx_supplier_payments_supplier_id on public.supplier_payments(supplier_id);
+create index if not exists idx_supplier_refunds_purchase_return_id on public.supplier_refunds(purchase_return_id);
