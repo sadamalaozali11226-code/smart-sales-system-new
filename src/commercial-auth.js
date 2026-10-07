@@ -258,16 +258,31 @@
     const bar = document.getElementById("commercialSessionBar");
     if (bar && context) {
       const t = getLabels()[document.documentElement.lang === "en" ? "en" : "ar"];
+      const storeOptions = (context.stores || []).map(function(store) {
+        return (
+          "<option value=\"" +
+          htmlEscape(store.id) +
+          "\"" +
+          (String(store.id) === String(context.store.id) ? " selected" : "") +
+          ">" +
+          htmlEscape(store.name) +
+          "</option>"
+        );
+      }).join("");
+
       bar.innerHTML =
         "<span>" +
         htmlEscape(t.workspace) +
         ": " +
         htmlEscape(context.organization.name) +
-        " · " +
+        "</span>" +
+        "<label>" +
         htmlEscape(t.storeLabel) +
         ": " +
-        htmlEscape(context.store.name) +
-        "</span>" +
+        "<select id=\"commercialStoreSelector\">" +
+        storeOptions +
+        "</select>" +
+        "</label>" +
         "<button type=\"button\" id=\"commercialLogoutButton\">" +
         htmlEscape(t.logout) +
         "</button>";
