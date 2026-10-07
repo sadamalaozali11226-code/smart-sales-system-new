@@ -1395,33 +1395,7 @@ if (!window.SmartSalesAPI) {
   </button>
 </header>
 
-<section class="section" id="commercialReportsSection" style="margin-top:20px">
-  <div class="section-header">
-    <h2>التقارير التجارية</h2>
-    <button class="refresh-btn" onclick="loadCommercialReports()">تحديث التقارير</button>
-  </div>
-  <div style="display:flex;gap:10px;align-items:end;flex-wrap:wrap;margin-bottom:14px">
-    <div><label for="commercialReportsFrom">من</label><input id="commercialReportsFrom" type="date"></div>
-    <div><label for="commercialReportsTo">إلى</label><input id="commercialReportsTo" type="date"></div>
-  </div>
-  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">
-    <button class="refresh-btn" onclick="selectCommercialReport('sales')">المبيعات</button>
-    <button class="refresh-btn" onclick="selectCommercialReport('purchases')">المشتريات</button>
-    <button class="refresh-btn" onclick="selectCommercialReport('inventory')">المخزون</button>
-    <button class="refresh-btn" onclick="selectCommercialReport('customers')">مديونيات العملاء</button>
-    <button class="refresh-btn" onclick="selectCommercialReport('suppliers')">مستحقات الموردين</button>
-    <button class="refresh-btn" onclick="selectCommercialReport('expenses')">المصروفات</button>
-    <button class="refresh-btn" onclick="selectCommercialReport('movements')">حركة المخزون</button>
-    <button class="refresh-btn" onclick="selectCommercialReport('transfers')">التحويلات</button>
-  </div>
-  <div id="commercialReportsStatus" style="display:none;margin-bottom:12px"></div>
-  <div style="overflow:auto">
-    <table>
-      <thead id="commercialReportsHead"></thead>
-      <tbody id="commercialReportsBody"></tbody>
-    </table>
-  </div>
-</section>
+
 
 <div class="cards">
 
