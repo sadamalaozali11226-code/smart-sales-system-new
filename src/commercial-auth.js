@@ -467,6 +467,26 @@
     await finishReady();
   }
 
+
+  async function acceptPendingInvitations() {
+    const supabase = ensureClient();
+    const { data, error } = await supabase.functions.invoke(
+      "organization-member-invitations",
+      { body: { action: "accept" } }
+    );
+
+    // No pending invitation is a normal state for existing users.
+    if (error) {
+      console.warn("INVITATION ACCEPT ERROR:", error);
+      return null;
+    }
+    if (data && data.error && !/No pending invitation/i.test(data.error)) {
+      console.warn("INVITATION ACCEPT ERROR:", data.error);
+      return null;
+    }
+    return data || null;
+  }
+
   async function finishReady() {
     hideGate();
 
@@ -533,6 +553,7 @@
       return;
     }
 
+    await acceptPendingInvitations();
     context = await loadContext(data.user.id);
 
     if (!context) {
@@ -648,6 +669,7 @@
       }
 
       const user = (await supabase.auth.getUser()).data.user;
+      await acceptPendingInvitations();
       context = await loadContext(user.id);
 
       if (!context) {
