@@ -63,6 +63,7 @@
         error: "تعذر إكمال العملية.",
         signedIn: "تم تسجيل الدخول",
         workspace: "المؤسسة",
+        organizationLabel: "المؤسسة",
         storeLabel: "الفرع"
       },
       en: {
@@ -85,6 +86,7 @@
         error: "The operation could not be completed.",
         signedIn: "Signed in",
         workspace: "Organization",
+        organizationLabel: "Organization",
         storeLabel: "Store"
       }
     };
@@ -270,12 +272,26 @@
         );
       }).join("");
 
+      const organizationOptions = (context.organizations || []).map(function(organization) {
+        return (
+          "<option value=\"" +
+          htmlEscape(organization.id) +
+          "\"" +
+          (String(organization.id) === String(context.organization.id) ? " selected" : "") +
+          ">" +
+          htmlEscape(organization.name) +
+          "</option>"
+        );
+      }).join("");
+
       bar.innerHTML =
-        "<span>" +
-        htmlEscape(t.workspace) +
+        "<label>" +
+        htmlEscape(t.organizationLabel) +
         ": " +
-        htmlEscape(context.organization.name) +
-        "</span>" +
+        "<select id=\"commercialOrganizationSelector\">" +
+        organizationOptions +
+        "</select>" +
+        "</label>" +
         "<label>" +
         htmlEscape(t.storeLabel) +
         ": " +
@@ -288,6 +304,12 @@
         "</button>";
       bar.style.display = "flex";
       document.getElementById("commercialLogoutButton").onclick = signOut;
+      const organizationSelector = document.getElementById("commercialOrganizationSelector");
+      if (organizationSelector) {
+        organizationSelector.onchange = function(event) {
+          switchOrganization(event.target.value);
+        };
+      }
       const storeSelector = document.getElementById("commercialStoreSelector");
       if (storeSelector) {
         storeSelector.onchange = function(event) {
@@ -304,7 +326,7 @@
     if (bar) bar.style.display = "none";
   }
 
-  async function loadContext(userId) {
+  async function loadContext(userId, selectedOrganizationId) {
     const supabase = ensureClient();
 
     const { data: memberships, error: membershipError } = await supabase
@@ -314,31 +336,43 @@
       .eq("status", "active");
 
     if (membershipError) throw membershipError;
+    if (!memberships || memberships.length === 0) return null;
 
-    if (!memberships || memberships.length === 0) {
-      return null;
-    }
-
-    const organizationId = memberships[0].organization_id;
+    const organizationIds = memberships.map(function(item) {
+      return item.organization_id;
+    });
 
     const { data: organizations, error: orgError } = await supabase
       .from("organizations")
       .select("id,name,slug,status")
-      .eq("id", organizationId)
-      .eq("status", "active")
-      .limit(1);
+      .in("id", organizationIds)
+      .eq("status", "active");
 
     if (orgError) throw orgError;
     if (!organizations || organizations.length === 0) return null;
 
+    const organizationId =
+      selectedOrganizationId && organizationIds.includes(selectedOrganizationId)
+        ? selectedOrganizationId
+        : organizations[0].id;
+
+    const membership = memberships.find(function(item) {
+      return String(item.organization_id) === String(organizationId);
+    });
+    const organization = organizations.find(function(item) {
+      return String(item.id) === String(organizationId);
+    });
+
+    if (!membership || !organization) return null;
+
     const { data: storeMemberships, error: storeMembershipError } = await supabase
       .from("member_stores")
       .select("store_id")
-      .eq("member_id", memberships[0].id);
+      .eq("member_id", membership.id);
 
     if (storeMembershipError) throw storeMembershipError;
 
-    let storeIds = (storeMemberships || []).map(item => item.store_id);
+    const storeIds = (storeMemberships || []).map(item => item.store_id);
 
     let storesQuery = supabase
       .from("stores")
@@ -357,11 +391,26 @@
 
     return {
       userId,
-      membership: memberships[0],
-      organization: organizations[0],
+      membership,
+      organizations,
+      organization,
       stores,
       store: stores[0]
     };
+  }
+
+  async function switchOrganization(organizationId) {
+    if (!context || !organizationId || String(organizationId) === String(context.organization.id)) return;
+
+    const nextContext = await loadContext(context.userId, organizationId);
+    if (!nextContext) return;
+
+    context = nextContext;
+    hideGate();
+
+    if (typeof window.initializeCommercialApp === "function") {
+      await window.initializeCommercialApp(context);
+    }
   }
 
   async function switchStore(storeId) {
