@@ -290,12 +290,13 @@ if (!window.SmartSalesAPI) {
 
   async function createProduct(body) {
     const { organization, store } = context();
-    const { data, error } = await client().rpc("create_product_for_store", {
+    const { data, error } = await client().rpc("create_product_for_store_with_cost", {
       p_name: String(body.name || "").trim(),
       p_price: Number(body.price),
       p_initial_quantity: Number(body.quantity || 0),
       p_reorder_level: 0,
       p_notes: null,
+      p_initial_unit_cost: body.initialUnitCost == null ? null : Number(body.initialUnitCost),
       p_organization_id: organization.id,
       p_store_id: store.id
     });
@@ -1449,6 +1450,14 @@ if (!window.SmartSalesAPI) {
       min="0"
     >
 
+    <input
+      type="number"
+      id="productInitialCost"
+      placeholder="تكلفة الوحدة الافتتاحية (اختياري)"
+      min="0"
+      step="0.01"
+    >
+
     <button
       class="add-btn"
       onclick="addProduct()"
@@ -2445,6 +2454,7 @@ if (!window.SmartSalesAPI) {
         namePlaceholder: "اسم المنتج",
         pricePlaceholder: "السعر",
         quantityPlaceholder: "الكمية",
+        initialCostPlaceholder: "تكلفة الوحدة الافتتاحية (اختياري)",
 
         customerNamePlaceholder: "اسم العميل",
         customerPhonePlaceholder: "رقم الهاتف",
@@ -2668,6 +2678,7 @@ if (!window.SmartSalesAPI) {
         namePlaceholder: "Product name",
         pricePlaceholder: "Price",
         quantityPlaceholder: "Quantity",
+        initialCostPlaceholder: "Initial unit cost (optional)",
 
         customerNamePlaceholder: "Customer name",
         customerPhonePlaceholder: "Phone number",
@@ -2935,6 +2946,9 @@ if (!window.SmartSalesAPI) {
 
       document.getElementById("productQuantity").placeholder =
         t.quantityPlaceholder;
+
+      document.getElementById("productInitialCost").placeholder =
+        t.initialCostPlaceholder;
 
       document.getElementById("customerName").placeholder =
         t.customerNamePlaceholder;
@@ -3683,8 +3697,12 @@ if (!window.SmartSalesAPI) {
       const quantityText = normalizeNumericInput(
         document.getElementById("productQuantity").value
       ).trim();
+      const initialCostText = normalizeNumericInput(
+        document.getElementById("productInitialCost").value
+      ).trim();
       const price = Number(priceText);
       const quantity = Number(quantityText);
+      const initialUnitCost = initialCostText === "" ? null : Number(initialCostText);
       const t = translations[currentLanguage];
 
       if (
@@ -3695,17 +3713,19 @@ if (!window.SmartSalesAPI) {
         !Number.isFinite(quantity) ||
         price < 0 ||
         quantity < 0 ||
-        !Number.isInteger(quantity)
+        !Number.isInteger(quantity) ||
+        (initialUnitCost !== null && (!Number.isFinite(initialUnitCost) || initialUnitCost < 0))
       ) {
         showMessage(t.invalid, true);
         return;
       }
 
       try {
-        await SmartSalesAPI.createProduct({ name, price, quantity });
+        await SmartSalesAPI.createProduct({ name, price, quantity, initialUnitCost });
         document.getElementById("productName").value = "";
         document.getElementById("productPrice").value = "";
         document.getElementById("productQuantity").value = "";
+        document.getElementById("productInitialCost").value = "";
         showMessage(t.added);
         await loadProducts();
       } catch (error) {
@@ -6097,7 +6117,7 @@ if (!window.SmartSalesAPI) {
         document.getElementById("profitGrossMargin").textContent = money(row.gross_margin_percent) + "%";
         if (Number(row.unknown_cost_items || 0) > 0) {
           warning.style.display = "block";
-          warning.textContent = "تنبيه: توجد " + Number(row.unknown_cost_items) + " بنود مبيعات بدون تكلفة تاريخية، لذلك لا تمثل الربحية السابقة تغطية تكلفة كاملة.";
+          warning.textContent = "تنبيه محاسبي: توجد " + Number(row.unknown_cost_items) + " بنود مبيعات (" + Number(row.unknown_cost_quantity || 0) + " وحدة) بدون تكلفة تاريخية. تكلفة البضاعة والربح المعروضان يعكسان التكاليف المعروفة فقط، ولا تمثل الربحية السابقة تغطية تكلفة كاملة.";
         } else {
           warning.style.display = "none";
           warning.textContent = "";
@@ -6226,8 +6246,8 @@ if (!window.SmartSalesAPI) {
         {value:r=>r.product_name},
         {value:r=>Number(r.quantity||0)},
         {value:r=>Number(r.reorder_level||0)},
-        {value:r=>reportMoney(r.average_cost)},
-        {value:r=>reportMoney(r.estimated_value)}
+        {value:r=>r.cost_known ? reportMoney(r.average_cost) : "غير معروفة"},
+        {value:r=>r.cost_known ? reportMoney(r.estimated_value) : "غير متاحة"}
       ], "لا توجد أصناف");
 
       renderReportTable("reportMovementsBody", data.inventory_movements || [], [
@@ -6278,7 +6298,7 @@ if (!window.SmartSalesAPI) {
         },
         inventory: {
           headers:["المنتج","الكمية","حد إعادة الطلب","متوسط التكلفة","قيمة المخزون"],
-          cells:r=>[r.product_name,r.quantity,r.reorder_level,commercialReportMoney(r.average_cost),commercialReportMoney(r.stock_value)]
+          cells:r=>[r.product_name,r.quantity,r.reorder_level,r.cost_known ? commercialReportMoney(r.average_cost) : "غير معروفة",r.cost_known ? commercialReportMoney(r.stock_value) : "غير متاحة"]
         },
         customers: {
           headers:["العميل","إجمالي المبيعات","مدفوع الفواتير","دفعات الحساب","المرتجعات","الرصيد"],
