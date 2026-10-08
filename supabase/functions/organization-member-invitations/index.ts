@@ -1,4 +1,4 @@
-import { withSupabase } from "npm:@supabase/server@^1";
+import { createClient } from "npm:@supabase/supabase-js@2";
 
 type InvitePayload = {
   action?: "invite" | "list" | "revoke" | "accept";
@@ -9,8 +9,49 @@ type InvitePayload = {
   invitation_id?: string;
 };
 
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
+
 function json(data: unknown, status = 200) {
-  return Response.json(data, { status });
+  return Response.json(data, { status, headers: corsHeaders });
+}
+
+function createAdminClient() {
+  const url = Deno.env.get("SUPABASE_URL");
+  const secretKeysRaw = Deno.env.get("SUPABASE_SECRET_KEYS");
+  const legacyServiceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  if (!url) throw new Error("SUPABASE_URL is not configured");
+
+  let secretKey = legacyServiceRoleKey || "";
+  if (secretKeysRaw) {
+    try {
+      const keys = JSON.parse(secretKeysRaw);
+      secretKey = keys?.default || Object.values(keys || {})[0] || secretKey;
+    } catch {
+      throw new Error("SUPABASE_SECRET_KEYS is invalid");
+    }
+  }
+  if (!secretKey) throw new Error("Supabase server secret is not configured");
+
+  return createClient(url, secretKey, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+}
+
+async function authenticateRequest(req: Request) {
+  const authorization = req.headers.get("Authorization") || "";
+  const match = authorization.match(/^Bearer\\s+(.+)$/i);
+  if (!match) throw new Error("Authentication required");
+
+  const token = match[1];
+  const admin = createAdminClient();
+  const { data, error } = await admin.auth.getUser(token);
+  if (error || !data.user) throw new Error("Invalid authentication token");
+
+  return { admin, user: data.user };
 }
 
 async function requireOrgPermission(admin: any, userId: string, organizationId: string) {
@@ -308,23 +349,30 @@ async function handleAccept(admin: any, userId: string, body: InvitePayload) {
   return { ok: true, accepted };
 }
 export default {
-  fetch: withSupabase({ auth: "user" }, async (req, ctx) => {
+  fetch: async (req: Request) => {
+    if (req.method === "OPTIONS") {
+      return new Response("ok", { status: 200, headers: corsHeaders });
+    }
+
     try {
       if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
+
+      const { admin, user } = await authenticateRequest(req);
       const body = (await req.json()) as InvitePayload;
       const action = body.action || "list";
-      const userId = String(ctx.userClaims?.sub || "");
-      if (!userId) return json({ error: "Authentication required" }, 401);
+      const userId = user.id;
 
-      if (action === "invite") return json(await handleInvite(ctx.supabaseAdmin, userId, body));
-      if (action === "list") return json(await handleList(ctx.supabaseAdmin, userId, body));
-      if (action === "revoke") return json(await handleRevoke(ctx.supabaseAdmin, userId, body));
-      if (action === "accept") return json(await handleAccept(ctx.supabaseAdmin, userId, body));
+      if (action === "invite") return json(await handleInvite(admin, userId, body));
+      if (action === "list") return json(await handleList(admin, userId, body));
+      if (action === "revoke") return json(await handleRevoke(admin, userId, body));
+      if (action === "accept") return json(await handleAccept(admin, userId, body));
 
       return json({ error: "Unsupported action" }, 400);
     } catch (error) {
       console.error("organization-member-invitations error", error);
-      return json({ error: error instanceof Error ? error.message : "Unexpected error" }, 400);
+      const message = error instanceof Error ? error.message : "Unexpected error";
+      const status = message === "Authentication required" || message === "Invalid authentication token" ? 401 : 400;
+      return json({ error: message }, status);
     }
-  }),
+  },
 };
