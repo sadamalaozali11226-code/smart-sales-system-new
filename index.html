@@ -3721,6 +3721,16 @@ if (!window.SmartSalesAPI) {
       }
 
       try {
+        if (quantity > 0 && initialUnitCost === null) {
+          showMessage(
+            currentLanguage === "ar"
+              ? "يجب إدخال تكلفة الوحدة الافتتاحية عند إدخال كمية افتتاحية."
+              : "Opening unit cost is required when opening quantity is greater than zero.",
+            true
+          );
+          return;
+        }
+
         await SmartSalesAPI.createProduct({ name, price, quantity, initialUnitCost });
         document.getElementById("productName").value = "";
         document.getElementById("productPrice").value = "";
