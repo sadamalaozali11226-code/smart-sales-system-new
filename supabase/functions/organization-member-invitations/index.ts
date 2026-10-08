@@ -43,7 +43,7 @@ function createAdminClient() {
 
 async function authenticateRequest(req: Request) {
   const authorization = req.headers.get("Authorization") || "";
-  const match = authorization.match(/^Bearer\\s+(.+)$/i);
+  const match = authorization.match(/^Bearer\s+(.+)$/i);
   if (!match) throw new Error("Authentication required");
 
   const token = match[1];
@@ -125,7 +125,7 @@ async function handleInvite(admin: any, userId: string, body: InvitePayload) {
   const storeIds = Array.isArray(body.store_ids) ? body.store_ids : [];
 
   if (!organizationId || !email || !roleId) throw new Error("organization_id, email and role_id are required");
-  if (!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)) throw new Error("Invalid email address");
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error("Invalid email address");
 
   const actor = await requireOrgPermission(admin, userId, organizationId);
   const { role, storeIds: validStoreIds } = await validateRoleAndStores(admin, organizationId, actor.roleCode, roleId, storeIds);
