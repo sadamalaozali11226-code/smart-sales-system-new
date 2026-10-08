@@ -100,25 +100,30 @@
       const canChangeStatus = actorIsOwner || !isOwner;
 
       const row = document.createElement("tr");
-      row.innerHTML =
-        "<td><code>" + esc(member.user_id) + "</code></td>" +
-        "<td><select data-member-role="" + esc(member.member_id) + """ +
-          (canChangeRole ? "" : " disabled") + ">" + roleOptions + "</select></td>" +
-        "<td><div class="member-store-list">" + stores + "</div></td>" +
-        '<td><span class="status-badge ' +
-          (member.status === "active" ? "status-paid" : "status-unpaid") + '">' +
-          (member.status === "active" ? "نشط" : "غير نشط") + "</span></td>" +
-        "<td><div class="member-admin-actions">" +
-          '<button class="edit-btn" onclick="saveMemberRole(\'' + esc(member.member_id) + '\')" ' +
-            (canChangeRole ? "" : "disabled") + ">حفظ الدور</button>" +
-          '<button class="sale-btn" onclick="saveMemberStores(\'' + esc(member.member_id) + '\')" ' +
-            (canChangeStatus ? "" : "disabled") + ">حفظ الفروع</button>" +
-          '<button class="' + (member.status === "active" ? "danger-btn" : "sale-btn") +
-            '" onclick="toggleMemberStatus(\'' + esc(member.member_id) + '\',\'' +
-            (member.status === "active" ? "inactive" : "active") + '\')" ' +
-            (canChangeStatus ? "" : "disabled") + ">" +
-            (member.status === "active" ? "تعطيل" : "تفعيل") + "</button>" +
-        "</div></td>";
+      row.innerHTML = `
+        <td><code>${esc(member.user_id)}</code></td>
+        <td>
+          <select data-member-role="${esc(member.member_id)}"${canChangeRole ? "" : " disabled"}>
+            ${roleOptions}
+          </select>
+        </td>
+        <td><div class="member-store-list">${stores}</div></td>
+        <td>
+          <span class="status-badge ${member.status === "active" ? "status-paid" : "status-unpaid"}">
+            ${member.status === "active" ? "نشط" : "غير نشط"}
+          </span>
+        </td>
+        <td>
+          <div class="member-admin-actions">
+            <button class="edit-btn" onclick="saveMemberRole('${esc(member.member_id)}')" ${canChangeRole ? "" : "disabled"}>حفظ الدور</button>
+            <button class="sale-btn" onclick="saveMemberStores('${esc(member.member_id)}')" ${canChangeStatus ? "" : "disabled"}>حفظ الفروع</button>
+            <button class="${member.status === "active" ? "danger-btn" : "sale-btn"}"
+              onclick="toggleMemberStatus('${esc(member.member_id)}','${member.status === "active" ? "inactive" : "active"}')"
+              ${canChangeStatus ? "" : "disabled"}>
+              ${member.status === "active" ? "تعطيل" : "تفعيل"}
+            </button>
+          </div>
+        </td>`;
       table.appendChild(row);
     });
   }
@@ -223,7 +228,7 @@
           "<td>" + esc(new Date(invitation.expires_at).toLocaleString("ar")) + "</td>" +
           "<td>" +
             (invitation.status === "pending"
-              ? '<button class="danger-btn" onclick="revokeMemberInvitation(\\'' + esc(invitation.id) + '\\')">إلغاء</button>'
+              ? '<button class="danger-btn" onclick="revokeMemberInvitation(\'' + esc(invitation.id) + '\')">إلغاء</button>'
               : "-") +
           "</td>";
         table.appendChild(row);
