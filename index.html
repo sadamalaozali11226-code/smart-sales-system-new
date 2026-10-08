@@ -7,6 +7,7 @@
   <script src="/src/supabase-client.js?v=20261004-3"></script>
   <script src="/src/commercial-auth.js?v=20261004-3"></script>
   <script src="/src/commercial-api.js?v=20261004-6"></script>
+<script src="/src/member-admin.js?v=20261008-1"></script>
 <script>
 /* Deployment fallback: keep the commercial API available if the static JS asset is not loaded. */
 if (!window.SmartSalesAPI) {
@@ -1758,6 +1759,22 @@ if (!window.SmartSalesAPI) {
 
 </div>
 
+
+<div class="section" id="memberAdminSection" style="display:none">
+  <div class="section-header">
+    <h2>إدارة الأعضاء والأدوار والفروع</h2>
+    <button class="refresh-btn" onclick="loadMemberAdmin()">تحديث</button>
+  </div>
+  <div id="memberAdminMessage" class="message"></div>
+  <p style="color:#666;margin-bottom:12px">تُعرض معرفات المستخدمين فقط. إنشاء حسابات جديدة ودعوات البريد الإلكتروني لا يتم من خلال تعديل بيانات Auth مباشرة.</p>
+  <div style="overflow-x:auto">
+    <table>
+      <thead><tr><th>معرف المستخدم</th><th>الدور</th><th>الفروع</th><th>الحالة</th><th>الإجراء</th></tr></thead>
+      <tbody id="memberAdminTable"></tbody>
+    </table>
+  </div>
+  <div class="empty" id="memberAdminEmpty">لا يوجد أعضاء.</div>
+</div>
   </div>  <!-- Sale Modal -->
   <div class="modal-overlay" id="saleModal">
     <div class="modal">
@@ -6418,7 +6435,11 @@ if (!window.SmartSalesAPI) {
       }
     }
 
-    async function initializeApp() {
+    async function initializeApp(context) {
+
+      if (typeof window.loadMemberAdmin === "function") {
+        await window.loadMemberAdmin();
+      }
 
       await Promise.all([
         loadProducts(),
