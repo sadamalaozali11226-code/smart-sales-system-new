@@ -3358,16 +3358,27 @@ if (!window.SmartSalesAPI) {
 
     async function loadSuppliers() {
       try {
-        const [supplierData, supplierSummary] = await Promise.all([
-          SmartSalesAPI.suppliers(),
-          SmartSalesAPI.supplierAccountSummary()
-        ]);
-        const balanceMap = new Map((supplierSummary || []).map(item => [Number(item.supplier_id), Number(item.balance || 0)]));
-        suppliers = (supplierData || []).map(item => ({ ...item, accountBalance: balanceMap.get(Number(item.id)) || 0 }));
+        const supplierData = await SmartSalesAPI.suppliers();
+        suppliers = (supplierData || []).map(item => ({ ...item, accountBalance: 0 }));
         renderSuppliers();
         populatePurchaseSupplierOptions();
+
+        try {
+          const supplierSummary = await SmartSalesAPI.supplierAccountSummary();
+          const balanceMap = new Map((supplierSummary || []).map(item => [Number(item.supplier_id), Number(item.balance || 0)]));
+          suppliers = suppliers.map(item => ({ ...item, accountBalance: balanceMap.get(Number(item.id)) || 0 }));
+          renderSuppliers();
+        } catch (summaryError) {
+          console.error("SUPPLIER ACCOUNT SUMMARY ERROR:", summaryError);
+          showMessage("تم تحميل الموردين، وتعذر تحميل أرصدة الحسابات.", true);
+        }
       }
-      catch (error) { console.error(error); suppliers=[]; renderSuppliers(); showMessage(error.message || "تعذر تحميل الموردين", true); }
+      catch (error) {
+        console.error(error);
+        suppliers = [];
+        renderSuppliers();
+        showMessage(error.message || "تعذر تحميل الموردين", true);
+      }
     }
 
     async function loadPurchases() {
@@ -3635,13 +3646,19 @@ if (!window.SmartSalesAPI) {
 
     async function loadCustomers() {
       try {
-        const [customerData, customerSummary] = await Promise.all([
-          SmartSalesAPI.customers(),
-          SmartSalesAPI.customerAccountSummary()
-        ]);
-        const balanceMap = new Map((customerSummary || []).map(item => [Number(item.customer_id), Number(item.balance || 0)]));
-        customers = (customerData || []).map(item => ({ ...item, accountBalance: balanceMap.get(Number(item.id)) || 0 }));
+        const customerData = await SmartSalesAPI.customers();
+        customers = (customerData || []).map(item => ({ ...item, accountBalance: 0 }));
         renderCustomers();
+
+        try {
+          const customerSummary = await SmartSalesAPI.customerAccountSummary();
+          const balanceMap = new Map((customerSummary || []).map(item => [Number(item.customer_id), Number(item.balance || 0)]));
+          customers = customers.map(item => ({ ...item, accountBalance: balanceMap.get(Number(item.id)) || 0 }));
+          renderCustomers();
+        } catch (summaryError) {
+          console.error("CUSTOMER ACCOUNT SUMMARY ERROR:", summaryError);
+          showMessage("تم تحميل العملاء، وتعذر تحميل أرصدة الحسابات.", true);
+        }
       } catch (error) {
         console.error(error);
         customers = [];
