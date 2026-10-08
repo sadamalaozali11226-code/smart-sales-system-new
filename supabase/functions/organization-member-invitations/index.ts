@@ -19,6 +19,10 @@ function json(data: unknown, status = 200) {
   return Response.json(data, { status, headers: corsHeaders });
 }
 
+function isUuid(value: string) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
+
 function createAdminClient() {
   const url = Deno.env.get("SUPABASE_URL");
   const secretKeysRaw = Deno.env.get("SUPABASE_SECRET_KEYS");
@@ -91,6 +95,7 @@ async function validateRoleAndStores(admin: any, organizationId: string, actorRo
   if (role.code === "owner" && actorRoleCode !== "owner") throw new Error("Only the Owner can assign the Owner role");
 
   const ids = [...new Set((storeIds || []).map(String).filter(Boolean))];
+  if (ids.some(id => !isUuid(id))) throw new Error("One or more store ids are invalid");
   if (ids.length) {
     const { data: stores, error: storesError } = await admin
       .from("stores")
@@ -125,6 +130,8 @@ async function handleInvite(admin: any, userId: string, body: InvitePayload) {
   const storeIds = Array.isArray(body.store_ids) ? body.store_ids : [];
 
   if (!organizationId || !email || !roleId) throw new Error("organization_id, email and role_id are required");
+  if (!isUuid(organizationId)) throw new Error("Invalid organization id");
+  if (!isUuid(roleId)) throw new Error("Invalid role id");
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error("Invalid email address");
 
   const actor = await requireOrgPermission(admin, userId, organizationId);
@@ -145,6 +152,7 @@ async function handleInvite(admin: any, userId: string, body: InvitePayload) {
   let authUserId = existingUser?.id || null;
   let membershipStatus: "active" | "invited" = "invited";
   let inviteSent = false;
+  let createdAuthUser = false;
 
   if (existingUser) {
     const { data: existingMember, error: existingMemberError } = await admin
@@ -172,10 +180,17 @@ async function handleInvite(admin: any, userId: string, body: InvitePayload) {
     if (inviteError) throw inviteError;
     authUserId = inviteData.user?.id || null;
     if (!authUserId) throw new Error("Auth invitation did not return a user id");
+    createdAuthUser = true;
     inviteSent = true;
   }
 
   if (!authUserId) throw new Error("Unable to resolve invited user");
+
+  const cleanupCreatedAuthUser = async () => {
+    if (!createdAuthUser || !authUserId) return;
+    const { error } = await admin.auth.admin.deleteUser(authUserId);
+    if (error) console.error("Failed to clean up created Auth user", error);
+  };
 
   const { data: member, error: memberError } = await admin
     .from("organization_members")
@@ -188,13 +203,17 @@ async function handleInvite(admin: any, userId: string, body: InvitePayload) {
     .select("id")
     .single();
 
-  if (memberError) throw memberError;
+  if (memberError) {
+    await cleanupCreatedAuthUser();
+    throw memberError;
+  }
 
   if (validStoreIds.length) {
     const rows = validStoreIds.map(storeId => ({ member_id: member.id, store_id: storeId }));
     const { error: storesError } = await admin.from("member_stores").insert(rows);
     if (storesError) {
       await admin.from("organization_members").delete().eq("id", member.id);
+      await cleanupCreatedAuthUser();
       throw storesError;
     }
   }
@@ -218,6 +237,7 @@ async function handleInvite(admin: any, userId: string, body: InvitePayload) {
   if (invitationError) {
     await admin.from("member_stores").delete().eq("member_id", member.id);
     await admin.from("organization_members").delete().eq("id", member.id);
+    await cleanupCreatedAuthUser();
     throw invitationError;
   }
 
