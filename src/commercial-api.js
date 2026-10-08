@@ -278,12 +278,13 @@
 
   async function createProduct(body) {
     const { organization, store } = context();
-    const { data, error } = await client().rpc("create_product_for_store", {
+    const { data, error } = await client().rpc("create_product_for_store_with_cost", {
       p_name: String(body.name || "").trim(),
       p_price: Number(body.price),
       p_initial_quantity: Number(body.quantity || 0),
       p_reorder_level: 0,
       p_notes: null,
+      p_initial_unit_cost: body.initialUnitCost == null ? null : Number(body.initialUnitCost),
       p_organization_id: organization.id,
       p_store_id: store.id
     });
