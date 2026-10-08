@@ -554,6 +554,7 @@
     }
 
     await acceptPendingInvitations();
+    await acceptPendingInvitations();
     context = await loadContext(data.user.id);
 
     if (!context) {
