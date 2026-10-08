@@ -56,7 +56,9 @@
 
       adminRoles = roles || [];
       section.style.display = "block";
+      ensureInvitationUI();
       renderAdmin();
+      await loadInvitations();
     } catch (error) {
       console.error("MEMBER ADMIN ERROR:", error);
       showAdminMessage(error.message || "تعذر تحميل إدارة الأعضاء.", true);
@@ -121,6 +123,176 @@
     });
   }
 
+
+  function ensureInvitationUI() {
+    if (document.getElementById("memberInvitationPanel")) return;
+
+    const section = document.getElementById("memberAdminSection");
+    if (!section) return;
+
+    const panel = document.createElement("div");
+    panel.id = "memberInvitationPanel";
+    panel.style.marginTop = "18px";
+    panel.innerHTML = `
+      <div class="section-header">
+        <h3 style="margin:0">دعوة عضو جديد</h3>
+      </div>
+      <div id="memberInvitationMessage" class="message"></div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;align-items:end">
+        <div>
+          <label>البريد الإلكتروني</label>
+          <input id="memberInviteEmail" type="email" autocomplete="email" placeholder="name@example.com">
+        </div>
+        <div>
+          <label>الدور</label>
+          <select id="memberInviteRole"></select>
+        </div>
+        <div>
+          <label>الفروع</label>
+          <div id="memberInviteStores" style="display:flex;gap:8px;flex-wrap:wrap"></div>
+        </div>
+        <div>
+          <button class="payment-confirm" onclick="sendMemberInvitation()">إرسال الدعوة</button>
+        </div>
+      </div>
+      <div style="margin-top:18px">
+        <h4>الدعوات</h4>
+        <div style="overflow:auto">
+          <table>
+            <thead><tr><th>البريد</th><th>الدور</th><th>الحالة</th><th>تنتهي</th><th>الإجراء</th></tr></thead>
+            <tbody id="memberInvitationTable"></tbody>
+          </table>
+        </div>
+      </div>
+    `;
+
+    section.appendChild(panel);
+
+    const roleSelect = document.getElementById("memberInviteRole");
+    if (roleSelect) {
+      roleSelect.innerHTML = adminRoles.map(role =>
+        '<option value="' + esc(role.id) + '">' + esc(role.name) + '</option>'
+      ).join("");
+    }
+
+    const storesBox = document.getElementById("memberInviteStores");
+    if (storesBox) {
+      storesBox.innerHTML = (adminContext.stores || []).map(store =>
+        '<label style="display:inline-flex;gap:6px;align-items:center">' +
+        '<input type="checkbox" data-invite-store="' + esc(store.id) + '">' +
+        esc(store.name) +
+        '</label>'
+      ).join("");
+    }
+  }
+
+  async function invitationAction(body) {
+    const { data, error } = await client().functions.invoke(
+      "organization-member-invitations",
+      { body }
+    );
+    if (error) throw error;
+    if (data && data.error) throw new Error(data.error);
+    return data;
+  }
+
+  async function loadInvitations() {
+    if (!document.getElementById("memberInvitationPanel")) return;
+
+    try {
+      const data = await invitationAction({
+        action: "list",
+        organization_id: adminContext.organization.id
+      });
+
+      const table = document.getElementById("memberInvitationTable");
+      if (!table) return;
+      table.innerHTML = "";
+
+      (data.invitations || []).forEach(invitation => {
+        const row = document.createElement("tr");
+        const statusLabel =
+          invitation.status === "pending" ? "معلقة" :
+          invitation.status === "accepted" ? "مقبولة" :
+          invitation.status === "revoked" ? "ملغاة" : "منتهية";
+
+        row.innerHTML =
+          "<td>" + esc(invitation.email) + "</td>" +
+          "<td>" + esc(invitation.roles?.name || "-") + "</td>" +
+          "<td>" + esc(statusLabel) + "</td>" +
+          "<td>" + esc(new Date(invitation.expires_at).toLocaleString("ar")) + "</td>" +
+          "<td>" +
+            (invitation.status === "pending"
+              ? '<button class="danger-btn" onclick="revokeMemberInvitation(\\'' + esc(invitation.id) + '\\')">إلغاء</button>'
+              : "-") +
+          "</td>";
+        table.appendChild(row);
+      });
+    } catch (error) {
+      console.error("INVITATION LIST ERROR:", error);
+      showInvitationMessage(error.message || "تعذر تحميل الدعوات.", true);
+    }
+  }
+
+  function showInvitationMessage(message, error) {
+    const box = document.getElementById("memberInvitationMessage");
+    if (!box) return;
+    box.textContent = message || "";
+    box.className = "message " + (error ? "error" : "success");
+    box.style.display = message ? "block" : "none";
+  }
+
+  async function sendMemberInvitation() {
+    const email = String(document.getElementById("memberInviteEmail")?.value || "").trim();
+    const roleId = document.getElementById("memberInviteRole")?.value || "";
+    const storeIds = [...document.querySelectorAll("[data-invite-store]:checked")]
+      .map(input => input.value);
+
+    if (!email) return showInvitationMessage("البريد الإلكتروني مطلوب.", true);
+    if (!roleId) return showInvitationMessage("الدور مطلوب.", true);
+
+    try {
+      const result = await invitationAction({
+        action: "invite",
+        organization_id: adminContext.organization.id,
+        email,
+        role_id: roleId,
+        store_ids: storeIds
+      });
+
+      document.getElementById("memberInviteEmail").value = "";
+      document.querySelectorAll("[data-invite-store]").forEach(input => { input.checked = false; });
+
+      await loadAdmin();
+      showInvitationMessage(
+        result.status === "active"
+          ? "تمت إضافة المستخدم الموجود إلى المؤسسة."
+          : "تم إرسال الدعوة وإنشاء العضوية بحالة انتظار.",
+        false
+      );
+    } catch (error) {
+      console.error("INVITATION ERROR:", error);
+      showInvitationMessage(error.message || "تعذر إرسال الدعوة.", true);
+    }
+  }
+
+  async function revokeMemberInvitation(invitationId) {
+    if (!window.confirm("هل تريد إلغاء هذه الدعوة؟")) return;
+
+    try {
+      await invitationAction({
+        action: "revoke",
+        invitation_id: invitationId
+      });
+      await loadInvitations();
+      await loadAdmin();
+      showInvitationMessage("تم إلغاء الدعوة.", false);
+    } catch (error) {
+      console.error("INVITATION REVOKE ERROR:", error);
+      showInvitationMessage(error.message || "تعذر إلغاء الدعوة.", true);
+    }
+  }
+
   async function saveMemberRole(memberId) {
     const select = document.querySelector('[data-member-role="' + CSS.escape(memberId) + '"]');
     if (!select) return;
@@ -182,4 +354,6 @@
   window.saveMemberRole = saveMemberRole;
   window.saveMemberStores = saveMemberStores;
   window.toggleMemberStatus = toggleMemberStatus;
+  window.sendMemberInvitation = sendMemberInvitation;
+  window.revokeMemberInvitation = revokeMemberInvitation;
 })();
