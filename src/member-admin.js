@@ -184,7 +184,7 @@
     if (storesBox) {
       storesBox.innerHTML = (adminContext.stores || []).map(store =>
         '<label style="display:inline-flex;gap:6px;align-items:center">' +
-        '<input type="checkbox" data-invite-store="' + esc(store.id) + '">' +
+        '<input type="checkbox" data-invite-store="' + esc(store.id) + '" value="' + esc(store.id) + '">' +
         esc(store.name) +
         '</label>'
       ).join("");
