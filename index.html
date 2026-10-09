@@ -5147,8 +5147,8 @@ if (!window.SmartSalesAPI) {
 
       const returnButton = document.getElementById("returnInvoiceButton");
       const cancelButton = document.getElementById("cancelInvoiceButton");
+      const invoiceStatus = String(invoiceData.status || "").toLowerCase();
       if (returnButton) {
-        const invoiceStatus = String(invoiceData.status || "").toLowerCase();
         returnButton.style.display =
           invoiceStatus === "completed" || invoiceStatus === "partially_returned"
             ? ""
