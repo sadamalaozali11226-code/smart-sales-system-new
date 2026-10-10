@@ -12,6 +12,7 @@ permissions:
 jobs:
   smoke-tests:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - name: Check out source
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
@@ -26,5 +27,8 @@ jobs:
       - name: Install dependencies
         run: npm install --ignore-scripts
 
-      - name: Run HTTP smoke tests
+      - name: Audit production dependencies
+        run: npm audit --omit=dev
+
+      - name: Run HTTP and JavaScript smoke tests
         run: npm test
