@@ -64,7 +64,8 @@
         signedIn: "تم تسجيل الدخول",
         workspace: "المؤسسة",
         organizationLabel: "المؤسسة",
-        storeLabel: "الفرع"
+        storeLabel: "الفرع",
+        noStoreAssigned: "لا يوجد فرع مخصص لهذا الحساب. اطلب من مسؤول المؤسسة تعيين فرع ثم أعد تسجيل الدخول."
       },
       en: {
         loginTitle: "Sign in",
@@ -87,7 +88,8 @@
         signedIn: "Signed in",
         workspace: "Organization",
         organizationLabel: "Organization",
-        storeLabel: "Store"
+        storeLabel: "Store",
+        noStoreAssigned: "No store is assigned to this account. Ask your organization administrator to assign a store, then sign in again."
       }
     };
   }
@@ -373,6 +375,10 @@
     if (storeMembershipError) throw storeMembershipError;
 
     const storeIds = (storeMemberships || []).map(item => item.store_id);
+    if (storeIds.length === 0) {
+      const language = document.documentElement.lang === "en" ? "en" : "ar";
+      throw new Error(getLabels()[language].noStoreAssigned);
+    }
 
     let storesQuery = supabase
       .from("stores")
@@ -380,9 +386,7 @@
       .eq("organization_id", organizationId)
       .eq("status", "active");
 
-    if (storeIds.length > 0) {
-      storesQuery = storesQuery.in("id", storeIds);
-    }
+    storesQuery = storesQuery.in("id", storeIds);
 
     const { data: stores, error: storesError } = await storesQuery;
 
@@ -402,7 +406,14 @@
   async function switchOrganization(organizationId) {
     if (!context || !organizationId || String(organizationId) === String(context.organization.id)) return;
 
-    const nextContext = await loadContext(context.userId, organizationId);
+    let nextContext;
+    try {
+      nextContext = await loadContext(context.userId, organizationId);
+    } catch (error) {
+      const language = document.documentElement.lang === "en" ? "en" : "ar";
+      setMessage(error.message || getLabels()[language].error, "error");
+      return;
+    }
     if (!nextContext) return;
 
     context = nextContext;
@@ -554,8 +565,12 @@
     }
 
     await acceptPendingInvitations();
-    await acceptPendingInvitations();
-    context = await loadContext(data.user.id);
+    try {
+      context = await loadContext(data.user.id);
+    } catch (error) {
+      setMessage(error.message || labels.error, "error");
+      return;
+    }
 
     if (!context) {
       document.getElementById("commercialWorkspaceFields").classList.add("visible");
@@ -609,7 +624,12 @@
       return;
     }
 
-    context = await loadContext(data.user.id);
+    try {
+      context = await loadContext(data.user.id);
+    } catch (error) {
+      setMessage(error.message || labels.error, "error");
+      return;
+    }
 
     if (!context) {
       document.getElementById("commercialWorkspaceFields").classList.add("visible");
