@@ -202,8 +202,8 @@ test("report authorization migration requires report permission and limits all-s
   const migration = fs.readFileSync(migrationPath, "utf8");
   assert.match(migration, /private\.commercial_reports_summary/);
   assert.match(migration, /private\.profitability_summary/);
-  assert.equal((migration.match(/Reports permission required/g) || []).length, 2);
-  assert.equal((migration.match(/Organization-wide report access denied/g) || []).length, 2);
+  assert.equal((migration.match(/raise exception 'Reports permission required'/g) || []).length, 2);
+  assert.equal((migration.match(/raise exception 'Organization-wide report access denied'/g) || []).length, 2);
   assert.equal((migration.match(/private\.has_org_permission\(p_organization_id,'reports\.read'\)/g) || []).length, 2);
   assert.equal((migration.match(/private\.has_org_permission\(p_organization_id,'stores\.manage'\)/g) || []).length, 2);
 });
