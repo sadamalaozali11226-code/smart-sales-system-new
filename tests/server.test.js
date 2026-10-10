@@ -3,6 +3,8 @@ const assert = require("node:assert/strict");
 const { spawn } = require("node:child_process");
 const net = require("node:net");
 const path = require("node:path");
+const fs = require("node:fs");
+const vm = require("node:vm");
 
 let serverProcess;
 let baseUrl;
@@ -89,5 +91,33 @@ test("does not expose repository data, migrations, or backend source files", asy
   ]) {
     const response = await fetch(baseUrl + route);
     assert.equal(response.status, 404, `Expected private/non-public path to be hidden: ${route}`);
+  }
+});
+
+test("all shipped browser JavaScript parses without syntax errors", () => {
+  const root = path.join(__dirname, "..");
+  for (const file of [
+    "src/supabase-client.js",
+    "src/commercial-auth.js",
+    "src/commercial-api.js",
+    "src/member-admin.js",
+  ]) {
+    assert.doesNotThrow(
+      () => new vm.Script(fs.readFileSync(path.join(root, file), "utf8"), { filename: file }),
+      `JavaScript syntax error in ${file}`
+    );
+  }
+
+  for (const file of ["index.html", "profitability.html"]) {
+    const html = fs.readFileSync(path.join(root, file), "utf8");
+    const inlineScripts = [...html.matchAll(/<script\\b(?![^>]*\\bsrc=)[^>]*>([\\s\\S]*?)<\\/script>/gi)];
+    assert.ok(inlineScripts.length > 0, `Expected inline scripts in ${file}`);
+    inlineScripts.forEach((match, index) => {
+      if (!match[1].trim()) return;
+      assert.doesNotThrow(
+        () => new vm.Script(match[1], { filename: `${file}#inline-${index + 1}` }),
+        `JavaScript syntax error in ${file} inline script ${index + 1}`
+      );
+    });
   }
 });
