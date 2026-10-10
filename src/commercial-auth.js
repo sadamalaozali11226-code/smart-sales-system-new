@@ -403,6 +403,40 @@
     };
   }
 
+  function showContextError(message) {
+    let notice = document.getElementById("commercialContextError");
+    if (!notice) {
+      notice = document.createElement("div");
+      notice.id = "commercialContextError";
+      notice.setAttribute("role", "alert");
+      notice.setAttribute("aria-live", "assertive");
+      Object.assign(notice.style, {
+        position: "fixed",
+        top: "58px",
+        insetInlineStart: "10px",
+        zIndex: "100001",
+        boxSizing: "border-box",
+        width: "min(460px, calc(100vw - 20px))",
+        padding: "12px 16px",
+        borderRadius: "10px",
+        background: "#fee2e2",
+        color: "#991b1b",
+        boxShadow: "0 8px 24px rgba(0,0,0,.16)",
+        lineHeight: "1.6",
+        direction: document.documentElement.lang === "en" ? "ltr" : "rtl",
+        display: "none"
+      });
+      document.body.appendChild(notice);
+    }
+
+    notice.textContent = message || "";
+    notice.style.display = "block";
+    if (notice.hideTimer) window.clearTimeout(notice.hideTimer);
+    notice.hideTimer = window.setTimeout(function () {
+      notice.style.display = "none";
+    }, 6000);
+  }
+
   async function switchOrganization(organizationId) {
     if (!context || !organizationId || String(organizationId) === String(context.organization.id)) return;
 
@@ -411,7 +445,11 @@
       nextContext = await loadContext(context.userId, organizationId);
     } catch (error) {
       const language = document.documentElement.lang === "en" ? "en" : "ar";
-      setMessage(error.message || getLabels()[language].error, "error");
+      const selector = document.getElementById("commercialOrganizationSelector");
+      if (selector && context && context.organization) {
+        selector.value = String(context.organization.id);
+      }
+      showContextError(error.message || getLabels()[language].error);
       return;
     }
     if (!nextContext) return;

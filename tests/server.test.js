@@ -178,3 +178,20 @@ test("does not treat an unassigned member as authorized for every store", () => 
   assert.doesNotMatch(loadContextSource, /if\s*\(storeIds\.length\s*>\s*0\)/,
     "The store restriction must not be conditional on a non-empty assignment");
 });
+
+test("shows organization-switch context errors outside the hidden login gate", () => {
+  const authPath = path.join(__dirname, "..", "src", "commercial-auth.js");
+  const authSource = fs.readFileSync(authPath, "utf8");
+  const switchStart = authSource.indexOf("async function switchOrganization(");
+  const switchEnd = authSource.indexOf("\n  async function switchStore(", switchStart);
+  assert.notEqual(switchStart, -1, "Expected switchOrganization() to exist");
+  assert.notEqual(switchEnd, -1, "Expected switchOrganization() boundary to exist");
+
+  const switchSource = authSource.slice(switchStart, switchEnd);
+  assert.match(switchSource, /showContextError\(/,
+    "Switch failures must be shown in a visible notification");
+  assert.match(switchSource, /selector\.value\s*=\s*String\(context\.organization\.id\)/,
+    "The organization selector must revert when switching fails");
+  assert.match(authSource, /notice\.setAttribute\("role",\s*"alert"\)/,
+    "The visible notification must be accessible to assistive technology");
+});
