@@ -207,3 +207,15 @@ test("report authorization migration requires report permission and limits all-s
   assert.equal((migration.match(/private\.has_org_permission\(p_organization_id,'reports\.read'\)/g) || []).length, 2);
   assert.equal((migration.match(/private\.has_org_permission\(p_organization_id,'stores\.manage'\)/g) || []).length, 2);
 });
+
+test("expense RPC migration grants internal execution and enforces cancellation permission", () => {
+  const migrationPath = path.join(__dirname, "..", "supabase", "migrations",
+    "20261010160000_fix_expense_rpc_execute_permissions.sql");
+  const migration = fs.readFileSync(migrationPath, "utf8");
+  assert.match(migration, /private\.cancel_expense/);
+  assert.match(migration, /private\.has_org_permission\(p_organization_id,'expenses\.create'\)/);
+  assert.match(migration, /grant execute on function private\.create_expense\([^;]+ to authenticated/i);
+  assert.match(migration, /grant execute on function private\.cancel_expense\([^;]+ to authenticated/i);
+  assert.match(migration, /grant execute on function public\.create_expense\([^;]+ to authenticated/i);
+  assert.match(migration, /grant execute on function public\.cancel_expense\([^;]+ to authenticated/i);
+});
