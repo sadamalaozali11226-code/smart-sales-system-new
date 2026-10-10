@@ -219,3 +219,20 @@ test("expense RPC migration grants internal execution and enforces cancellation 
   assert.match(migration, /grant execute on function public\.create_expense\([^;]+ to authenticated/i);
   assert.match(migration, /grant execute on function public\.cancel_expense\([^;]+ to authenticated/i);
 });
+
+test("account summary and statement migration grants authenticated helper execution only", () => {
+  const migrationPath = path.join(__dirname, "..", "supabase", "migrations",
+    "20261010152500_fix_account_summary_helper_execute_permissions.sql");
+  const migration = fs.readFileSync(migrationPath, "utf8").toLowerCase();
+  const signatures = [
+    "customer_account_summary(uuid, uuid)",
+    "supplier_account_summary(uuid, uuid)",
+    "customer_statement(uuid, bigint, uuid, date, date)",
+    "supplier_statement(uuid, bigint, uuid, date, date)"
+  ];
+
+  for (const signature of signatures) {
+    assert.ok(migration.includes(`revoke execute on function private.${signature} from public, anon`));
+    assert.ok(migration.includes(`grant execute on function private.${signature} to authenticated`));
+  }
+});
