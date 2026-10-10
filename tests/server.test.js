@@ -210,7 +210,7 @@ test("report authorization migration requires report permission and limits all-s
 
 test("expense RPC migration grants internal execution and enforces cancellation permission", () => {
   const migrationPath = path.join(__dirname, "..", "supabase", "migrations",
-    "20261010160000_fix_expense_rpc_execute_permissions.sql");
+    "20261010143948_fix_expense_rpc_execute_permissions.sql");
   const migration = fs.readFileSync(migrationPath, "utf8");
   assert.match(migration, /private\.cancel_expense/);
   assert.match(migration, /private\.has_org_permission\(p_organization_id,'expenses\.create'\)/);
