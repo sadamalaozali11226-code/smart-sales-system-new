@@ -121,3 +121,43 @@ test("all shipped browser JavaScript parses without syntax errors", () => {
     });
   }
 });
+
+test("legacy backend entrypoint also hides repository files", async () => {
+  const port = await reservePort();
+  const url = `http://127.0.0.1:${port}`;
+  const child = spawn(process.execPath, [path.join(__dirname, "..", "backend", "server.js")], {
+    env: { ...process.env, PORT: String(port) },
+    stdio: "ignore",
+  });
+
+  try {
+    const deadline = Date.now() + 8000;
+    let ready = false;
+    while (Date.now() < deadline) {
+      if (child.exitCode !== null) {
+        throw new Error(`Legacy backend exited with code ${child.exitCode}`);
+      }
+      try {
+        const response = await fetch(url);
+        if (response.status === 200) {
+          ready = true;
+          break;
+        }
+      } catch {
+        // Wait for the listener to start.
+      }
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+    assert.equal(ready, true, "Legacy backend did not start");
+
+    assert.equal((await fetch(url + "/profitability.html")).status, 200);
+    assert.equal((await fetch(url + "/src/commercial-api.js")).status, 200);
+    for (const route of ["/products.json", "/package.json", "/backend/server.js", "/supabase/migrations/20261010093246_harden_return_financial_invariants.sql"]) {
+      assert.equal((await fetch(url + route)).status, 404, `Unexpected public route: ${route}`);
+    }
+    const api = await fetch(url + "/api/legacy-smoke");
+    assert.equal(api.status, 410);
+  } finally {
+    if (child.exitCode === null) child.kill("SIGTERM");
+  }
+});
