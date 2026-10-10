@@ -70,7 +70,7 @@ begin
   v_def := replace(v_def, v_old, v_new);
 
   v_old := $old$end loop;
- insert into public.sale_returns$sold$;
+ insert into public.sale_returns$old$;
   v_new := $new$end loop;
  if v_refund_total > v_returnable_value then raise exception 'refund exceeds the net value of returned items'; end if;
  if v_refund_total > 0 and nullif(btrim(coalesce(p_refund_payment_method,'')),'') is null then raise exception 'refund payment method is required'; end if;
@@ -192,11 +192,13 @@ begin
   if v_occurrences <> 1 then raise exception 'Expected one cost condition in refund-aware cancellation; found %', v_occurrences; end if;
   v_def := replace(v_def, v_old, v_new);
 
-  v_old := $old$    else
+  v_old := $old$      end if;
+    else
       v_new_cost := 0;
       v_new_cost_known := false;
     end if;$old$;
-  v_new := $new$    else
+  v_new := $new$      end if;
+    else
       v_new_cost := v_balance.average_cost;
       v_new_cost_known := v_balance.cost_known;
     end if;$new$;
