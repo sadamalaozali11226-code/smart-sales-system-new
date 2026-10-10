@@ -161,3 +161,20 @@ test("legacy backend entrypoint also hides repository files", async () => {
     if (child.exitCode === null) child.kill("SIGTERM");
   }
 });
+
+test("does not treat an unassigned member as authorized for every store", () => {
+  const authPath = path.join(__dirname, "..", "src", "commercial-auth.js");
+  const authSource = fs.readFileSync(authPath, "utf8");
+  const loadContextStart = authSource.indexOf("async function loadContext(");
+  const loadContextEnd = authSource.indexOf("\n  async function switchOrganization(", loadContextStart);
+  assert.notEqual(loadContextStart, -1, "Expected loadContext() to exist");
+  assert.notEqual(loadContextEnd, -1, "Expected loadContext() boundary to exist");
+
+  const loadContextSource = authSource.slice(loadContextStart, loadContextEnd);
+  assert.match(loadContextSource, /if\s*\(storeIds\.length\s*===\s*0\)/,
+    "A member with no assigned stores must be rejected");
+  assert.match(loadContextSource, /storesQuery\s*=\s*storesQuery\.in\(["']id["'],\s*storeIds\)/,
+    "The store query must always be restricted to assigned store IDs");
+  assert.doesNotMatch(loadContextSource, /if\s*\(storeIds\.length\s*>\s*0\)/,
+    "The store restriction must not be conditional on a non-empty assignment");
+});
