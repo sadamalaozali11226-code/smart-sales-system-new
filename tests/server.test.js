@@ -110,7 +110,7 @@ test("all shipped browser JavaScript parses without syntax errors", () => {
 
   for (const file of ["index.html", "profitability.html"]) {
     const html = fs.readFileSync(path.join(root, file), "utf8");
-    const inlineScripts = [...html.matchAll(/<script\\b(?![^>]*\\bsrc=)[^>]*>([\\s\\S]*?)<\\/script>/gi)];
+    const inlineScripts = [...html.matchAll(/<script\b(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/gi)];
     assert.ok(inlineScripts.length > 0, `Expected inline scripts in ${file}`);
     inlineScripts.forEach((match, index) => {
       if (!match[1].trim()) return;
