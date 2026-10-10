@@ -198,7 +198,7 @@ test("shows organization-switch context errors outside the hidden login gate", (
 
 test("report authorization migration requires report permission and limits all-store scope", () => {
   const migrationPath = path.join(__dirname, "..", "supabase", "migrations",
-    "20261010150000_scope_report_rpcs_to_authorized_stores.sql");
+    "20261010143537_scope_report_rpcs_to_authorized_stores.sql");
   const migration = fs.readFileSync(migrationPath, "utf8");
   assert.match(migration, /private\.commercial_reports_summary/);
   assert.match(migration, /private\.profitability_summary/);
