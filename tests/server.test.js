@@ -195,3 +195,15 @@ test("shows organization-switch context errors outside the hidden login gate", (
   assert.match(authSource, /notice\.setAttribute\("role",\s*"alert"\)/,
     "The visible notification must be accessible to assistive technology");
 });
+
+test("report authorization migration requires report permission and limits all-store scope", () => {
+  const migrationPath = path.join(__dirname, "..", "supabase", "migrations",
+    "20261010150000_scope_report_rpcs_to_authorized_stores.sql");
+  const migration = fs.readFileSync(migrationPath, "utf8");
+  assert.match(migration, /private\.commercial_reports_summary/);
+  assert.match(migration, /private\.profitability_summary/);
+  assert.equal((migration.match(/Reports permission required/g) || []).length, 2);
+  assert.equal((migration.match(/Organization-wide report access denied/g) || []).length, 2);
+  assert.equal((migration.match(/private\.has_org_permission\(p_organization_id,'reports\.read'\)/g) || []).length, 2);
+  assert.equal((migration.match(/private\.has_org_permission\(p_organization_id,'stores\.manage'\)/g) || []).length, 2);
+});
