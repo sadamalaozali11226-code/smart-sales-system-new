@@ -246,7 +246,7 @@ test("supplier payment migration caps allocations at purchase balance after retu
   assert.match(migration, /from public\.purchase_returns pr[\s\S]*pr\.status='completed'/);
   assert.match(migration, /from public\.supplier_refunds sr[\s\S]*join public\.purchase_returns pr on pr\.id=sr\.purchase_return_id/);
   assert.match(migration, /v_net_balance := greatest\(v_receipt\.total - v_return_total \+ v_refund_total, 0\)/);
-  assert.match(migration, /if v_existing\+v_alloc>v_net_balance then raise exception/);
-  assert.match(migration, /v_status\\s*:=\\s*case when v_new_allocated\\s*>=\\s*v_net_balance then 'paid' else 'partial' end/);
+  assert.match(migration, /if\s+v_existing\s*\+\s*v_alloc\s*>\s*v_net_balance\s+then raise exception/);
+  assert.match(migration, /v_status\s*:=\s*case when v_new_allocated\s*>=\s*v_net_balance then 'paid' else 'partial' end/);
   assert.match(migration, /if v_occurrences <> 1 then[\s\S]*raise exception/);
 });
