@@ -242,7 +242,7 @@ test("supplier payment migration caps allocations at purchase balance after retu
   const migrationPath = path.join(__dirname, "..", "supabase", "migrations",
     "20261011221500_guard_supplier_payment_balance_after_returns.sql");
   const migration = fs.readFileSync(migrationPath, "utf8");
-  assert.match(migration, /private\.record_supplier_payment\(uuid,uuid,bigint,numeric,text,text,text,jsonb\)::regprocedure/);
+  assert.match(migration, /private\\.record_supplier_payment\\(uuid,uuid,bigint,numeric,text,text,text,jsonb\\)'::regprocedure/);
   assert.match(migration, /from public\.purchase_returns pr[\s\S]*pr\.status='completed'/);
   assert.match(migration, /from public\.supplier_refunds sr[\s\S]*join public\.purchase_returns pr on pr\.id=sr\.purchase_return_id/);
   assert.match(migration, /v_net_balance := greatest\(v_receipt\.total - v_return_total \+ v_refund_total, 0\)/);
