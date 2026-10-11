@@ -72,4 +72,4 @@ jobs:
             cat /tmp/supplier-migration-reapply.log
             exit 1
           fi
-          grep -q "Expected one record_supplier_payment declaration pattern" /tmp/supplier-migration-reapply.log
+          grep -q "Expected one supplier balance validation pattern" /tmp/supplier-migration-reapply.log
