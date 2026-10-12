@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { getInviteMembershipAction, getAcceptanceAction, isInvitationExpired } from "./invitation-state.mjs";
 
 type InvitePayload = {
   action?: "invite" | "list" | "revoke" | "accept";
@@ -153,25 +154,35 @@ async function handleInvite(admin: any, userId: string, body: InvitePayload) {
   let membershipStatus: "active" | "invited" = "invited";
   let inviteSent = false;
   let createdAuthUser = false;
+  let existingMember: any = null;
+  let previousStoreIds: string[] = [];
 
   if (existingUser) {
-    const { data: existingMember, error: existingMemberError } = await admin
+    const { data, error: existingMemberError } = await admin
       .from("organization_members")
-      .select("id,status")
+      .select("id,status,role_id")
       .eq("organization_id", organizationId)
       .eq("user_id", existingUser.id)
       .maybeSingle();
 
     if (existingMemberError) throw existingMemberError;
-    if (existingMember) throw new Error("This user is already a member of the organization");
+    existingMember = data;
+    const inviteAction = getInviteMembershipAction(existingMember?.status ?? null);
+    if (inviteAction === "reject") throw new Error("This user is already a member of the organization");
+
+    if (existingMember) {
+      const { data: currentStores, error: currentStoresError } = await admin
+        .from("member_stores")
+        .select("store_id")
+        .eq("member_id", existingMember.id);
+      if (currentStoresError) throw currentStoresError;
+      previousStoreIds = (currentStores || []).map((row: any) => row.store_id);
+    }
 
     if (existingUser.email_confirmed_at) {
       membershipStatus = "active";
     } else {
-      const { error: resendError } = await admin.auth.resend({
-        type: "signup",
-        email,
-      });
+      const { error: resendError } = await admin.auth.resend({ type: "signup", email });
       if (resendError) throw new Error("User exists but the invitation could not be resent: " + resendError.message);
       inviteSent = true;
     }
@@ -192,28 +203,63 @@ async function handleInvite(admin: any, userId: string, body: InvitePayload) {
     if (error) console.error("Failed to clean up created Auth user", error);
   };
 
-  const { data: member, error: memberError } = await admin
-    .from("organization_members")
-    .insert({
-      organization_id: organizationId,
-      user_id: authUserId,
-      role_id: role.id,
-      status: membershipStatus,
-    })
-    .select("id")
-    .single();
-
-  if (memberError) {
-    await cleanupCreatedAuthUser();
-    throw memberError;
+  let member: any;
+  if (existingMember) {
+    const { data, error } = await admin
+      .from("organization_members")
+      .update({ role_id: role.id, status: membershipStatus })
+      .eq("id", existingMember.id)
+      .in("status", ["suspended", "inactive"])
+      .select("id")
+      .maybeSingle();
+    if (error) throw error;
+    if (!data) throw new Error("Membership changed while re-inviting; refresh and try again");
+    member = data;
+  } else {
+    const { data, error } = await admin
+      .from("organization_members")
+      .insert({ organization_id: organizationId, user_id: authUserId, role_id: role.id, status: membershipStatus })
+      .select("id")
+      .single();
+    if (error) {
+      await cleanupCreatedAuthUser();
+      throw error;
+    }
+    member = data;
   }
 
-  if (validStoreIds.length) {
-    const rows = validStoreIds.map(storeId => ({ member_id: member.id, store_id: storeId }));
-    const { error: storesError } = await admin.from("member_stores").insert(rows);
-    if (storesError) {
-      await admin.from("organization_members").delete().eq("id", member.id);
+  const restoreMembership = async () => {
+    if (existingMember) {
+      const { error: restoreError } = await admin.from("organization_members")
+        .update({ role_id: existingMember.role_id, status: existingMember.status }).eq("id", existingMember.id);
+      if (restoreError) console.error("Failed to restore membership after invitation error", restoreError);
+      const { error: clearError } = await admin.from("member_stores").delete().eq("member_id", existingMember.id);
+      if (clearError) console.error("Failed to clear updated member stores during rollback", clearError);
+      if (previousStoreIds.length) {
+        const { error: storeRestoreError } = await admin.from("member_stores")
+          .insert(previousStoreIds.map(storeId => ({ member_id: existingMember.id, store_id: storeId })));
+        if (storeRestoreError) console.error("Failed to restore member stores after invitation error", storeRestoreError);
+      }
+    } else {
+      const { error: storeDeleteError } = await admin.from("member_stores").delete().eq("member_id", member.id);
+      if (storeDeleteError) console.error("Failed to clean up member stores", storeDeleteError);
+      const { error: memberDeleteError } = await admin.from("organization_members").delete().eq("id", member.id);
+      if (memberDeleteError) console.error("Failed to clean up membership", memberDeleteError);
       await cleanupCreatedAuthUser();
+    }
+  };
+
+  const { error: clearStoresError } = await admin.from("member_stores").delete().eq("member_id", member.id);
+  if (clearStoresError) {
+    await restoreMembership();
+    throw clearStoresError;
+  }
+  if (validStoreIds.length) {
+    const { error: storesError } = await admin.from("member_stores").insert(
+      validStoreIds.map(storeId => ({ member_id: member.id, store_id: storeId }))
+    );
+    if (storesError) {
+      await restoreMembership();
       throw storesError;
     }
   }
@@ -235,19 +281,11 @@ async function handleInvite(admin: any, userId: string, body: InvitePayload) {
     .single();
 
   if (invitationError) {
-    await admin.from("member_stores").delete().eq("member_id", member.id);
-    await admin.from("organization_members").delete().eq("id", member.id);
-    await cleanupCreatedAuthUser();
+    await restoreMembership();
     throw invitationError;
   }
 
-  return {
-    ok: true,
-    invitation,
-    membership_id: member.id,
-    status: membershipStatus,
-    invite_sent: inviteSent,
-  };
+  return { ok: true, invitation, membership_id: member.id, status: membershipStatus, invite_sent: inviteSent };
 }
 
 async function handleList(admin: any, userId: string, body: InvitePayload) {
@@ -281,23 +319,43 @@ async function handleRevoke(admin: any, userId: string, body: InvitePayload) {
   await requireOrgPermission(admin, userId, invitation.organization_id);
   if (invitation.status !== "pending") throw new Error("Only pending invitations can be revoked");
 
-  const { error: updateError } = await admin
-    .from("organization_invitations")
-    .update({ status: "revoked", updated_at: new Date().toISOString() })
-    .eq("id", invitationId);
-
-  if (updateError) throw updateError;
-
+  let member: any = null;
   if (invitation.auth_user_id) {
-    const { data: member } = await admin
+    const { data, error: memberError } = await admin
       .from("organization_members")
       .select("id,status")
       .eq("organization_id", invitation.organization_id)
       .eq("user_id", invitation.auth_user_id)
       .maybeSingle();
+    if (memberError) throw memberError;
+    member = data;
+  }
 
-    if (member?.status === "invited") {
-      await admin.from("organization_members").update({ status: "suspended" }).eq("id", member.id);
+  const { data: revoked, error: updateError } = await admin
+    .from("organization_invitations")
+    .update({ status: "revoked", updated_at: new Date().toISOString() })
+    .eq("id", invitationId)
+    .eq("status", "pending")
+    .select("id")
+    .maybeSingle();
+  if (updateError) throw updateError;
+  if (!revoked) throw new Error("Invitation changed before it could be revoked");
+
+  if (member?.status === "invited") {
+    const { data: suspended, error: suspendError } = await admin
+      .from("organization_members")
+      .update({ status: "suspended" })
+      .eq("id", member.id)
+      .eq("status", "invited")
+      .select("id")
+      .maybeSingle();
+    if (suspendError || !suspended) {
+      const { error: rollbackError } = await admin.from("organization_invitations")
+        .update({ status: "pending", updated_at: new Date().toISOString() })
+        .eq("id", invitationId).eq("status", "revoked");
+      if (rollbackError) console.error("Failed to restore invitation after revoke failure", rollbackError);
+      if (suspendError) throw suspendError;
+      throw new Error("Membership changed while revoking; refresh and try again");
     }
   }
 
@@ -323,11 +381,11 @@ async function handleAccept(admin: any, userId: string, body: InvitePayload) {
   const accepted = [];
 
   for (const invitation of invitations) {
-    if (new Date(invitation.expires_at).getTime() < Date.now()) {
-      await admin
-        .from("organization_invitations")
+    if (isInvitationExpired(invitation.expires_at)) {
+      const { error: expireError } = await admin.from("organization_invitations")
         .update({ status: "expired", updated_at: new Date().toISOString() })
-        .eq("id", invitation.id);
+        .eq("id", invitation.id).eq("status", "pending");
+      if (expireError) throw expireError;
       continue;
     }
 
@@ -337,27 +395,54 @@ async function handleAccept(admin: any, userId: string, body: InvitePayload) {
       .eq("organization_id", invitation.organization_id)
       .eq("user_id", userId)
       .maybeSingle();
-
     if (memberError) throw memberError;
-    if (!member) continue;
 
-    const { error: memberUpdateError } = await admin
-      .from("organization_members")
-      .update({ status: "active" })
-      .eq("id", member.id);
+    if (!member) {
+      const { error: revokeOrphanError } = await admin.from("organization_invitations")
+        .update({ status: "revoked", updated_at: new Date().toISOString() })
+        .eq("id", invitation.id).eq("status", "pending");
+      if (revokeOrphanError) throw revokeOrphanError;
+      continue;
+    }
 
-    if (memberUpdateError) throw memberUpdateError;
+    const acceptanceAction = getAcceptanceAction(member.status);
+    if (acceptanceAction === "reject") {
+      const { error: revokeInactiveError } = await admin.from("organization_invitations")
+        .update({ status: "revoked", updated_at: new Date().toISOString() })
+        .eq("id", invitation.id).eq("status", "pending");
+      if (revokeInactiveError) throw revokeInactiveError;
+      continue;
+    }
 
-    const { error: invitationUpdateError } = await admin
+    const acceptedAt = new Date().toISOString();
+    const { data: claimedInvitation, error: invitationUpdateError } = await admin
       .from("organization_invitations")
-      .update({
-        status: "accepted",
-        accepted_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      })
-      .eq("id", invitation.id);
-
+      .update({ status: "accepted", accepted_at: acceptedAt, updated_at: acceptedAt })
+      .eq("id", invitation.id)
+      .eq("status", "pending")
+      .select("id")
+      .maybeSingle();
     if (invitationUpdateError) throw invitationUpdateError;
+    if (!claimedInvitation) continue;
+
+    if (acceptanceAction === "activate") {
+      const { data: activatedMember, error: memberUpdateError } = await admin
+        .from("organization_members")
+        .update({ status: "active" })
+        .eq("id", member.id)
+        .eq("status", "invited")
+        .select("id")
+        .maybeSingle();
+
+      if (memberUpdateError || !activatedMember) {
+        const { error: rollbackError } = await admin.from("organization_invitations")
+          .update({ status: "pending", accepted_at: null, updated_at: new Date().toISOString() })
+          .eq("id", invitation.id).eq("status", "accepted");
+        if (rollbackError) console.error("Failed to restore pending invitation after acceptance failure", rollbackError);
+        if (memberUpdateError) throw memberUpdateError;
+        throw new Error("Membership is no longer awaiting invitation acceptance");
+      }
+    }
 
     accepted.push({
       invitation_id: invitation.id,
