@@ -38,6 +38,8 @@ create table public.supplier_payment_allocations (
 create table public.purchase_returns (
   id bigint primary key,
   organization_id uuid not null,
+  store_id uuid not null,
+  supplier_id bigint not null,
   purchase_receipt_id bigint not null,
   status text not null,
   total numeric not null
