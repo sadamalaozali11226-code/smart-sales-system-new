@@ -19,13 +19,15 @@ begin
     (3,'00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000002',1,'completed',100,'unpaid'),
     (4,'00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000002',1,'completed',100,'unpaid'),
     (5,'00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000002',1,'completed',100,'unpaid');
-  insert into public.purchase_returns(id,organization_id,purchase_receipt_id,status,total) values
-    (11,'00000000-0000-0000-0000-000000000001',1,'completed',20),
-    (12,'00000000-0000-0000-0000-000000000001',2,'completed',20),
-    (13,'00000000-0000-0000-0000-000000000001',3,'completed',120),
-    (14,'00000000-0000-0000-0000-000000000001',4,'pending',90);
-  insert into public.supplier_refunds(id,purchase_return_id,amount) values
-    (21,11,10);
+  insert into public.purchase_returns(id,organization_id,store_id,supplier_id,purchase_receipt_id,status,total) values
+    (11,'00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000002',1,1,'completed',20),
+    (12,'00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000002',1,2,'completed',20),
+    (13,'00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000002',1,3,'completed',120),
+    (14,'00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000002',1,4,'pending',90);
+  insert into public.supplier_refunds(id,organization_id,store_id,supplier_id,purchase_return_id,amount) values
+    (21,'00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000002',1,11,10),
+    -- A malformed cross-tenant/store refund must not inflate this receipt's payment ceiling.
+    (22,'00000000-0000-0000-0000-000000000003','00000000-0000-0000-0000-000000000004',2,11,50);
 
   insert into public.supplier_payments(id,organization_id,store_id,supplier_id,amount,payment_method)
   values
