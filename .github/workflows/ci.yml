@@ -12,7 +12,27 @@ permissions:
 jobs:
   smoke-tests:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: smart_sales_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d smart_sales_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      PGHOST: localhost
+      PGPORT: 5432
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGDATABASE: smart_sales_test
     steps:
       - name: Check out source
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
@@ -33,3 +53,23 @@ jobs:
 
       - name: Run HTTP and JavaScript smoke tests
         run: npm test
+
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+
+      - name: Apply supplier payment migration to isolated PostgreSQL fixture
+        run: |
+          psql -v ON_ERROR_STOP=1 -f tests/fixtures/supplier-payment-migration.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261011221500_guard_supplier_payment_balance_after_returns.sql
+          psql -v ON_ERROR_STOP=1 -f tests/fixtures/supplier-payment-migration-assertions.sql
+
+      - name: Verify migration fails closed when reapplied
+        run: |
+          if psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261011221500_guard_supplier_payment_balance_after_returns.sql > /tmp/supplier-migration-reapply.log 2>&1; then
+            echo "Migration unexpectedly succeeded when reapplied."
+            cat /tmp/supplier-migration-reapply.log
+            exit 1
+          fi
+          grep -q "Expected one supplier balance validation pattern" /tmp/supplier-migration-reapply.log
