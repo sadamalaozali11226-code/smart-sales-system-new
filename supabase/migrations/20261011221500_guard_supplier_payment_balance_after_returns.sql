@@ -56,6 +56,9 @@ begin
     from public.purchase_returns pr
     where pr.purchase_receipt_id=v_receipt_id
       and pr.organization_id=p_organization_id
+      and sr.organization_id=p_organization_id
+      and sr.store_id=p_store_id
+      and sr.supplier_id=p_supplier_id
       and pr.status='completed';
     select coalesce(sum(sr.amount),0) into v_refund_total
     from public.supplier_refunds sr
