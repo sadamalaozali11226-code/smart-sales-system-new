@@ -238,6 +238,32 @@ test("account summary and statement migration grants authenticated helper execut
 });
 
 
+test("sales summary excludes cancelled invoices but keeps them in history", () => {
+  const apiPath = path.join(__dirname, "..", "src", "commercial-api.js");
+  const apiSource = fs.readFileSync(apiPath, "utf8");
+  const helperMatch = apiSource.match(/function summarizeSales\(normalizedSales\) \{[\s\S]*?\n  \}/);
+  assert.ok(helperMatch, "Expected the pure sales summary helper to exist");
+  const summarizeSales = vm.runInNewContext(`(${helperMatch[0]})`);
+
+  const sales = [
+    { id: 1, status: "completed", total: 100, paidAmount: 40, remainingAmount: 60 },
+    { id: 2, status: "completed", total: 50, paidAmount: 0, remainingAmount: 50 },
+    { id: 3, status: "cancelled", total: 200, paidAmount: 100, remainingAmount: 100 },
+  ];
+  const summary = summarizeSales(sales);
+
+  assert.equal(summary.total, 150);
+  assert.equal(summary.paidTotal, 40);
+  assert.equal(summary.remainingTotal, 110);
+  assert.equal(summary.count, 2);
+  assert.equal(summary.sales.length, 3, "Cancelled invoices must remain visible in sales history");
+
+  const html = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8");
+  assert.match(html, /function summarizeSales\(normalizedSales\)/,
+    "The inline fallback must use the same cancelled-invoice summary rule");
+  assert.match(html, /return summarizeSales\(normalizedSales\);/);
+});
+
 test("invitation lifecycle state rules fail closed and permit deliberate re-invitation", async () => {
   const { getInviteMembershipAction, getAcceptanceAction, isInvitationExpired } =
     await import("../supabase/functions/organization-member-invitations/invitation-state.mjs");
