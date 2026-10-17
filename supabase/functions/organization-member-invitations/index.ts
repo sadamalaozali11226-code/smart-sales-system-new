@@ -209,7 +209,7 @@ async function handleInvite(admin: any, userId: string, body: InvitePayload) {
       .from("organization_members")
       .update({ role_id: role.id, status: membershipStatus })
       .eq("id", existingMember.id)
-      .in("status", ["suspended", "inactive"])
+      .in("status", ["suspended", "inactive", "invited"])
       .select("id")
       .maybeSingle();
     if (error) throw error;
