@@ -266,7 +266,7 @@ test("sales summary excludes cancelled invoices but keeps them in history", () =
 
 test("supplier payment migration caps allocations at purchase balance after returns and refunds", () => {
   const migrationPath = path.join(__dirname, "..", "supabase", "migrations",
-    "20261011221500_guard_supplier_payment_balance_after_returns.sql");
+    "20261017204900_guard_supplier_payment_balance_after_returns.sql");
   const migration = fs.readFileSync(migrationPath, "utf8");
   assert.match(migration, /private\.record_supplier_payment\(uuid,uuid,bigint,numeric,text,text,text,jsonb\)'::regprocedure/);
   assert.match(migration, /from public\.purchase_returns pr[\s\S]*pr\.status='completed'/);
