@@ -126,6 +126,17 @@
     return (data || []).map(normalizeCustomer);
   }
 
+  function summarizeSales(normalizedSales) {
+    const activeSales = normalizedSales.filter(item => item.status !== "cancelled");
+    return {
+      total: activeSales.reduce((sum, item) => sum + item.total, 0),
+      paidTotal: activeSales.reduce((sum, item) => sum + item.paidAmount, 0),
+      remainingTotal: activeSales.reduce((sum, item) => sum + item.remainingAmount, 0),
+      count: activeSales.length,
+      sales: normalizedSales
+    };
+  }
+
   async function sales() {
     const { store } = context();
     const supabase = client();
@@ -186,13 +197,7 @@
       paymentMap.get(Number(item.id)) || []
     ));
 
-    return {
-      total: normalizedSales.reduce((sum, item) => sum + item.total, 0),
-      paidTotal: normalizedSales.reduce((sum, item) => sum + item.paidAmount, 0),
-      remainingTotal: normalizedSales.reduce((sum, item) => sum + item.remainingAmount, 0),
-      count: normalizedSales.length,
-      sales: normalizedSales
-    };
+    return summarizeSales(normalizedSales);
   }
 
   async function salesHistory() {
