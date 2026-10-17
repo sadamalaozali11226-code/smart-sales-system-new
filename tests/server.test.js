@@ -272,7 +272,7 @@ test("invitation lifecycle state rules fail closed and permit deliberate re-invi
   assert.equal(getInviteMembershipAction("suspended"), "reinvite");
   assert.equal(getInviteMembershipAction("inactive"), "reinvite");
   assert.equal(getInviteMembershipAction("active"), "reject");
-  assert.equal(getInviteMembershipAction("invited"), "reject");
+  assert.equal(getInviteMembershipAction("invited"), "reinvite", "An orphaned invited membership with no pending invitation must be recoverable");
 
   assert.equal(getAcceptanceAction("invited"), "activate");
   assert.equal(getAcceptanceAction("active"), "accept");
@@ -289,7 +289,7 @@ test("invitation handlers check write failures and never activate a non-invited 
     "organization-member-invitations", "index.ts");
   const source = fs.readFileSync(functionPath, "utf8");
 
-  assert.match(source, /\.in\("status", \["suspended", "inactive"\]\)/,
+  assert.match(source, /\.in\("status", \["suspended", "inactive", "invited"\]\)/,
     "Re-invitation must only re-enable a previously suspended or inactive membership");
   assert.match(source, /if \(memberError\) throw memberError/,
     "Membership lookup failures must not be treated as a missing member");
