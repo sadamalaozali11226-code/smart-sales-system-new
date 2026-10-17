@@ -58,15 +58,17 @@ begin
       and pr.organization_id=p_organization_id
       and pr.store_id=p_store_id
       and pr.supplier_id=p_supplier_id
-      and sr.organization_id=p_organization_id
-      and sr.store_id=p_store_id
-      and sr.supplier_id=p_supplier_id
       and pr.status='completed';
     select coalesce(sum(sr.amount),0) into v_refund_total
     from public.supplier_refunds sr
     join public.purchase_returns pr on pr.id=sr.purchase_return_id
     where pr.purchase_receipt_id=v_receipt_id
       and pr.organization_id=p_organization_id
+      and pr.store_id=p_store_id
+      and pr.supplier_id=p_supplier_id
+      and sr.organization_id=p_organization_id
+      and sr.store_id=p_store_id
+      and sr.supplier_id=p_supplier_id
       and pr.status='completed';
     -- Keep the cap consistent with the supplier ledger: purchases - allocations - returns + refunds.
     v_net_balance := greatest(v_receipt.total - v_return_total + v_refund_total, 0);
