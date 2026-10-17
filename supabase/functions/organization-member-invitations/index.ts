@@ -382,10 +382,44 @@ async function handleAccept(admin: any, userId: string, body: InvitePayload) {
 
   for (const invitation of invitations) {
     if (isInvitationExpired(invitation.expires_at)) {
-      const { error: expireError } = await admin.from("organization_invitations")
+      const { data: member, error: memberError } = await admin
+        .from("organization_members")
+        .select("id,status")
+        .eq("organization_id", invitation.organization_id)
+        .eq("user_id", userId)
+        .maybeSingle();
+      if (memberError) throw memberError;
+
+      let suspendedMemberId: string | null = null;
+      if (member?.status === "invited") {
+        const { data: suspended, error: suspendError } = await admin
+          .from("organization_members")
+          .update({ status: "suspended" })
+          .eq("id", member.id)
+          .eq("status", "invited")
+          .select("id")
+          .maybeSingle();
+        if (suspendError) throw suspendError;
+        if (!suspended) throw new Error("Membership changed while expiring invitation; refresh and try again");
+        suspendedMemberId = member.id;
+      }
+
+      const { data: expired, error: expireError } = await admin.from("organization_invitations")
         .update({ status: "expired", updated_at: new Date().toISOString() })
-        .eq("id", invitation.id).eq("status", "pending");
-      if (expireError) throw expireError;
+        .eq("id", invitation.id).eq("status", "pending")
+        .select("id")
+        .maybeSingle();
+      if (expireError || !expired) {
+        if (suspendedMemberId) {
+          const { error: restoreError } = await admin.from("organization_members")
+            .update({ status: "invited" })
+            .eq("id", suspendedMemberId)
+            .eq("status", "suspended");
+          if (restoreError) console.error("Failed to restore invited membership after expiry failure", restoreError);
+        }
+        if (expireError) throw expireError;
+        continue;
+      }
       continue;
     }
 
