@@ -62,12 +62,12 @@ jobs:
       - name: Apply supplier payment migration to isolated PostgreSQL fixture
         run: |
           psql -v ON_ERROR_STOP=1 -f tests/fixtures/supplier-payment-migration.sql
-          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261011221500_guard_supplier_payment_balance_after_returns.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261017204900_guard_supplier_payment_balance_after_returns.sql
           psql -v ON_ERROR_STOP=1 -f tests/fixtures/supplier-payment-migration-assertions.sql
 
       - name: Verify migration fails closed when reapplied
         run: |
-          if psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261011221500_guard_supplier_payment_balance_after_returns.sql > /tmp/supplier-migration-reapply.log 2>&1; then
+          if psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261017204900_guard_supplier_payment_balance_after_returns.sql > /tmp/supplier-migration-reapply.log 2>&1; then
             echo "Migration unexpectedly succeeded when reapplied."
             cat /tmp/supplier-migration-reapply.log
             exit 1
