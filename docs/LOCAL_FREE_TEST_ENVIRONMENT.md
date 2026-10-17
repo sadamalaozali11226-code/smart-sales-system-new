@@ -51,7 +51,7 @@
 
 - خطة القبول: `docs/ACCEPTANCE_TEST_PLAN.md`
 - تشغيل النظام: `docs/OPERATIONS.md`
-- جرد اختلافات الترحيلات وبوابات الإطلاق: `docs/MIGRATION_RECONCILIATION_AND_RELEASE_GATES.md`
+- جرد اختلافات الترحيلات وبوابات الإطلاق: `docs/WORK_LOG.md`
 
 
 ## تحديث بعد إصلاح دفعات المورد — 2026-10-17
