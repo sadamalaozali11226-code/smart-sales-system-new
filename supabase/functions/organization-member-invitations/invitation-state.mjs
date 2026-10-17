@@ -1,6 +1,6 @@
 export function getInviteMembershipAction(status) {
   if (status == null) return "create";
-  if (status === "suspended" || status === "inactive") return "reinvite";
+  if (status === "suspended" || status === "inactive" || status === "invited") return "reinvite";
   return "reject";
 }
 
