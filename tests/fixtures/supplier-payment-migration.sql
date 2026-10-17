@@ -44,6 +44,9 @@ create table public.purchase_returns (
 );
 create table public.supplier_refunds (
   id bigint primary key,
+  organization_id uuid not null,
+  store_id uuid not null,
+  supplier_id bigint not null,
   purchase_return_id bigint not null,
   amount numeric not null
 );
