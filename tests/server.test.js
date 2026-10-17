@@ -263,3 +263,53 @@ test("sales summary excludes cancelled invoices but keeps them in history", () =
     "The inline fallback must use the same cancelled-invoice summary rule");
   assert.match(html, /return summarizeSales\(normalizedSales\);/);
 });
+
+test("invitation lifecycle state rules fail closed and permit deliberate re-invitation", async () => {
+  const { getInviteMembershipAction, getAcceptanceAction, isInvitationExpired } =
+    await import("../supabase/functions/organization-member-invitations/invitation-state.mjs");
+
+  assert.equal(getInviteMembershipAction(null), "create");
+  assert.equal(getInviteMembershipAction("suspended"), "reinvite");
+  assert.equal(getInviteMembershipAction("inactive"), "reinvite");
+  assert.equal(getInviteMembershipAction("active"), "reject");
+  assert.equal(getInviteMembershipAction("invited"), "reject");
+
+  assert.equal(getAcceptanceAction("invited"), "activate");
+  assert.equal(getAcceptanceAction("active"), "accept");
+  assert.equal(getAcceptanceAction("inactive"), "reject");
+  assert.equal(getAcceptanceAction("suspended"), "reject");
+
+  assert.equal(isInvitationExpired("2020-01-01T00:00:00.000Z", Date.parse("2021-01-01T00:00:00.000Z")), true);
+  assert.equal(isInvitationExpired("2030-01-01T00:00:00.000Z", Date.parse("2029-01-01T00:00:00.000Z")), false);
+  assert.equal(isInvitationExpired("not-a-date", Date.now()), true);
+});
+
+test("invitation handlers check write failures and never activate a non-invited membership", () => {
+  const functionPath = path.join(__dirname, "..", "supabase", "functions",
+    "organization-member-invitations", "index.ts");
+  const source = fs.readFileSync(functionPath, "utf8");
+
+  assert.match(source, /\.in\("status", \["suspended", "inactive"\]\)/,
+    "Re-invitation must only re-enable a previously suspended or inactive membership");
+  assert.match(source, /if \(memberError\) throw memberError/,
+    "Membership lookup failures must not be treated as a missing member");
+  assert.match(source, /if \(suspendError \|\| !suspended\)/,
+    "Revoke must fail if suspending the invited membership fails");
+  assert.match(source, /\.eq\("status", "invited"\)[\s\S]*?\.select\("id"\)/,
+    "Acceptance must condition activation on the membership still being invited");
+  assert.match(source, /getAcceptanceAction\(member\.status\)/,
+    "Acceptance must distinguish invited, active, and disabled membership states");
+  assert.match(source, /if \(expireError\) throw expireError/,
+    "Expiry updates must check database errors");
+  const expiryStart = source.indexOf("if (isInvitationExpired(invitation.expires_at))");
+  const expiryEnd = source.indexOf("\n    const { data: member, error: memberError } = await admin", expiryStart + 100);
+  assert.notEqual(expiryStart, -1, "Expired invitations must have a dedicated state transition");
+  assert.notEqual(expiryEnd, -1, "Expected expiry handling to end before normal acceptance lookup");
+  const expirySource = source.slice(expiryStart, expiryEnd);
+  assert.match(expirySource, /update\(\{ status: "suspended" \}\)/,
+    "An expired invitation must not leave its membership stuck in invited state");
+  assert.match(expirySource, /Failed to restore invited membership after expiry failure/,
+    "Expiry failure must attempt to restore the previous membership state");
+  assert.match(source, /Failed to restore pending invitation after acceptance failure/,
+    "Acceptance must attempt to restore pending status when activation fails");
+});
