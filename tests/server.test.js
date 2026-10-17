@@ -275,6 +275,15 @@ test("invitation handlers check write failures and never activate a non-invited 
     "Acceptance must distinguish invited, active, and disabled membership states");
   assert.match(source, /if \(expireError\) throw expireError/,
     "Expiry updates must check database errors");
+  const expiryStart = source.indexOf("if (isInvitationExpired(invitation.expires_at))");
+  const expiryEnd = source.indexOf("\n    const { data: member, error: memberError } = await admin", expiryStart + 100);
+  assert.notEqual(expiryStart, -1, "Expired invitations must have a dedicated state transition");
+  assert.notEqual(expiryEnd, -1, "Expected expiry handling to end before normal acceptance lookup");
+  const expirySource = source.slice(expiryStart, expiryEnd);
+  assert.match(expirySource, /update\(\{ status: "suspended" \}\)/,
+    "An expired invitation must not leave its membership stuck in invited state");
+  assert.match(expirySource, /Failed to restore invited membership after expiry failure/,
+    "Expiry failure must attempt to restore the previous membership state");
   assert.match(source, /Failed to restore pending invitation after acceptance failure/,
     "Acceptance must attempt to restore pending status when activation fails");
 });
