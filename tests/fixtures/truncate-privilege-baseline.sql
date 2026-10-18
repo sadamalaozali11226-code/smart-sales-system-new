@@ -8,24 +8,26 @@ begin
 end
 $role$;
 
-create table public.sales (id bigint primary key);
-create table public.sale_items (id bigint primary key);
-create table public.sale_returns (id bigint primary key);
-create table public.sale_return_items (id bigint primary key);
-create table public.customer_payments (id bigint primary key);
-create table public.customer_payment_allocations (id bigint primary key);
-create table public.purchase_receipts (id bigint primary key);
-create table public.purchase_receipt_items (id bigint primary key);
+create schema if not exists audit_truncate_test;
+
+create table audit_truncate_test.sales (id bigint primary key);
+create table audit_truncate_test.sale_items (id bigint primary key);
+create table audit_truncate_test.sale_returns (id bigint primary key);
+create table audit_truncate_test.sale_return_items (id bigint primary key);
+create table audit_truncate_test.customer_payments (id bigint primary key);
+create table audit_truncate_test.customer_payment_allocations (id bigint primary key);
+create table audit_truncate_test.purchase_receipts (id bigint primary key);
+create table audit_truncate_test.purchase_receipt_items (id bigint primary key);
 
 grant truncate on table
   public.sales,
-  public.sale_items,
-  public.sale_returns,
-  public.sale_return_items,
-  public.customer_payments,
-  public.customer_payment_allocations,
-  public.purchase_receipts,
-  public.purchase_receipt_items
+  audit_truncate_test.sale_items,
+  audit_truncate_test.sale_returns,
+  audit_truncate_test.sale_return_items,
+  audit_truncate_test.customer_payments,
+  audit_truncate_test.customer_payment_allocations,
+  audit_truncate_test.purchase_receipts,
+  audit_truncate_test.purchase_receipt_items
 to authenticated;
 
 -- A separate privilege is included to ensure the candidate revocation is narrow.
