@@ -6,9 +6,9 @@
 
 ## Confirmed read-only observations (2026-10-18)
 
-- In `public`, 26 existing tables had an explicit ACL entry granting `TRUNCATE` to `authenticated`.
-- Of those, 18 also had `TRUNCATE` granted to `anon`.
-- The 26-table set is: `audit_logs`, `customers`, `expenses`, `inventory_movements`, `member_stores`, `organization_members`, `organizations`, `payments`, `permissions`, `products`, `purchase_return_items`, `purchase_returns`, `refunds`, `role_permissions`, `roles`, `sale_items`, `sales`, `stores`, `supplier_refunds`, `customer_payment_allocations`, `customer_payments`, `purchase_receipt_items`, `purchase_receipts`, `sale_return_items`, `sale_returns`, `stock_transfers`, `store_products`.
+- In `public`, 27 existing tables had an explicit ACL entry granting `TRUNCATE` to `authenticated`.
+- Of those, 19 also had `TRUNCATE` granted to `anon`.
+- The 27-table set is: `audit_logs`, `customers`, `expenses`, `inventory_movements`, `member_stores`, `organization_members`, `organizations`, `payments`, `permissions`, `products`, `purchase_return_items`, `purchase_returns`, `refunds`, `role_permissions`, `roles`, `sale_items`, `sales`, `stores`, `supplier_refunds`, `customer_payment_allocations`, `customer_payments`, `purchase_receipt_items`, `purchase_receipts`, `sale_return_items`, `sale_returns`, `stock_transfers`, `store_products`.
 - Read-only inspection of `pg_default_acl` found default `TRUNCATE` grants for `anon` and `authenticated` on tables created in `public` by both `postgres` and `supabase_admin`.
 - No database DDL, GRANT, REVOKE, data modification, or migration was run during this investigation.
 
@@ -16,7 +16,7 @@ These findings identify a concrete current privilege problem and a likely ongoin
 
 ## Candidate SQL — existing application tables
 
-This explicit list is limited to the 26 `public` tables returned by the read-only ACL query. It does not change `SELECT`, `INSERT`, `UPDATE`, `DELETE`, sequence, function, storage, or RLS permissions.
+This explicit list is limited to the 27 `public` tables returned by the read-only ACL query. It does not change `SELECT`, `INSERT`, `UPDATE`, `DELETE`, sequence, function, storage, or RLS permissions.
 
 ```sql
 REVOKE TRUNCATE ON TABLE
