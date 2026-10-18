@@ -132,3 +132,21 @@ A read-only catalog check found that `anon` has the SQL `SELECT` privilege on bo
 A follow-up read-only ACL inspection on 2026-10-18 found the TRUNCATE entries on the reviewed 27 tables are explicit ACL entries whose grantor and table owner are postgres. The catalog result did not show a PUBLIC TRUNCATE entry for these target tables. The trusted service_role also has TRUNCATE on these tables; the candidate revocation deliberately leaves that grant unchanged.
 
 This narrows the observed source of the current grants but does not establish when or through which migration/session they were first added. It also does not replace checking effective privileges after a proposed change. The isolated CI fixture now models the 27-table grant shape for anon and authenticated, preserves separate SELECT grants, and asserts that service_role retains TRUNCATE. The fixture remains a synthetic PostgreSQL test, not a production change or end-to-end application test.
+
+## Additional read-only scope check — default ACLs outside `public` (2026-10-18)
+
+A subsequent read-only catalog query found `TRUNCATE` default ACL entries for `anon` and `authenticated` in additional schemas:
+
+- `graphql`: creator role `supabase_admin`
+- `graphql_public`: creator role `supabase_admin`
+- `storage`: creator role `postgres`
+
+The same query found no global (`defaclnamespace = 0`) default `TRUNCATE` entry for these grantees. A separate all-schema table ACL scan returned current explicit `TRUNCATE` grants only in `public` for `anon`/`authenticated`; it did not return matching grants in `graphql`, `graphql_public`, or `storage` at the time of inspection.
+
+**Scope decision:** the candidate remediation remains deliberately limited to the 27 application tables in `public`. Do not remove defaults in `graphql`, `graphql_public`, or `storage` as part of this change without a separate Supabase platform review and evidence that the grants are unintended. A default ACL can be relevant even when no current table ACL is affected. Recheck these entries during release verification and document any platform-owned exception rather than broadening the migration automatically.
+
+## Role and ownership review gate
+
+The read-only catalog results show the application tables are owned by `postgres`, with the explicit table ACL entries granted by `postgres`. The role catalog also shows `supabase_admin` is a superuser and has `BYPASSRLS`; `postgres` is not marked superuser in this catalog but has `BYPASSRLS`. Role membership records include memberships involving `postgres`, `authenticator`, and `supabase_realtime_admin` and the API roles. These details reinforce that ACL checks must consider effective privileges and platform-managed role behavior; do not infer that a table-level `REVOKE` alone addresses every possible path.
+
+Before any production migration, re-check ownership, grants with grant options, role memberships, default ACLs across schemas, and the actual migration execution role. Do not alter memberships or platform roles as part of this proposed fix.
