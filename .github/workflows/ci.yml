@@ -79,3 +79,9 @@ jobs:
           psql -v ON_ERROR_STOP=1 -f tests/fixtures/truncate-privilege-baseline.sql
           psql -v ON_ERROR_STOP=1 -f tests/fixtures/truncate-privilege-revoke.sql
           psql -v ON_ERROR_STOP=1 -f tests/fixtures/truncate-privilege-assertions.sql
+
+      - name: Verify existing and default TRUNCATE revocation for both creator roles
+        run: |
+          psql -v ON_ERROR_STOP=1 -f tests/fixtures/truncate-default-privilege-baseline.sql
+          psql -v ON_ERROR_STOP=1 -f tests/fixtures/truncate-default-privilege-revoke.sql
+          psql -v ON_ERROR_STOP=1 -f tests/fixtures/truncate-default-privilege-assertions.sql
