@@ -13,13 +13,13 @@ declare
   ];
 begin
   foreach v_table in array v_tables loop
-    if has_table_privilege('authenticated', format('public.%I', v_table), 'TRUNCATE') then
+    if has_table_privilege('authenticated', format('audit_truncate_test.%I', v_table), 'TRUNCATE') then
       raise exception 'TRUNCATE unexpectedly remains granted to authenticated on audit_truncate_test.%', v_table;
     end if;
   end loop;
 
   if not has_table_privilege('authenticated', 'audit_truncate_test.sales', 'SELECT') then
-    raise exception 'Narrow revocation unexpectedly removed SELECT from public.sales';
+    raise exception 'Narrow revocation unexpectedly removed SELECT from audit_truncate_test.sales';
   end if;
 
   raise notice 'isolated truncate privilege revocation assertions passed';
