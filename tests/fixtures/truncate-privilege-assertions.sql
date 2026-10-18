@@ -18,6 +18,9 @@ BEGIN
     IF has_table_privilege('authenticated', format('audit_truncate_test.%I', v_table), 'TRUNCATE') THEN
       RAISE EXCEPTION 'TRUNCATE unexpectedly remains granted to authenticated on %', v_table;
     END IF;
+    IF NOT has_table_privilege('service_role', format('audit_truncate_test.%I', v_table), 'TRUNCATE') THEN
+      RAISE EXCEPTION 'Trusted service_role unexpectedly lost TRUNCATE on %', v_table;
+    END IF;
   END LOOP;
 
   IF NOT has_table_privilege('anon', 'audit_truncate_test.sales', 'SELECT')
