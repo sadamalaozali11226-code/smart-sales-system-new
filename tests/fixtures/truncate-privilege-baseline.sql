@@ -32,3 +32,30 @@ to authenticated;
 
 -- A separate privilege is included to ensure the candidate revocation is narrow.
 grant select on table audit_truncate_test.sales to authenticated;
+
+-- Prove the fixture really starts with the intended risky privilege shape.
+do $baseline_check$
+declare
+  v_table text;
+  v_tables text[] := array[
+    'sales',
+    'sale_items',
+    'sale_returns',
+    'sale_return_items',
+    'customer_payments',
+    'customer_payment_allocations',
+    'purchase_receipts',
+    'purchase_receipt_items'
+  ];
+begin
+  foreach v_table in array v_tables loop
+    if not has_table_privilege('authenticated', format('audit_truncate_test.%I', v_table), 'TRUNCATE') then
+      raise exception 'Fixture setup failed: expected TRUNCATE on audit_truncate_test.%', v_table;
+    end if;
+  end loop;
+
+  if not has_table_privilege('authenticated', 'audit_truncate_test.sales', 'SELECT') then
+    raise exception 'Fixture setup failed: expected SELECT on audit_truncate_test.sales';
+  end if;
+end
+$baseline_check$;
