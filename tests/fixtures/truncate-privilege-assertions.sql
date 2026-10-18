@@ -1,27 +1,33 @@
-do $test$
-declare
+DO $test$
+DECLARE
   v_table text;
-  v_tables text[] := array[
-    'sales',
-    'sale_items',
-    'sale_returns',
-    'sale_return_items',
-    'customer_payments',
-    'customer_payment_allocations',
-    'purchase_receipts',
-    'purchase_receipt_items'
+  v_tables text[] := ARRAY[
+    'audit_logs', 'customers', 'expenses', 'inventory_movements',
+    'member_stores', 'organization_members', 'organizations', 'payments',
+    'permissions', 'products', 'purchase_return_items', 'purchase_returns',
+    'refunds', 'role_permissions', 'roles', 'sale_items', 'sales', 'stores',
+    'supplier_refunds', 'customer_payment_allocations', 'customer_payments',
+    'purchase_receipt_items', 'purchase_receipts', 'sale_return_items',
+    'sale_returns', 'stock_transfers', 'store_products'
   ];
-begin
-  foreach v_table in array v_tables loop
-    if has_table_privilege('authenticated', format('audit_truncate_test.%I', v_table), 'TRUNCATE') then
-      raise exception 'TRUNCATE unexpectedly remains granted to authenticated on audit_truncate_test.%', v_table;
-    end if;
-  end loop;
+BEGIN
+  FOREACH v_table IN ARRAY v_tables LOOP
+    IF has_table_privilege('anon', format('audit_truncate_test.%I', v_table), 'TRUNCATE') THEN
+      RAISE EXCEPTION 'TRUNCATE unexpectedly remains granted to anon on %', v_table;
+    END IF;
+    IF has_table_privilege('authenticated', format('audit_truncate_test.%I', v_table), 'TRUNCATE') THEN
+      RAISE EXCEPTION 'TRUNCATE unexpectedly remains granted to authenticated on %', v_table;
+    END IF;
+  END LOOP;
 
-  if not has_table_privilege('authenticated', 'audit_truncate_test.sales', 'SELECT') then
-    raise exception 'Narrow revocation unexpectedly removed SELECT from audit_truncate_test.sales';
-  end if;
+  IF NOT has_table_privilege('anon', 'audit_truncate_test.sales', 'SELECT')
+     OR NOT has_table_privilege('anon', 'audit_truncate_test.sale_items', 'SELECT') THEN
+    RAISE EXCEPTION 'Narrow TRUNCATE revocation unexpectedly removed anon SELECT';
+  END IF;
+  IF NOT has_table_privilege('authenticated', 'audit_truncate_test.sales', 'SELECT') THEN
+    RAISE EXCEPTION 'Narrow TRUNCATE revocation unexpectedly removed authenticated SELECT';
+  END IF;
 
-  raise notice 'isolated truncate privilege revocation assertions passed';
-end
+  RAISE NOTICE 'isolated 27-table anon/authenticated TRUNCATE revocation assertions passed';
+END
 $test$;
