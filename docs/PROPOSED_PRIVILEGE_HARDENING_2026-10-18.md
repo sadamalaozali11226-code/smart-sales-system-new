@@ -107,6 +107,10 @@ ORDER BY creator_role, grantee;
 
 Expected result: no rows for the reviewed `postgres` and `supabase_admin` creator roles. Also re-check for global default ACL entries before relying on schema-scoped results.
 
+## Separate `anon SELECT` finding — RLS context
+
+A read-only catalog check found that `anon` has the SQL `SELECT` privilege on both `public.sales` and `public.sale_items`. RLS is enabled on both tables, and the listed SELECT policies target only the `authenticated` role (`sales_select_store_member` and `sale_items_select_sale_member`). This is a narrower exposure than an unfiltered public read, but it remains an unnecessary direct grant worth reviewing. Catalog inspection alone is not a runtime proof of what the `anon` role can read; validate with an isolated role-level query test before deciding whether to revoke `SELECT`. This proposal intentionally leaves that privilege unchanged.
+
 ## Required isolated test and release gates
 
 1. Test the candidate SQL in a disposable PostgreSQL instance whose ACLs model the observed grants, including defaults for both creator roles where practical.
