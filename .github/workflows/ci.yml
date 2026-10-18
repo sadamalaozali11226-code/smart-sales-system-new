@@ -73,3 +73,9 @@ jobs:
             exit 1
           fi
           grep -q "Expected one supplier balance validation pattern" /tmp/supplier-migration-reapply.log
+
+      - name: Verify narrow TRUNCATE revocation in isolated PostgreSQL fixture
+        run: |
+          psql -v ON_ERROR_STOP=1 -f tests/fixtures/truncate-privilege-baseline.sql
+          psql -v ON_ERROR_STOP=1 -f tests/fixtures/truncate-privilege-revoke.sql
+          psql -v ON_ERROR_STOP=1 -f tests/fixtures/truncate-privilege-assertions.sql
