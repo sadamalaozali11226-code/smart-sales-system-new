@@ -126,3 +126,9 @@ A read-only catalog check found that `anon` has the SQL `SELECT` privilege on bo
 - It does not prove that the application has a user-accessible operation capable of invoking `TRUNCATE`, nor that data loss occurred.
 - It does not cover role membership, other schemas, or the separate `anon SELECT` concern.
 - No production permissions were changed while preparing this proposal.
+
+## Additional ACL provenance check — read-only production catalog
+
+A follow-up read-only ACL inspection on 2026-10-18 found the TRUNCATE entries on the reviewed 27 tables are explicit ACL entries whose grantor and table owner are postgres. The catalog result did not show a PUBLIC TRUNCATE entry for these target tables. The trusted service_role also has TRUNCATE on these tables; the candidate revocation deliberately leaves that grant unchanged.
+
+This narrows the observed source of the current grants but does not establish when or through which migration/session they were first added. It also does not replace checking effective privileges after a proposed change. The isolated CI fixture now models the 27-table grant shape for anon and authenticated, preserves separate SELECT grants, and asserts that service_role retains TRUNCATE. The fixture remains a synthetic PostgreSQL test, not a production change or end-to-end application test.
