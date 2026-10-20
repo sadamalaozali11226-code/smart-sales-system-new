@@ -12,6 +12,10 @@ declare
   v_store uuid := '30000000-0000-0000-0000-000000000001';
   v_items jsonb := '[{"product_id":1,"quantity":2,"discount":0}]'::jsonb;
 begin
+  if to_regprocedure('public.create_sale_transaction(uuid,uuid,text,bigint,jsonb,numeric,numeric,numeric,text,text,text)') is not null then
+    raise exception 'legacy non-idempotent public RPC overload must be removed';
+  end if;
+
   select prosecdef into v_security_definer
     from pg_proc
    where oid = 'public.create_sale_transaction(uuid,uuid,uuid,text,bigint,jsonb,numeric,numeric,numeric,text,text,text)'::regprocedure;
