@@ -367,9 +367,17 @@
       throw error;
     }
 
+    const idempotencyKey = String(body.idempotencyKey || "").trim();
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(idempotencyKey)) {
+      const error = new Error("A valid sale idempotency key is required.");
+      error.definitive = true;
+      throw error;
+    }
+
     const invoice = null; // Invoice number is generated atomically by the database.
 
     const { data, error } = await client().rpc("create_sale_transaction", {
+      p_idempotency_key: idempotencyKey,
       p_invoice_number: invoice,
       p_customer_id: body.customerId == null || body.customerId === "" ? null : Number(body.customerId),
       p_items: normalizedItems,
