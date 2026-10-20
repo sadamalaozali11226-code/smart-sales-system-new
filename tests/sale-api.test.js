@@ -28,7 +28,10 @@ function loadApi(rpcImpl) {
 
 test("sale API rejects an empty item list before calling the database", async () => {
   const { api, calls } = loadApi(() => ({ data: null, error: null }));
-  await assert.rejects(api.createSale({ items: [] }), /At least one sale item is required/);
+  await assert.rejects(
+    api.createSale({ items: [] }),
+    error => error.message.includes("At least one sale item is required") && error.definitive === true
+  );
   assert.equal(calls.length, 0);
 });
 
@@ -36,7 +39,7 @@ test("sale API rejects invalid quantities before calling the database", async ()
   const { api, calls } = loadApi(() => ({ data: null, error: null }));
   await assert.rejects(
     api.createSale({ items: [{ product_id: 12, quantity: 0 }] }),
-    /Invalid sale items/
+    error => error.message.includes("Invalid sale items") && error.definitive === true
   );
   assert.equal(calls.length, 0);
 });
