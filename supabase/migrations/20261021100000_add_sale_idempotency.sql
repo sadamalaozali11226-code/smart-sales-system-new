@@ -113,6 +113,7 @@ end;
 $function$;
 
 revoke all on function private.create_sale_transaction_idempotent(uuid,uuid,uuid,text,bigint,jsonb,numeric,numeric,numeric,text,text,text) from public, anon;
+grant usage on schema private to authenticated;
 grant execute on function private.create_sale_transaction_idempotent(uuid,uuid,uuid,text,bigint,jsonb,numeric,numeric,numeric,text,text,text) to authenticated;
 
 create or replace function public.create_sale_transaction(
