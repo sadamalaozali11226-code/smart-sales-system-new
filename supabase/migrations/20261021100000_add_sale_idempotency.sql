@@ -153,4 +153,8 @@ $function$;
 revoke all on function public.create_sale_transaction(uuid,uuid,uuid,text,bigint,jsonb,numeric,numeric,numeric,text,text,text) from public, anon;
 grant execute on function public.create_sale_transaction(uuid,uuid,uuid,text,bigint,jsonb,numeric,numeric,numeric,text,text,text) to authenticated;
 
+-- Remove the legacy public overload so PostgREST cannot resolve a retry to the
+-- non-idempotent entry point when clients omit p_idempotency_key.
+drop function if exists public.create_sale_transaction(uuid,uuid,text,bigint,jsonb,numeric,numeric,numeric,text,text,text);
+
 notify pgrst, 'reload schema';
