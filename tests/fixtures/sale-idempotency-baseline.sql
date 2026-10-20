@@ -49,3 +49,29 @@ begin
   return jsonb_build_object('sale_id', v_count, 'invoice_number', 'INV-' || v_count::text);
 end;
 $function$;
+
+
+-- Model the legacy public RPC overload present before the idempotency migration.
+create or replace function public.create_sale_transaction(
+  p_organization_id uuid,
+  p_store_id uuid,
+  p_invoice_number text,
+  p_customer_id bigint default null,
+  p_items jsonb default '[]'::jsonb,
+  p_discount numeric default 0,
+  p_tax numeric default 0,
+  p_paid_amount numeric default 0,
+  p_payment_method text default 'cash',
+  p_reference text default null,
+  p_notes text default null
+)
+returns jsonb
+language sql
+security invoker
+set search_path = ''
+as $function$
+  select private.create_sale_transaction(
+    p_organization_id, p_store_id, p_invoice_number, p_customer_id,
+    p_items, p_discount, p_tax, p_paid_amount, p_payment_method, p_reference, p_notes
+  );
+$function$;
