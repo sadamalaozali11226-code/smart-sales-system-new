@@ -397,7 +397,7 @@
       // A structured PostgREST/PostgreSQL error means the server rejected the
       // transaction. Errors without a server code remain ambiguous (e.g. a
       // dropped connection after commit), so the UI must preserve the key.
-      rpcError.definitive = typeof error.code === "string" && /^(?:[0-9A-Z]{5}|PGRST\\d{3})$/.test(error.code);
+      rpcError.definitive = typeof error.code === "string" && /^(?:[0-9A-Z]{5}|PGRST\d{3})$/.test(error.code);
       throw rpcError;
     }
 
