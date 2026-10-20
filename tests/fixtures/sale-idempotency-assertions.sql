@@ -5,12 +5,30 @@ declare
   v_retry jsonb;
   v_second jsonb;
   v_calls integer;
+  v_security_definer boolean;
   v_key uuid := '10000000-0000-0000-0000-000000000001';
   v_other_key uuid := '10000000-0000-0000-0000-000000000002';
   v_org uuid := '20000000-0000-0000-0000-000000000001';
   v_store uuid := '30000000-0000-0000-0000-000000000001';
   v_items jsonb := '[{"product_id":1,"quantity":2,"discount":0}]'::jsonb;
 begin
+  select prosecdef into v_security_definer
+    from pg_proc
+   where oid = 'public.create_sale_transaction(uuid,uuid,uuid,text,bigint,jsonb,numeric,numeric,numeric,text,text,text)'::regprocedure;
+  if v_security_definer then raise exception 'public RPC wrapper must not be SECURITY DEFINER'; end if;
+  if not has_function_privilege('authenticated', 'public.create_sale_transaction(uuid,uuid,uuid,text,bigint,jsonb,numeric,numeric,numeric,text,text,text)', 'EXECUTE') then
+    raise exception 'authenticated role must be able to execute the public RPC';
+  end if;
+  if has_function_privilege('anon', 'public.create_sale_transaction(uuid,uuid,uuid,text,bigint,jsonb,numeric,numeric,numeric,text,text,text)', 'EXECUTE') then
+    raise exception 'anon role must not be able to execute the public RPC';
+  end if;
+  if not has_function_privilege('authenticated', 'private.create_sale_transaction_idempotent(uuid,uuid,uuid,text,bigint,jsonb,numeric,numeric,numeric,text,text,text)', 'EXECUTE') then
+    raise exception 'authenticated role must be able to execute the internal helper';
+  end if;
+  if has_function_privilege('anon', 'private.create_sale_transaction_idempotent(uuid,uuid,uuid,text,bigint,jsonb,numeric,numeric,numeric,text,text,text)', 'EXECUTE') then
+    raise exception 'anon role must not be able to execute the internal helper';
+  end if;
+
   v_first := public.create_sale_transaction(
     v_key, v_org, v_store, null, null, v_items, 0, 0, 0, 'cash', null, null
   );
