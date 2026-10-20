@@ -60,8 +60,31 @@ jobs:
           DB_URL="postgresql://postgres:postgres@127.0.0.1:54322/postgres"
           psql "$DB_URL" -v ON_ERROR_STOP=1 -f tests/fixtures/sale-idempotency-baseline.sql
           psql "$DB_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/20261021100000_add_sale_idempotency.sql
-          psql "$DB_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/20261021100000_add_sale_idempotency.sql
           psql "$DB_URL" -v ON_ERROR_STOP=1 -f tests/fixtures/sale-idempotency-assertions.sql
+          # Seed a stored response, reapply the migration, and verify the response survives.
+          psql "$DB_URL" -v ON_ERROR_STOP=1 <<'SQL'
+          insert into private.sale_idempotency_requests
+            (organization_id, store_id, idempotency_key, payload_hash, response)
+          values
+            ('40000000-0000-0000-0000-000000000001',
+             '50000000-0000-0000-0000-000000000001',
+             '60000000-0000-0000-0000-000000000001',
+             'reapply-sentinel', '{"sentinel":true}'::jsonb);
+          SQL
+          psql "$DB_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/20261021100000_add_sale_idempotency.sql
+          psql "$DB_URL" -v ON_ERROR_STOP=1 <<'SQL'
+          do $test$
+          begin
+            if not exists (
+              select 1 from private.sale_idempotency_requests
+               where idempotency_key = '60000000-0000-0000-0000-000000000001'
+                 and response = '{"sentinel":true}'::jsonb
+            ) then
+              raise exception 'reapplying migration lost a stored idempotency response';
+            end if;
+          end;
+          $test$;
+          SQL
 
       - name: Stop local Supabase services
         if: always()
