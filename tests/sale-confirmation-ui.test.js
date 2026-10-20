@@ -58,6 +58,16 @@ test("refresh failures are isolated and do not prevent other views from refreshi
   assert.match(confirmSale, /error\.definitive === true/);
 });
 
+
+test("sale requests persist and reuse a durable idempotency key after an uncertain result", () => {
+  assert.match(html, /PENDING_SALE_STORAGE_KEY = "smart-sales-pending-sale-v1"/);
+  assert.match(html, /getSaleIdempotencyKey\(saleRequest\)/);
+  assert.match(html, /saleRequest\.idempotencyKey = idempotencyKey/);
+  assert.match(confirmSale, /clearPendingSaleIdempotencyKey\(idempotencyKey\)/);
+  assert.match(html, /previous sale has an unconfirmed result|توجد عملية بيع سابقة لم تُحسم نتيجتها/i);
+  assert.match(confirmSale, /data = await SmartSalesAPI\.createSale\(saleRequest\)/);
+});
+
 test("inline scripts still parse after the sale-flow change", () => {
   const inlineScripts = [...html.matchAll(/<script\b(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/gi)];
   assert.ok(inlineScripts.length > 0, "Expected inline scripts in index.html");
