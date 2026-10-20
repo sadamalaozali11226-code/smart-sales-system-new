@@ -12,6 +12,9 @@ declare
   v_store uuid := '30000000-0000-0000-0000-000000000001';
   v_items jsonb := '[{"product_id":1,"quantity":2,"discount":0}]'::jsonb;
 begin
+  -- Supply a deterministic authenticated subject to Supabase's built-in auth.uid().
+  perform set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000001', true);
+
   if to_regprocedure('public.create_sale_transaction(uuid,uuid,text,bigint,jsonb,numeric,numeric,numeric,text,text,text)') is not null then
     raise exception 'legacy non-idempotent public RPC overload must be removed';
   end if;
