@@ -73,3 +73,21 @@ jobs:
             exit 1
           fi
           grep -q "Expected one supplier balance validation pattern" /tmp/supplier-migration-reapply.log
+
+      - name: Verify narrow TRUNCATE revocation in isolated PostgreSQL fixture
+        run: |
+          psql -v ON_ERROR_STOP=1 -f tests/fixtures/truncate-privilege-baseline.sql
+          psql -v ON_ERROR_STOP=1 -f tests/fixtures/truncate-privilege-revoke.sql
+          psql -v ON_ERROR_STOP=1 -f tests/fixtures/truncate-privilege-assertions.sql
+
+      - name: Verify existing and default TRUNCATE revocation for both creator roles
+        run: |
+          psql -v ON_ERROR_STOP=1 -f tests/fixtures/truncate-default-privilege-baseline.sql
+          psql -v ON_ERROR_STOP=1 -f tests/fixtures/truncate-default-privilege-revoke.sql
+          psql -v ON_ERROR_STOP=1 -f tests/fixtures/truncate-default-privilege-assertions.sql
+
+      - name: Test the actual public TRUNCATE migration in isolated PostgreSQL
+        run: |
+          psql -v ON_ERROR_STOP=1 -f tests/fixtures/truncate-public-migration-baseline.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261019090000_revoke_client_truncate_public.sql
+          psql -v ON_ERROR_STOP=1 -f tests/fixtures/truncate-public-migration-assertions.sql
