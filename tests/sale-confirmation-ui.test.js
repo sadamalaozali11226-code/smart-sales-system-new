@@ -52,6 +52,12 @@ test("ambiguous submission errors warn the operator and prevent immediate blind 
   assert.doesNotMatch(ambiguousBranch, /button\.disabled\s*=\s*false/);
 });
 
+test("refresh failures are isolated and do not prevent other views from refreshing", () => {
+  assert.match(confirmSale, /Promise\.allSettled\(\[/);
+  assert.match(confirmSale, /loadProducts\(\),\s*loadSales\(\),\s*loadSalesHistory\(\)/);
+  assert.match(confirmSale, /error\.definitive === true/);
+});
+
 test("inline scripts still parse after the sale-flow change", () => {
   const inlineScripts = [...html.matchAll(/<script\b(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/gi)];
   assert.ok(inlineScripts.length > 0, "Expected inline scripts in index.html");
