@@ -380,9 +380,17 @@ if (!window.SmartSalesAPI) {
       throw error;
     }
 
+    const idempotencyKey = String(body.idempotencyKey || "").trim();
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(idempotencyKey)) {
+      const error = new Error("A valid sale idempotency key is required.");
+      error.definitive = true;
+      throw error;
+    }
+
     const invoice = null; // Invoice number is generated atomically by the database.
 
     const { data, error } = await client().rpc("create_sale_transaction", {
+      p_idempotency_key: idempotencyKey,
       p_invoice_number: invoice,
       p_customer_id: body.customerId == null || body.customerId === "" ? null : Number(body.customerId),
       p_items: normalizedItems,
@@ -4411,6 +4419,63 @@ if (!window.SmartSalesAPI) {
       }
     }
 
+    const PENDING_SALE_STORAGE_KEY = "smart-sales-pending-sale-v1";
+
+    function newSaleIdempotencyKey() {
+      const bytes = new Uint8Array(16);
+      if (window.crypto && typeof window.crypto.getRandomValues === "function") {
+        window.crypto.getRandomValues(bytes);
+      } else {
+        for (let i = 0; i < bytes.length; i += 1) bytes[i] = Math.floor(Math.random() * 256);
+      }
+      bytes[6] = (bytes[6] & 0x0f) | 0x40;
+      bytes[8] = (bytes[8] & 0x3f) | 0x80;
+      const hex = [...bytes].map(value => value.toString(16).padStart(2, "0")).join("");
+      return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+    }
+
+    function getSaleIdempotencyKey(payload) {
+      const fingerprint = JSON.stringify(payload);
+      let pending = null;
+      const saved = window.localStorage.getItem(PENDING_SALE_STORAGE_KEY);
+      if (saved) {
+        try {
+          pending = JSON.parse(saved);
+        } catch (_) {
+          pending = null;
+        }
+      }
+
+      if (pending && pending.key && pending.fingerprint && pending.fingerprint !== fingerprint) {
+        const verifiedNoSale = window.confirm(
+          currentLanguage === "ar"
+            ? "توجد عملية بيع سابقة لم تُحسم نتيجتها. لا تتابع إلا بعد فحص سجل الفواتير والتأكد من أن البيع السابق لم يُسجّل. هل تحققت وتريد بدء عملية جديدة؟"
+            : "A previous sale has an unconfirmed result. Continue only after checking invoice history and verifying that it was not recorded. Have you verified this and want to start a new sale?"
+        );
+        if (!verifiedNoSale) return null;
+        pending = null;
+      }
+
+      const key = pending && pending.key && pending.fingerprint === fingerprint
+        ? pending.key
+        : newSaleIdempotencyKey();
+      window.localStorage.setItem(PENDING_SALE_STORAGE_KEY, JSON.stringify({ key, fingerprint }));
+      return key;
+    }
+
+    function clearPendingSaleIdempotencyKey(key) {
+      try {
+        const saved = window.localStorage.getItem(PENDING_SALE_STORAGE_KEY);
+        if (!saved) return;
+        const pending = JSON.parse(saved);
+        if (pending && pending.key === key) {
+          window.localStorage.removeItem(PENDING_SALE_STORAGE_KEY);
+        }
+      } catch (error) {
+        console.error("Could not clear the saved sale request key.", error);
+      }
+    }
+
     async function confirmSale() {
       if (saleSubmissionInProgress) return;
 
@@ -4482,25 +4547,43 @@ if (!window.SmartSalesAPI) {
         return;
       }
 
+      const saleRequest = {
+        items: saleCart.map(item => ({
+          product_id: Number(item.productId),
+          quantity: Number(item.quantity),
+          discount: 0
+        })),
+        customerId,
+        discount,
+        tax,
+        paymentStatus,
+        paidAmount,
+        paymentMethod,
+        reference: reference || null
+      };
+
+      let idempotencyKey;
+      try {
+        idempotencyKey = getSaleIdempotencyKey(saleRequest);
+      } catch (error) {
+        console.error("Could not persist the sale request key.", error);
+        showMessage(
+          currentLanguage === "ar"
+            ? "تعذر حفظ معرّف العملية الآمن في هذا المتصفح. لم يتم إرسال البيع؛ فعّل التخزين المحلي ثم أعد المحاولة."
+            : "Could not save the safe request key in this browser. The sale was not submitted; enable local storage and try again.",
+          true
+        );
+        return;
+      }
+      if (!idempotencyKey) return;
+      saleRequest.idempotencyKey = idempotencyKey;
+
       saleSubmissionInProgress = true;
       button.disabled = true;
 
       let data;
       try {
-        data = await SmartSalesAPI.createSale({
-          items: saleCart.map(item => ({
-            product_id: Number(item.productId),
-            quantity: Number(item.quantity),
-            discount: 0
-          })),
-          customerId,
-          discount,
-          tax,
-          paymentStatus,
-          paidAmount,
-          paymentMethod,
-          reference: reference || null
-        });
+        data = await SmartSalesAPI.createSale(saleRequest);
       } catch (error) {
         console.error("Sale submission returned an error; database outcome may need verification.", error);
         const hasDefinitiveServerError = Boolean(
@@ -4508,7 +4591,8 @@ if (!window.SmartSalesAPI) {
         );
 
         if (hasDefinitiveServerError) {
-          // A database/API rejection was received; permit correcting the input and trying again.
+          // A definitive rejection means the transaction did not commit; allow a corrected attempt.
+          clearPendingSaleIdempotencyKey(idempotencyKey);
           saleSubmissionInProgress = false;
           button.disabled = false;
           showMessage(
@@ -4528,7 +4612,8 @@ if (!window.SmartSalesAPI) {
         return;
       }
 
-      // The RPC confirmed the sale. Errors below are display/refresh errors, not sale failures.
+      // The RPC confirmed the sale. Clear the durable request key before any UI refresh.
+      clearPendingSaleIdempotencyKey(idempotencyKey);
       saleSubmissionInProgress = false;
       const invoiceLabel = data && data.invoiceNumber ? ` (${data.invoiceNumber})` : "";
       showMessage(`${t.sold}${invoiceLabel}`);
