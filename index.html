@@ -2446,6 +2446,8 @@ if (!window.SmartSalesAPI) {
     let selectedCustomerId = null;
 
     let saleCart = [];
+    // Prevent concurrent submissions; an uncertain network result must not be blindly retried.
+    let saleSubmissionInProgress = false;
     let currentSaleSubtotal = 0;
     let currentSaleDiscount = 0;
     let currentSaleTax = 0;
@@ -4406,6 +4408,8 @@ if (!window.SmartSalesAPI) {
     }
 
     async function confirmSale() {
+      if (saleSubmissionInProgress) return;
+
       if (saleCart.length === 0) {
         showMessage(translations[currentLanguage].invalid, true);
         return;
@@ -4474,10 +4478,12 @@ if (!window.SmartSalesAPI) {
         return;
       }
 
+      saleSubmissionInProgress = true;
       button.disabled = true;
 
+      let data;
       try {
-        const data = await SmartSalesAPI.createSale({
+        data = await SmartSalesAPI.createSale({
           items: saleCart.map(item => ({
             product_id: Number(item.productId),
             quantity: Number(item.quantity),
@@ -4491,26 +4497,70 @@ if (!window.SmartSalesAPI) {
           paymentMethod,
           reference: reference || null
         });
+      } catch (error) {
+        console.error("Sale submission returned an error; database outcome may need verification.", error);
+        const hasDefinitiveServerError = Boolean(
+          error && (error.code || (Number(error.status) >= 400 && Number(error.status) < 500))
+        );
 
+        if (hasDefinitiveServerError) {
+          // A database/API rejection was received; permit correcting the input and trying again.
+          saleSubmissionInProgress = false;
+          button.disabled = false;
+          showMessage(
+            error.message ||
+            (currentLanguage === "ar" ? "رفضت قاعدة البيانات تسجيل البيع" : "The database rejected the sale"),
+            true
+          );
+        } else {
+          // A lost response is ambiguous: do not let a second click blindly create another sale.
+          showMessage(
+            currentLanguage === "ar"
+              ? "تعذر تأكيد نتيجة البيع بسبب الاتصال. لا تعاود الإرسال الآن؛ تحقق أولًا من سجل الفواتير."
+              : "The sale result could not be confirmed because of a connection error. Do not submit again yet; check the invoice history first.",
+            true
+          );
+        }
+        return;
+      }
+
+      // The RPC confirmed the sale. Errors below are display/refresh errors, not sale failures.
+      saleSubmissionInProgress = false;
+      const invoiceLabel = data && data.invoiceNumber ? ` (${data.invoiceNumber})` : "";
+      showMessage(`${t.sold}${invoiceLabel}`);
+
+      try {
         closeSaleModal();
+      } catch (error) {
+        console.error("Sale was saved, but the sale modal could not be closed.", error);
+      }
+
+      try {
         await loadProducts();
         await loadSales();
         await loadSalesHistory();
-        showMessage(t.sold);
-
-        if (data.saleId) {
-          await openInvoiceById(data.saleId);
-        }
       } catch (error) {
-        console.error(error);
+        console.error("Sale was saved, but refreshing the sales screen failed.", error);
         showMessage(
-          error.message ||
-          (currentLanguage === "ar"
-            ? "حدث خطأ أثناء تسجيل البيع"
-            : "Error recording sale"),
+          currentLanguage === "ar"
+            ? `تم تسجيل البيع${invoiceLabel}، لكن تعذر تحديث الشاشة. حدّث الصفحة أو افتح سجل الفواتير.`
+            : `Sale saved${invoiceLabel}, but the screen could not refresh. Reload the page or open invoice history.`,
           true
         );
-        button.disabled = false;
+      }
+
+      if (data && data.saleId) {
+        try {
+          await openInvoiceById(data.saleId);
+        } catch (error) {
+          console.error("Sale was saved, but its invoice could not be opened.", error);
+          showMessage(
+            currentLanguage === "ar"
+              ? `تم تسجيل البيع${invoiceLabel}، لكن تعذر فتح الفاتورة. افتحها من سجل الفواتير.`
+              : `Sale saved${invoiceLabel}, but the invoice could not be opened. Open it from invoice history.`,
+            true
+          );
+        }
       }
     }
 
