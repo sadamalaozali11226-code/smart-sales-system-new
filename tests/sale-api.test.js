@@ -95,6 +95,34 @@ test("sale API propagates a database RPC failure instead of reporting success", 
   assert.equal(calls[0].name, "create_sale_transaction");
 });
 
+test("structured database rejections are definitive so the UI can safely release a pending key", async () => {
+  const { api } = loadApi(() => ({
+    data: null,
+    error: { code: "P0001", message: "insufficient stock", details: null, hint: null }
+  }));
+  await assert.rejects(
+    api.createSale({
+      idempotencyKey: "40000000-0000-4000-8000-000000000003",
+      items: [{ product_id: 12, quantity: 2 }]
+    }),
+    error => error.message === "insufficient stock" && error.code === "P0001" && error.definitive === true
+  );
+});
+
+test("errors without a server error code remain ambiguous", async () => {
+  const { api } = loadApi(() => ({
+    data: null,
+    error: new Error("Failed to fetch")
+  }));
+  await assert.rejects(
+    api.createSale({
+      idempotencyKey: "40000000-0000-4000-8000-000000000004",
+      items: [{ product_id: 12, quantity: 2 }]
+    }),
+    error => error.message === "Failed to fetch" && error.definitive === false
+  );
+});
+
 test("inline deployment fallback keeps the same sale RPC and error propagation contract", () => {
   const html = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8");
   const fallbackStart = html.indexOf("if (!window.SmartSalesAPI)");
