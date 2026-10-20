@@ -2,9 +2,14 @@ name: CI
 
 on:
   pull_request:
-    branches: [main]
+    branches:
+      - main
+      - audit/priority-integrity-*
   push:
-    branches: [main]
+    branches:
+      - main
+      - audit/priority-integrity-*
+      - fix/sale-confirmation-ui-*
 
 permissions:
   contents: read
