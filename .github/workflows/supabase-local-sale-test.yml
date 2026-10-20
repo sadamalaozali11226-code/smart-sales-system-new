@@ -63,12 +63,25 @@ jobs:
           psql "$DB_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/20261021100000_add_sale_idempotency.sql
           psql "$DB_URL" -v ON_ERROR_STOP=1 -f tests/fixtures/sale-idempotency-assertions.sql
 
-          # Run two same-key requests concurrently; both must return the same committed sale.
-          CONCURRENT_KEY="70000000-0000-4000-8000-000000000001"
           AUTH_ID="00000000-0000-0000-0000-000000000001"
           ORG_ID="20000000-0000-0000-0000-000000000001"
           STORE_ID="30000000-0000-0000-0000-000000000001"
           ITEMS='[{"product_id":1,"quantity":2,"discount":0}]'
+
+          # Exercise the RPC as the actual authenticated database role, not postgres.
+          ROLE_KEY="80000000-0000-4000-8000-000000000001"
+          psql "$DB_URL" -v ON_ERROR_STOP=1 <<SQL
+          set role authenticated;
+          select set_config('request.jwt.claim.sub', '$AUTH_ID', false);
+          select public.create_sale_transaction(
+            '$ROLE_KEY'::uuid, '$ORG_ID'::uuid, '$STORE_ID'::uuid,
+            null, null, '$ITEMS'::jsonb, 0, 0, 0, 'cash', null, null
+          );
+          reset role;
+          SQL
+
+          # Run two same-key requests concurrently; both must return the same committed sale.
+          CONCURRENT_KEY="70000000-0000-4000-8000-000000000001"
           SQL="with auth as materialized (select set_config('request.jwt.claim.sub', '$AUTH_ID', true)) select public.create_sale_transaction('$CONCURRENT_KEY'::uuid, '$ORG_ID'::uuid, '$STORE_ID'::uuid, null, null, '$ITEMS'::jsonb, 0, 0, 0, 'cash', null, null) from auth;"
           psql "$DB_URL" -At -v ON_ERROR_STOP=1 -c "$SQL" > /tmp/sale-retry-a.out &
           PID_A=$!
@@ -84,7 +97,7 @@ jobs:
           psql "$DB_URL" -v ON_ERROR_STOP=1 <<'SQL'
           do $test$
           begin
-            if (select call_count from private.sale_calls) <> 3 then
+            if (select call_count from private.sale_calls) <> 4 then
               raise exception 'concurrent duplicate requests created more than one sale';
             end if;
             if (select count(*) from private.sale_idempotency_requests
