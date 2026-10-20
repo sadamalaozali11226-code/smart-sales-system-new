@@ -17,6 +17,49 @@ begin
   -- Supply a deterministic authenticated subject to Supabase's built-in auth.uid().
   perform set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000001', true);
 
+  -- An unauthenticated request must fail before invoking the underlying sale.
+  perform set_config('request.jwt.claim.sub', '', true);
+  begin
+    perform public.create_sale_transaction(
+      v_key, v_org, v_store, null, null, v_items, 0, 0, 0, 'cash', null, null
+    );
+    raise exception 'unauthenticated request unexpectedly succeeded';
+  exception when others then
+    if sqlerrm = 'unauthenticated request unexpectedly succeeded' then raise; end if;
+    if position('authentication required' in sqlerrm) = 0 then raise; end if;
+  end;
+  perform set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000001', true);
+
+  -- Membership is checked before the sale transaction is reached.
+  perform set_config('test.is_org_store_member', 'false', true);
+  begin
+    perform public.create_sale_transaction(
+      v_key, v_org, v_store, null, null, v_items, 0, 0, 0, 'cash', null, null
+    );
+    raise exception 'non-member request unexpectedly succeeded';
+  exception when others then
+    if sqlerrm = 'non-member request unexpectedly succeeded' then raise; end if;
+    if position('not authorized for this store' in sqlerrm) = 0 then raise; end if;
+  end;
+  select call_count into v_calls from private.sale_calls;
+  if v_calls <> 0 then raise exception 'unauthorized store member reached underlying sale'; end if;
+  perform set_config('test.is_org_store_member', 'true', true);
+
+  -- The create permission is independently enforced after membership succeeds.
+  perform set_config('test.has_org_permission', 'false', true);
+  begin
+    perform public.create_sale_transaction(
+      v_key, v_org, v_store, null, null, v_items, 0, 0, 0, 'cash', null, null
+    );
+    raise exception 'request without sales.create unexpectedly succeeded';
+  exception when others then
+    if sqlerrm = 'request without sales.create unexpectedly succeeded' then raise; end if;
+    if position('sales.create permission required' in sqlerrm) = 0 then raise; end if;
+  end;
+  select call_count into v_calls from private.sale_calls;
+  if v_calls <> 0 then raise exception 'caller without sales.create reached underlying sale'; end if;
+  perform set_config('test.has_org_permission', 'true', true);
+
   if not (select relrowsecurity from pg_class where oid = 'private.sale_idempotency_requests'::regclass) then
     raise exception 'idempotency table must have row-level security enabled';
   end if;
