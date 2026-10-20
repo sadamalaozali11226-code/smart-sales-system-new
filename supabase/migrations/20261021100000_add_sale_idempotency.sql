@@ -1,6 +1,32 @@
 -- Durable sale idempotency for retries after a committed RPC response is lost.
 -- This is a migration candidate; it must be applied to an isolated database before production approval.
 
+-- Fail early if the production sale implementation has drifted from the
+-- exact function contract this wrapper delegates to. Never guess at a replacement.
+do $preflight$
+declare
+  v_security_definer boolean;
+  v_config text[];
+begin
+  if to_regprocedure('private.create_sale_transaction(uuid,uuid,text,bigint,jsonb,numeric,numeric,numeric,text,text,text)') is null then
+    raise exception 'Cannot install sale idempotency: expected private.create_sale_transaction signature is missing';
+  end if;
+
+  select prosecdef, proconfig
+    into v_security_definer, v_config
+    from pg_proc
+   where oid = 'private.create_sale_transaction(uuid,uuid,text,bigint,jsonb,numeric,numeric,numeric,text,text,text)'::regprocedure;
+
+  if not coalesce(v_security_definer, false) then
+    raise exception 'Cannot install sale idempotency: underlying sale function must remain SECURITY DEFINER';
+  end if;
+
+  if not coalesce(v_config @> array['search_path=""'], false) then
+    raise exception 'Cannot install sale idempotency: underlying sale function must pin an empty search_path';
+  end if;
+end;
+$preflight$;
+
 create table if not exists private.sale_idempotency_requests (
   organization_id uuid not null,
   store_id uuid not null,
