@@ -53,14 +53,48 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y postgresql-client
 
-      - name: Apply migration twice and assert sale idempotency on local Supabase PostgreSQL
+      - name: Apply migration and assert sale idempotency on local Supabase PostgreSQL
         env:
           PGPASSWORD: postgres
         run: |
+          set -euo pipefail
           DB_URL="postgresql://postgres:postgres@127.0.0.1:54322/postgres"
           psql "$DB_URL" -v ON_ERROR_STOP=1 -f tests/fixtures/sale-idempotency-baseline.sql
           psql "$DB_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/20261021100000_add_sale_idempotency.sql
           psql "$DB_URL" -v ON_ERROR_STOP=1 -f tests/fixtures/sale-idempotency-assertions.sql
+
+          # Run two same-key requests concurrently; both must return the same committed sale.
+          CONCURRENT_KEY="70000000-0000-4000-8000-000000000001"
+          AUTH_ID="00000000-0000-0000-0000-000000000001"
+          ORG_ID="20000000-0000-0000-0000-000000000001"
+          STORE_ID="30000000-0000-0000-0000-000000000001"
+          ITEMS='[{"product_id":1,"quantity":2,"discount":0}]'
+          SQL="with auth as materialized (select set_config('request.jwt.claim.sub', '$AUTH_ID', true)) select public.create_sale_transaction('$CONCURRENT_KEY'::uuid, '$ORG_ID'::uuid, '$STORE_ID'::uuid, null, null, '$ITEMS'::jsonb, 0, 0, 0, 'cash', null, null) from auth;"
+          psql "$DB_URL" -At -v ON_ERROR_STOP=1 -c "$SQL" > /tmp/sale-retry-a.out &
+          PID_A=$!
+          psql "$DB_URL" -At -v ON_ERROR_STOP=1 -c "$SQL" > /tmp/sale-retry-b.out &
+          PID_B=$!
+          wait "$PID_A"
+          wait "$PID_B"
+          if [ "$(cat /tmp/sale-retry-a.out)" != "$(cat /tmp/sale-retry-b.out)" ]; then
+            echo "Concurrent retries returned different sale responses."
+            cat /tmp/sale-retry-a.out /tmp/sale-retry-b.out
+            exit 1
+          fi
+          psql "$DB_URL" -v ON_ERROR_STOP=1 <<'SQL'
+          do $test$
+          begin
+            if (select call_count from private.sale_calls) <> 3 then
+              raise exception 'concurrent duplicate requests created more than one sale';
+            end if;
+            if (select count(*) from private.sale_idempotency_requests
+                 where idempotency_key = '70000000-0000-4000-8000-000000000001') <> 1 then
+              raise exception 'expected one idempotency record for concurrent retries';
+            end if;
+          end;
+          $test$;
+          SQL
+
           # Seed a stored response, reapply the migration, and verify the response survives.
           psql "$DB_URL" -v ON_ERROR_STOP=1 <<'SQL'
           insert into private.sale_idempotency_requests
