@@ -4520,8 +4520,8 @@ if (!window.SmartSalesAPI) {
           // A lost response is ambiguous: do not let a second click blindly create another sale.
           showMessage(
             currentLanguage === "ar"
-              ? "تعذر تأكيد نتيجة البيع بسبب الاتصال. لا تعاود الإرسال الآن؛ تحقق أولًا من سجل الفواتير. إذا لم تجد الفاتورة، حدّث الصفحة قبل المحاولة مجددًا."
-              : "The sale result could not be confirmed because of a connection error. Do not submit again yet; check invoice history first. If no invoice exists, reload the page before retrying.",
+              ? "تعذر تأكيد نتيجة البيع بسبب الاتصال. لا تعاود البيع حتى تتأكد من سجل الفواتير أن العملية لم تُسجّل. إذا بقيت النتيجة غير واضحة، اطلب من المسؤول التحقق من قاعدة البيانات."
+              : "The sale result could not be confirmed because of a connection error. Do not submit again until invoice history confirms the sale was not recorded. If the result is still unclear, ask an administrator to verify the database.",
             true
           );
         }
