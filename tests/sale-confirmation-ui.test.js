@@ -23,7 +23,7 @@ test("sale confirmation blocks concurrent submissions", () => {
 test("a confirmed sale is reported successful before any UI refresh", () => {
   const rpcEnd = confirmSale.indexOf("// The RPC confirmed the sale.");
   const successNotice = confirmSale.indexOf("showMessage(`${t.sold}${invoiceLabel}`)");
-  const refresh = confirmSale.indexOf("await loadProducts()");
+  const refresh = confirmSale.indexOf("loadProducts(),");
   assert.ok(rpcEnd >= 0, "Expected a clear post-RPC success boundary");
   assert.ok(successNotice > rpcEnd, "Expected a success notice after the RPC returns");
   assert.ok(refresh > successNotice, "Success must be shown before refreshing UI data");
@@ -31,13 +31,13 @@ test("a confirmed sale is reported successful before any UI refresh", () => {
 });
 
 test("refresh and invoice-display failures cannot be reported as sale-creation failures", () => {
-  const refreshTry = confirmSale.indexOf("try {\n        await loadProducts()");
-  const refreshCatch = confirmSale.indexOf('console.error("Sale was saved, but refreshing the sales screen failed."');
+  const refreshStart = confirmSale.indexOf("const refreshResults = await Promise.allSettled([");
+  const refreshFailure = confirmSale.indexOf('console.error(\n          "Sale was saved, but one screen refresh failed."');
   const invoiceTry = confirmSale.indexOf("try {\n          await openInvoiceById(data.saleId)");
   const invoiceCatch = confirmSale.indexOf('console.error("Sale was saved, but its invoice could not be opened."');
-  assert.ok(refreshTry > 0 && refreshCatch > refreshTry, "Refresh must have its own error boundary");
+  assert.ok(refreshStart > 0 && refreshFailure > refreshStart, "Each refresh must be isolated");
   assert.ok(invoiceTry > 0 && invoiceCatch > invoiceTry, "Invoice display must have its own error boundary");
-  assert.doesNotMatch(confirmSale.slice(refreshCatch, invoiceTry), /button\.disabled\s*=\s*false/,
+  assert.doesNotMatch(confirmSale.slice(refreshFailure, invoiceTry), /button\.disabled\s*=\s*false/,
     "A post-commit UI failure must not re-enable the sale submission button");
 });
 
