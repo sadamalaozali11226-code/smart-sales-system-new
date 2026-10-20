@@ -23,13 +23,19 @@ begin
 end;
 $auth_uid$;
 
+-- Controllable authorization doubles let tests verify that the helper rejects
+-- callers without store membership or the sales.create permission.
 create or replace function private.is_org_store_member(uuid, uuid)
 returns boolean language sql stable
-as $function$ select true $function$;
+as $function$
+  select coalesce(nullif(current_setting('test.is_org_store_member', true), '')::boolean, true)
+$function$;
 
 create or replace function private.has_org_permission(uuid, text)
 returns boolean language sql stable
-as $function$ select true $function$;
+as $function$
+  select coalesce(nullif(current_setting('test.has_org_permission', true), '')::boolean, true)
+$function$;
 
 create table private.sale_calls(call_count integer not null);
 insert into private.sale_calls values (0);
