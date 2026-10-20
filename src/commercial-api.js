@@ -345,7 +345,9 @@
     const { organization, store } = context();
     const items = Array.isArray(body.items) ? body.items : [];
     if (items.length === 0) {
-      throw new Error("At least one sale item is required.");
+      const error = new Error("At least one sale item is required.");
+      error.definitive = true;
+      throw error;
     }
 
     const normalizedItems = items.map(item => ({
@@ -360,7 +362,9 @@
       !Number.isInteger(item.quantity) ||
       item.quantity <= 0
     )) {
-      throw new Error("Invalid sale items.");
+      const error = new Error("Invalid sale items.");
+      error.definitive = true;
+      throw error;
     }
 
     const invoice = null; // Invoice number is generated atomically by the database.
