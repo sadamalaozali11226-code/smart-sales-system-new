@@ -9,9 +9,19 @@ begin
 end;
 $roles$;
 
-create or replace function auth.uid()
-returns uuid language sql stable
-as $function$ select '00000000-0000-0000-0000-000000000001'::uuid $function$;
+-- Plain PostgreSQL CI has no Supabase auth.uid(); local Supabase already has it,
+-- owned by its auth administrator, so never replace the built-in function there.
+do $auth_uid$
+begin
+  if to_regprocedure('auth.uid()') is null then
+    execute $create_fn$
+      create function auth.uid()
+      returns uuid language sql stable
+      as $fn$ select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $fn$
+    $create_fn$;
+  end if;
+end;
+$auth_uid$;
 
 create or replace function private.is_org_store_member(uuid, uuid)
 returns boolean language sql stable
