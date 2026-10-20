@@ -50,10 +50,16 @@ begin
   if has_function_privilege('anon', 'private.create_sale_transaction_idempotent(uuid,uuid,uuid,text,bigint,jsonb,numeric,numeric,numeric,text,text,text)', 'EXECUTE') then
     raise exception 'anon role must not be able to execute the internal helper';
   end if;
-  if has_table_privilege('authenticated', 'private.sale_idempotency_requests', 'SELECT,INSERT,UPDATE,DELETE') then
+  if has_table_privilege('authenticated', 'private.sale_idempotency_requests', 'SELECT')
+     or has_table_privilege('authenticated', 'private.sale_idempotency_requests', 'INSERT')
+     or has_table_privilege('authenticated', 'private.sale_idempotency_requests', 'UPDATE')
+     or has_table_privilege('authenticated', 'private.sale_idempotency_requests', 'DELETE') then
     raise exception 'authenticated role must not have direct access to the idempotency table';
   end if;
-  if has_table_privilege('anon', 'private.sale_idempotency_requests', 'SELECT,INSERT,UPDATE,DELETE') then
+  if has_table_privilege('anon', 'private.sale_idempotency_requests', 'SELECT')
+     or has_table_privilege('anon', 'private.sale_idempotency_requests', 'INSERT')
+     or has_table_privilege('anon', 'private.sale_idempotency_requests', 'UPDATE')
+     or has_table_privilege('anon', 'private.sale_idempotency_requests', 'DELETE') then
     raise exception 'anon role must not have direct access to the idempotency table';
   end if;
 
