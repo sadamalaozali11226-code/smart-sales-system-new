@@ -26,6 +26,9 @@ begin
   if has_function_privilege('anon', 'public.create_sale_transaction(uuid,uuid,uuid,text,bigint,jsonb,numeric,numeric,numeric,text,text,text)', 'EXECUTE') then
     raise exception 'anon role must not be able to execute the public RPC';
   end if;
+  if not has_schema_privilege('authenticated', 'private', 'USAGE') then
+    raise exception 'authenticated role must have schema USAGE for the invoker RPC';
+  end if;
   if not has_function_privilege('authenticated', 'private.create_sale_transaction_idempotent(uuid,uuid,uuid,text,bigint,jsonb,numeric,numeric,numeric,text,text,text)', 'EXECUTE') then
     raise exception 'authenticated role must be able to execute the internal helper';
   end if;
