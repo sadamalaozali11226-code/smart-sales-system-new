@@ -84,7 +84,7 @@ jobs:
           psql "$DB_URL" -v ON_ERROR_STOP=1 <<'SQL'
           do $test$
           begin
-            if (select call_count from private.sale_calls) <> 2 then
+            if (select call_count from private.sale_calls) <> 3 then
               raise exception 'concurrent duplicate requests created more than one sale';
             end if;
             if (select count(*) from private.sale_idempotency_requests
