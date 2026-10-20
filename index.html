@@ -404,7 +404,15 @@ if (!window.SmartSalesAPI) {
       p_store_id: store.id
     });
 
-    if (error) throw error;
+    if (error) {
+      const rpcError = new Error(error.message || "Sale request failed.");
+      Object.assign(rpcError, error);
+      // A structured PostgREST/PostgreSQL error means the server rejected the
+      // transaction. Errors without a server code remain ambiguous (e.g. a
+      // dropped connection after commit), so the UI must preserve the key.
+      rpcError.definitive = typeof error.code === "string" && error.code.length > 0;
+      throw rpcError;
+    }
 
     const result = data || {};
     return {
