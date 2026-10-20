@@ -112,7 +112,8 @@ begin
 end;
 $function$;
 
-revoke all on function private.create_sale_transaction_idempotent(uuid,uuid,uuid,text,bigint,jsonb,numeric,numeric,numeric,text,text,text) from public, anon, authenticated;
+revoke all on function private.create_sale_transaction_idempotent(uuid,uuid,uuid,text,bigint,jsonb,numeric,numeric,numeric,text,text,text) from public, anon;
+grant execute on function private.create_sale_transaction_idempotent(uuid,uuid,uuid,text,bigint,jsonb,numeric,numeric,numeric,text,text,text) to authenticated;
 
 create or replace function public.create_sale_transaction(
   p_idempotency_key uuid,
@@ -130,7 +131,7 @@ create or replace function public.create_sale_transaction(
 )
 returns jsonb
 language sql
-security definer
+security invoker
 set search_path = ''
 as $function$
   select private.create_sale_transaction_idempotent(
