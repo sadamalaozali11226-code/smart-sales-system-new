@@ -64,6 +64,28 @@ begin
     raise exception 'idempotency table must have row-level security enabled';
   end if;
 
+  -- The SECURITY DEFINER helper must own the protected table (or otherwise be
+  -- granted deliberate access); production migration ownership is expected to
+  -- make both objects owned by the migration role, never a client role.
+  if (
+    select table_owner.rolname
+      from pg_class c
+      join pg_namespace n on n.oid = c.relnamespace
+      join pg_roles table_owner on table_owner.oid = c.relowner
+     where n.nspname = 'private' and c.relname = 'sale_idempotency_requests'
+  ) in ('anon', 'authenticated') then
+    raise exception 'idempotency table must not be owned by a client role';
+  end if;
+
+  if (
+    select function_owner.rolname
+      from pg_proc p
+      join pg_roles function_owner on function_owner.oid = p.proowner
+     where p.oid = 'private.create_sale_transaction_idempotent(uuid,uuid,uuid,text,bigint,jsonb,numeric,numeric,numeric,text,text,text)'::regprocedure
+  ) in ('anon', 'authenticated') then
+    raise exception 'SECURITY DEFINER helper must not be owned by a client role';
+  end if;
+
   if to_regprocedure('public.create_sale_transaction(uuid,uuid,text,bigint,jsonb,numeric,numeric,numeric,text,text,text)') is not null then
     raise exception 'legacy non-idempotent public RPC overload must be removed';
   end if;
