@@ -37,6 +37,9 @@ create table if not exists private.sale_idempotency_requests (
   primary key (organization_id, store_id, idempotency_key)
 );
 
+-- Defense in depth: the SECURITY DEFINER helper owns the table; client roles have no policy.
+alter table private.sale_idempotency_requests enable row level security;
+
 revoke all on table private.sale_idempotency_requests from public, anon, authenticated;
 
 create or replace function private.create_sale_transaction_idempotent(
