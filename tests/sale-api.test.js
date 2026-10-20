@@ -50,6 +50,7 @@ test("sale API forwards a valid sale to the atomic database RPC and returns its 
     error: null
   }));
   const result = await api.createSale({
+    idempotencyKey: "40000000-0000-4000-8000-000000000001",
     customerId: null,
     items: [{ product_id: 12, quantity: 2, discount: 1 }],
     discount: 0,
@@ -68,14 +69,26 @@ test("sale API forwards a valid sale to the atomic database RPC and returns its 
   assert.equal(calls[0].args.p_organization_id, "org-test");
   assert.equal(calls[0].args.p_store_id, "store-test");
   assert.equal(calls[0].args.p_invoice_number, null);
+  assert.equal(calls[0].args.p_idempotency_key, "40000000-0000-4000-8000-000000000001");
   assert.equal(result.saleId, 41);
   assert.equal(result.invoiceNumber, "INV-000041");
+});
+
+
+test("sale API requires a UUID idempotency key before calling the database", async () => {
+  const { api, calls } = loadApi(() => ({ data: null, error: null }));
+  await assert.rejects(
+    api.createSale({ items: [{ product_id: 12, quantity: 1 }] }),
+    error => error.message.includes("idempotency key is required") && error.definitive === true
+  );
+  assert.equal(calls.length, 0);
 });
 
 test("sale API propagates a database RPC failure instead of reporting success", async () => {
   const expectedError = new Error("insufficient stock");
   const { api, calls } = loadApi(() => ({ data: null, error: expectedError }));
   await assert.rejects(api.createSale({
+    idempotencyKey: "40000000-0000-4000-8000-000000000002",
     items: [{ product_id: 12, quantity: 2 }]
   }), /insufficient stock/);
   assert.equal(calls.length, 1);
@@ -89,6 +102,7 @@ test("inline deployment fallback keeps the same sale RPC and error propagation c
   const fallback = html.slice(fallbackStart);
   assert.match(fallback, /async function createSale\(body\)/);
   assert.match(fallback, /rpc\("create_sale_transaction"/);
+  assert.match(fallback, /p_idempotency_key: idempotencyKey/);
   assert.match(fallback, /if \(error\) throw error;/);
   assert.match(fallback, /saleId: result\.sale_id == null \? null : Number\(result\.sale_id\)/);
 });
