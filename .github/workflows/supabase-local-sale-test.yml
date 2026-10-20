@@ -1,0 +1,69 @@
+name: Supabase local sale migration test
+
+on:
+  push:
+    branches:
+      - fix/sale-confirmation-ui-*
+    paths:
+      - "supabase/migrations/20261021100000_add_sale_idempotency.sql"
+      - "tests/fixtures/sale-idempotency-*.sql"
+      - ".github/workflows/supabase-local-sale-test.yml"
+  pull_request:
+    paths:
+      - "supabase/migrations/20261021100000_add_sale_idempotency.sql"
+      - "tests/fixtures/sale-idempotency-*.sql"
+      - ".github/workflows/supabase-local-sale-test.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  local-supabase:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out source
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca864e90a0a1a780110c81ac9 # v4.4.0
+        with:
+          node-version: 24
+
+      - name: Set up Supabase CLI
+        uses: supabase/setup-cli@v3
+        with:
+          version: 2.84.2
+
+      - name: Initialize a disposable local Supabase project
+        run: |
+          mkdir -p /tmp/supabase-sale-test
+          cd /tmp/supabase-sale-test
+          supabase init
+
+      - name: Start local Supabase services
+        working-directory: /tmp/supabase-sale-test
+        run: supabase start
+
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+
+      - name: Apply migration twice and assert sale idempotency on local Supabase PostgreSQL
+        env:
+          PGPASSWORD: postgres
+        run: |
+          DB_URL="postgresql://postgres:postgres@127.0.0.1:54322/postgres"
+          psql "$DB_URL" -v ON_ERROR_STOP=1 -f tests/fixtures/sale-idempotency-baseline.sql
+          psql "$DB_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/20261021100000_add_sale_idempotency.sql
+          psql "$DB_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/20261021100000_add_sale_idempotency.sql
+          psql "$DB_URL" -v ON_ERROR_STOP=1 -f tests/fixtures/sale-idempotency-assertions.sql
+
+      - name: Stop local Supabase services
+        if: always()
+        working-directory: /tmp/supabase-sale-test
+        run: supabase stop --no-backup
