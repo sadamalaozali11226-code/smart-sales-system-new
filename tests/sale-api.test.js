@@ -109,6 +109,20 @@ test("structured database rejections are definitive so the UI can safely release
   );
 });
 
+test("transport error codes remain ambiguous", async () => {
+  const { api } = loadApi(() => ({
+    data: null,
+    error: Object.assign(new Error("connection reset"), { code: "ECONNRESET" })
+  }));
+  await assert.rejects(
+    api.createSale({
+      idempotencyKey: "40000000-0000-4000-8000-000000000005",
+      items: [{ product_id: 12, quantity: 2 }]
+    }),
+    error => error.message === "connection reset" && error.definitive === false
+  );
+});
+
 test("errors without a server error code remain ambiguous", async () => {
   const { api } = loadApi(() => ({
     data: null,
