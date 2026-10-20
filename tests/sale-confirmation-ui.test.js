@@ -43,7 +43,7 @@ test("refresh and invoice-display failures cannot be reported as sale-creation f
 
 test("ambiguous submission errors warn the operator and prevent immediate blind resubmission", () => {
   assert.match(confirmSale, /The sale result could not be confirmed because of a connection error/);
-  assert.match(confirmSale, /لا تعاود الإرسال الآن/);
+  assert.match(confirmSale, /لا تعاود البيع حتى تتأكد من سجل الفواتير/);
   const ambiguousBranch = confirmSale.slice(
     confirmSale.indexOf("// A lost response is ambiguous"),
     confirmSale.indexOf("return;", confirmSale.indexOf("// A lost response is ambiguous"))
