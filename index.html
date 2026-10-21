@@ -4628,7 +4628,7 @@ if (!window.SmartSalesAPI) {
       } catch (error) {
         console.error("Sale submission returned an error; database outcome may need verification.", error);
         const hasDefinitiveServerError = Boolean(
-          error && (error.definitive === true || (typeof error.code === "string" && /^[0-9A-Z]{5}$/.test(error.code)) || (Number(error.status) >= 400 && Number(error.status) < 500))
+          error && (error.definitive === true || (typeof error.code === "string" && /^[0-9A-Z]{5}$/.test(error.code)) || (Number(error.status) >= 400 && Number(error.status) < 500 && ![408, 425, 429].includes(Number(error.status))))
         );
 
         if (hasDefinitiveServerError) {
