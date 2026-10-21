@@ -63,7 +63,7 @@ declare
 begin
   -- Make simultaneous requests overlap so the concurrency regression test is meaningful.
   perform pg_sleep(0.3);
-  update private.sale_calls set call_count = call_count + 1 returning call_count into v_count;
+  update private.sale_calls set call_count = call_count + 1 where call_count is not null returning call_count into v_count;
   return jsonb_build_object('sale_id', v_count, 'invoice_number', 'INV-' || v_count::text);
 end;
 $function$;
