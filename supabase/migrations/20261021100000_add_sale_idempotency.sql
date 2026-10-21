@@ -58,10 +58,11 @@ begin
      and c.table_name = 'sale_idempotency_requests'
      and c.column_name = required.column_name
    where c.column_name is null
-      or c.udt_name <> required.expected_type;
+      or c.udt_name <> required.expected_type
+      or c.is_nullable <> 'NO';
 
   if v_incompatible_columns is not null then
-    raise exception 'Cannot install sale idempotency: private.sale_idempotency_requests has missing or incompatible columns: %',
+    raise exception 'Cannot install sale idempotency: private.sale_idempotency_requests has missing, incompatible, or nullable columns: %',
       v_incompatible_columns;
   end if;
 
