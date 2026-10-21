@@ -33,7 +33,8 @@ function createAuthenticatedJwt() {
 }
 
 async function createSale(token) {
-  const response = await fetch(`${apiUrl.replace(/\\/$/, "")}/rest/v1/rpc/create_sale_transaction`, {
+  const baseUrl = apiUrl.endsWith("/") ? apiUrl.slice(0, -1) : apiUrl;
+  const response = await fetch(`${baseUrl}/rest/v1/rpc/create_sale_transaction`, {
     method: "POST",
     headers: {
       apikey: anonKey,
@@ -76,7 +77,7 @@ async function createSale(token) {
     passed: true,
     sale_id: first.sale_id,
     invoice_number: first.invoice_number
-  }) + "\\n");
+  }) + String.fromCharCode(10));
 })().catch(error => {
   console.error(error);
   process.exitCode = 1;
