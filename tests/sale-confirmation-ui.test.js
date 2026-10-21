@@ -52,6 +52,10 @@ test("ambiguous submission errors warn the operator and prevent immediate blind 
   assert.doesNotMatch(ambiguousBranch, /button\.disabled\s*=\s*false/);
 });
 
+test("timeout and rate-limit HTTP statuses remain ambiguous to avoid duplicate sales", () => {
+  assert.match(confirmSale, /!\[408, 425, 429\]\.includes\(Number\(error\.status\)\)/);
+});
+
 test("definitive sale rejections clear the pending key and re-enable the form", () => {
   const rejectionBranch = confirmSale.slice(
     confirmSale.indexOf("if (hasDefinitiveServerError)"),
