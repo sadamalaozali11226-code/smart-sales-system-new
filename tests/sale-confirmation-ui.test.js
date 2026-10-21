@@ -77,13 +77,22 @@ test("refresh failures are isolated and do not prevent other views from refreshi
 
 test("sale requests persist and reuse a durable idempotency key after an uncertain result", () => {
   assert.match(html, /PENDING_SALE_STORAGE_KEY = "smart-sales-pending-sale-v1"/);
-  assert.match(html, /getSaleIdempotencyKey\(saleRequest\)/);
+  assert.match(confirmSale, /getSaleIdempotencyKey\(saleRequest, saleContext\)/);
+  assert.match(html, /function getSaleIdempotencyKey\(payload, saleContext\)/);
+  assert.match(html, /organizationId: String\(saleContext\.organization\.id\)/);
+  assert.match(html, /storeId: String\(saleContext\.store\.id\)/);
   assert.match(html, /saleRequest\.idempotencyKey = idempotencyKey/);
   assert.match(confirmSale, /clearPendingSaleIdempotencyKey\(idempotencyKey\)/);
   assert.match(html, /previous sale has an unconfirmed result|توجد عملية بيع سابقة لم تُحسم نتيجتها/i);
   assert.match(confirmSale, /data = await SmartSalesAPI\.createSale\(saleRequest\)/);
 });
 
+
+test("pending sale keys are scoped to the active organization and store", () => {
+  assert.match(html, /organizationId: String\(saleContext\.organization\.id\)/);
+  assert.match(html, /storeId: String\(saleContext\.store\.id\)/);
+  assert.match(confirmSale, /window\.SmartSalesAuth\.getContext\(\)/);
+});
 
 test("invalid persisted sale state fails closed instead of silently generating a new key", () => {
   assert.match(html, /PENDING_SALE_STATE_INVALID/);
