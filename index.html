@@ -4446,7 +4446,14 @@ if (!window.SmartSalesAPI) {
     function getSaleIdempotencyKey(payload) {
       const fingerprint = JSON.stringify(payload);
       let pending = null;
-      const saved = window.localStorage.getItem(PENDING_SALE_STORAGE_KEY);
+      let saved;
+      try {
+        saved = window.localStorage.getItem(PENDING_SALE_STORAGE_KEY);
+      } catch (_) {
+        const error = new Error("PENDING_SALE_STATE_INVALID");
+        error.code = "PENDING_SALE_STATE_INVALID";
+        throw error;
+      }
       if (saved) {
         try {
           pending = JSON.parse(saved);
