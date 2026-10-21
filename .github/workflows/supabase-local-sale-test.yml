@@ -99,7 +99,7 @@ jobs:
           psql "$DB_URL" -v ON_ERROR_STOP=1 <<'SQL'
           do $test$
           begin
-            if (select call_count from private.sale_calls) <> 4 then
+            if (select call_count from private.sale_calls) <> 5 then
               raise exception 'concurrent duplicate requests created more than one sale';
             end if;
             if (select count(*) from private.sale_idempotency_requests
@@ -119,7 +119,7 @@ jobs:
           psql "$DB_URL" -v ON_ERROR_STOP=1 <<'SQL'
           do $test$
           begin
-            if (select call_count from private.sale_calls) <> 5 then
+            if (select call_count from private.sale_calls) <> 6 then
               raise exception 'PostgREST retry did not create exactly one underlying sale';
             end if;
             if (select count(*) from private.sale_idempotency_requests
