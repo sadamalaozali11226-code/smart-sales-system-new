@@ -105,6 +105,27 @@ begin
   select quantity into v_stock from public.store_products where store_id = v_store and product_id = v_product_id;
   if v_stock <> 7 then raise exception 'failed sale changed stock; expected 7, got %', v_stock; end if;
 
+  perform set_config('test.is_org_store_member', 'false', false);
+  begin
+    perform public.create_sale_transaction(
+      v_failed_key, v_org, v_store, null, null,
+      jsonb_build_array(jsonb_build_object('product_id', v_product_id, 'quantity', 1, 'discount', 0)),
+      0, 0, 0, 'cash', null, 'store membership test'
+    );
+    raise exception 'sale without store membership unexpectedly succeeded';
+  exception when others then
+    if sqlerrm = 'sale without store membership unexpectedly succeeded' then raise; end if;
+    if position('not authorized for this store' in sqlerrm) = 0 then raise; end if;
+  end;
+  perform set_config('test.is_org_store_member', 'true', false);
+
+  if (select count(*) from public.sales) <> 2 then
+    raise exception 'store membership rejection changed sales';
+  end if;
+  if (select count(*) from private.sale_idempotency_requests) <> 2 then
+    raise exception 'store membership rejection changed idempotency records';
+  end if;
+
   perform set_config('test.has_org_permission', 'false', false);
   begin
     perform public.create_sale_transaction(
