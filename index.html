@@ -4620,6 +4620,7 @@ if (!window.SmartSalesAPI) {
         console.error("Could not safely recover or persist the sale request key.", error);
         const pendingStateIsInvalid = error && error.code === "PENDING_SALE_STATE_INVALID";
         const secureKeyUnavailable = error && error.code === "SECURE_SALE_KEY_UNAVAILABLE";
+        const saleContextUnavailable = error && error.code === "SALE_CONTEXT_UNAVAILABLE";
         showMessage(
           pendingStateIsInvalid
             ? (currentLanguage === "ar"
@@ -4629,9 +4630,13 @@ if (!window.SmartSalesAPI) {
               ? (currentLanguage === "ar"
                   ? "هذا المتصفح لا يوفر توليدًا آمنًا لمعرّف العملية. لم يُرسل طلب بيع جديد."
                   : "This browser does not provide secure request-key generation. No new sale request was sent.")
-              : (currentLanguage === "ar"
-                  ? "تعذر حفظ معرّف العملية الآمن في هذا المتصفح. لم يُرسل طلب البيع الجديد؛ تحقق من إعدادات التخزين ثم أعد المحاولة."
-                  : "Could not save the safe request key in this browser. The new sale request was not sent; check storage settings and try again."),
+              : saleContextUnavailable
+                ? (currentLanguage === "ar"
+                    ? "تعذر التحقق من المؤسسة والفرع النشطين. لم يُرسل طلب البيع."
+                    : "Could not verify the active organization and store. No sale request was sent.")
+                : (currentLanguage === "ar"
+                    ? "تعذر حفظ معرّف العملية الآمن في هذا المتصفح. لم يُرسل طلب البيع الجديد؛ تحقق من إعدادات التخزين ثم أعد المحاولة."
+                    : "Could not save the safe request key in this browser. The new sale request was not sent; check storage settings and try again."),
           true
         );
         return;
