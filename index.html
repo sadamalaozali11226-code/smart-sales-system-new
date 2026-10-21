@@ -407,10 +407,10 @@ if (!window.SmartSalesAPI) {
     if (error) {
       const rpcError = new Error(error.message || "Sale request failed.");
       Object.assign(rpcError, error);
-      // A structured PostgREST/PostgreSQL error means the server rejected the
-      // transaction. Errors without a server code remain ambiguous (e.g. a
-      // dropped connection after commit), so the UI must preserve the key.
-      rpcError.definitive = typeof error.code === "string" && /^(?:[0-9A-Z]{5}|PGRST\d{3})$/.test(error.code);
+      // Only known rejection classes are definitive. Connection failures (08xxx),
+      // transaction-outcome-unknown (40003), and gateway/pool failures remain
+      // ambiguous so the UI preserves the key and prevents duplicate sales.
+      rpcError.definitive = typeof error.code === "string" && /^(?:(?:22|23|28|2D|3D|3F|42|P0)[0-9A-Z]{3}|PGRST[1-6][0-9]{2})$/.test(error.code);
       throw rpcError;
     }
 
@@ -4628,7 +4628,7 @@ if (!window.SmartSalesAPI) {
       } catch (error) {
         console.error("Sale submission returned an error; database outcome may need verification.", error);
         const hasDefinitiveServerError = Boolean(
-          error && (error.definitive === true || (typeof error.code === "string" && /^[0-9A-Z]{5}$/.test(error.code)) || (Number(error.status) >= 400 && Number(error.status) < 500 && ![408, 425, 429].includes(Number(error.status))))
+          error && (error.definitive === true || (Number(error.status) >= 400 && Number(error.status) < 500 && ![408, 425, 429].includes(Number(error.status)))
         );
 
         if (hasDefinitiveServerError) {
