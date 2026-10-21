@@ -123,6 +123,22 @@ test("transport error codes remain ambiguous", async () => {
   );
 });
 
+test("connection and unknown-transaction SQLSTATEs remain ambiguous", async () => {
+  for (const code of ["08006", "40003", "PGRST003"]) {
+    const { api } = loadApi(() => ({
+      data: null,
+      error: Object.assign(new Error("database connection outcome is uncertain"), { code })
+    }));
+    await assert.rejects(
+      api.createSale({
+        idempotencyKey: "40000000-0000-4000-8000-000000000006",
+        items: [{ product_id: 12, quantity: 2 }]
+      }),
+      error => error.code === code && error.definitive === false
+    );
+  }
+});
+
 test("errors without a server error code remain ambiguous", async () => {
   const { api } = loadApi(() => ({
     data: null,
