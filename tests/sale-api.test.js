@@ -146,5 +146,6 @@ test("inline deployment fallback keeps the same sale RPC and error propagation c
   assert.match(fallback, /rpc\("create_sale_transaction"/);
   assert.match(fallback, /p_idempotency_key: idempotencyKey/);
   assert.match(fallback, /if \(error\) throw error;/);
+  assert.match(fallback, /rpcError\.definitive = typeof error\.code === "string" && error\.code\.length > 0;/);
   assert.match(fallback, /saleId: result\.sale_id == null \? null : Number\(result\.sale_id\)/);
 });
