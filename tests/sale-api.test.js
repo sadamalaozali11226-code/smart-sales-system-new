@@ -44,6 +44,41 @@ test("sale API rejects invalid quantities before calling the database", async ()
   assert.equal(calls.length, 0);
 });
 
+test("sale API rejects invalid item discounts before calling the database", async () => {
+  const { api, calls } = loadApi(() => ({ data: null, error: null }));
+  await assert.rejects(
+    api.createSale({
+      idempotencyKey: "40000000-0000-4000-8000-000000000007",
+      items: [{ product_id: 12, quantity: 1, discount: -1 }]
+    }),
+    error => error.message.includes("Invalid sale items") && error.definitive === true
+  );
+  assert.equal(calls.length, 0);
+});
+
+test("sale API rejects invalid customer IDs and non-finite or negative amounts before calling the database", async () => {
+  const invalidBodies = [
+    { customerId: "not-a-number" },
+    { discount: -1 },
+    { tax: "not-a-number" },
+    { paidAmount: -0.01 },
+    { paidAmount: Infinity }
+  ];
+
+  for (const invalid of invalidBodies) {
+    const { api, calls } = loadApi(() => ({ data: null, error: null }));
+    await assert.rejects(
+      api.createSale({
+        idempotencyKey: "40000000-0000-4000-8000-000000000008",
+        items: [{ product_id: 12, quantity: 1 }],
+        ...invalid
+      }),
+      error => error.definitive === true
+    );
+    assert.equal(calls.length, 0, "Invalid sale input must be rejected before RPC");
+  }
+});
+
 test("sale API forwards a valid sale to the atomic database RPC and returns its identifiers", async () => {
   const { api, calls } = loadApi(() => ({
     data: { sale_id: 41, invoice_number: "INV-000041", total: 24 },
