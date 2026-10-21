@@ -54,7 +54,7 @@ test("ambiguous submission errors warn the operator and prevent immediate blind 
 
 test("timeout and rate-limit HTTP statuses remain ambiguous to avoid duplicate sales", () => {
   assert.match(confirmSale, /!\[408, 425, 429\]\.includes\(Number\(error\.status\)\)/);
-  assert.ok(confirmSale.includes("error.definitive === true"));
+  assert.ok(confirmSale.includes('typeof error.definitive === "boolean" ? error.definitive'));
   assert.ok(!confirmSale.includes('typeof error.code === "string" && /^[0-9A-Z]{5}$/'));
 });
 
