@@ -86,10 +86,12 @@ as a shortcut.
 
 ## Current verified state
 
-- Functional candidate commit `eaa4e24c389e724108d92fa2b55a809cf3349f86` passed CI run #311:
-  https://github.com/sadamalaozali11226-code/smart-sales-system-new/actions/runs/39666789282
-- The same candidate passed disposable Supabase local run #100:
-  https://github.com/sadamalaozali11226-code/smart-sales-system-new/actions/runs/39666789256
+- Functional candidate commit `eaa4e24c389e724108d92fa2b55a809cf3349f86` passed CI run #311 and disposable Supabase local run #100.
+- Current branch head `6e6cc696d8a1c1d888eec8e45cdb058d6ecc7ff3` also passed CI run #313:
+  https://github.com/sadamalaozali11226-code/smart-sales-system-new/actions/runs/39669301857
+- The same current head passed disposable Supabase local run #101:
+  https://github.com/sadamalaozali11226-code/smart-sales-system-new/actions/runs/39669301665
+- The current-head CI adds a compatibility guard that rejects an incompatible pre-existing idempotency table before creating the new public RPC wrapper.
 - CI verifies the checked-in sale transaction implementation in isolated PostgreSQL, including invoice numbering, totals/payment state, stock decrement, inventory movements, payment/audit rows, same-key retry, changed-payload rejection, insufficient-stock rollback, authorization rejection, concurrent same-key requests, incompatible pre-existing table rejection, and migration reapplication without data loss.
 - Local Supabase run verifies migration and RPC behavior on a disposable Supabase stack. It is not a staging test of the actual production project.
 - The latest branch preview deployment for the candidate is READY and responds HTTP 200:
