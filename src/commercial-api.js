@@ -345,7 +345,9 @@
     const { organization, store } = context();
     const items = Array.isArray(body.items) ? body.items : [];
     if (items.length === 0) {
-      throw new Error("At least one sale item is required.");
+      const error = new Error("At least one sale item is required.");
+      error.definitive = true;
+      throw error;
     }
 
     const normalizedItems = items.map(item => ({
@@ -358,20 +360,49 @@
       !Number.isInteger(item.product_id) ||
       item.product_id <= 0 ||
       !Number.isInteger(item.quantity) ||
-      item.quantity <= 0
+      item.quantity <= 0 ||
+      !Number.isFinite(item.discount) ||
+      item.discount < 0
     )) {
-      throw new Error("Invalid sale items.");
+      const error = new Error("Invalid sale items.");
+      error.definitive = true;
+      throw error;
+    }
+
+    const customerId = body.customerId == null || body.customerId === "" ? null : Number(body.customerId);
+    const discount = Number(body.discount || 0);
+    const tax = Number(body.tax || 0);
+    const paidAmount = Number(body.paidAmount || 0);
+
+    if (customerId !== null && (!Number.isInteger(customerId) || customerId <= 0)) {
+      const error = new Error("Invalid customer id.");
+      error.definitive = true;
+      throw error;
+    }
+
+    if ([discount, tax, paidAmount].some(value => !Number.isFinite(value) || value < 0)) {
+      const error = new Error("Invalid sale amounts.");
+      error.definitive = true;
+      throw error;
+    }
+
+    const idempotencyKey = String(body.idempotencyKey || "").trim();
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(idempotencyKey)) {
+      const error = new Error("A valid sale idempotency key is required.");
+      error.definitive = true;
+      throw error;
     }
 
     const invoice = null; // Invoice number is generated atomically by the database.
 
     const { data, error } = await client().rpc("create_sale_transaction", {
+      p_idempotency_key: idempotencyKey,
       p_invoice_number: invoice,
-      p_customer_id: body.customerId == null || body.customerId === "" ? null : Number(body.customerId),
+      p_customer_id: customerId,
       p_items: normalizedItems,
-      p_discount: Number(body.discount || 0),
-      p_tax: Number(body.tax || 0),
-      p_paid_amount: Number(body.paidAmount || 0),
+      p_discount: discount,
+      p_tax: tax,
+      p_paid_amount: paidAmount,
       p_payment_method: body.paymentMethod ? String(body.paymentMethod) : "cash",
       p_reference: body.reference ? String(body.reference) : null,
       p_notes: body.notes ? String(body.notes) : null,
@@ -379,7 +410,15 @@
       p_store_id: store.id
     });
 
-    if (error) throw error;
+    if (error) {
+      const rpcError = new Error(error.message || "Sale request failed.");
+      Object.assign(rpcError, error);
+      // Only known rejection classes are definitive. Connection failures (08xxx),
+      // transaction-outcome-unknown (40003), and gateway/pool failures remain
+      // ambiguous so the UI preserves the key and prevents duplicate sales.
+      rpcError.definitive = typeof error.code === "string" && /^(?:(?:22|23|28|2D|3D|3F|42|P0)[0-9A-Z]{3}|PGRST[1-6][0-9]{2})$/.test(error.code);
+      throw rpcError;
+    }
 
     const result = data || {};
     return {

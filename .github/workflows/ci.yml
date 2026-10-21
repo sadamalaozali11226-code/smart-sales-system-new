@@ -2,9 +2,14 @@ name: CI
 
 on:
   pull_request:
-    branches: [main]
+    branches:
+      - main
+      - audit/priority-integrity-*
   push:
-    branches: [main]
+    branches:
+      - main
+      - audit/priority-integrity-*
+      - fix/sale-confirmation-ui-*
 
 permissions:
   contents: read
@@ -73,3 +78,144 @@ jobs:
             exit 1
           fi
           grep -q "Expected one supplier balance validation pattern" /tmp/supplier-migration-reapply.log
+
+      - name: Verify narrow TRUNCATE revocation in isolated PostgreSQL fixture
+        run: |
+          psql -v ON_ERROR_STOP=1 -f tests/fixtures/truncate-privilege-baseline.sql
+          psql -v ON_ERROR_STOP=1 -f tests/fixtures/truncate-privilege-revoke.sql
+          psql -v ON_ERROR_STOP=1 -f tests/fixtures/truncate-privilege-assertions.sql
+
+      - name: Verify existing and default TRUNCATE revocation for both creator roles
+        run: |
+          psql -v ON_ERROR_STOP=1 -f tests/fixtures/truncate-default-privilege-baseline.sql
+          psql -v ON_ERROR_STOP=1 -f tests/fixtures/truncate-default-privilege-revoke.sql
+          psql -v ON_ERROR_STOP=1 -f tests/fixtures/truncate-default-privilege-assertions.sql
+
+      - name: Test the actual public TRUNCATE migration in isolated PostgreSQL
+        run: |
+          psql -v ON_ERROR_STOP=1 -f tests/fixtures/truncate-public-migration-baseline.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261019090000_revoke_client_truncate_public.sql
+          psql -v ON_ERROR_STOP=1 -f tests/fixtures/truncate-public-migration-assertions.sql
+
+      - name: Test durable sale idempotency in an isolated database
+        run: |
+          createdb sale_idempotency_test
+          psql -d sale_idempotency_test -v ON_ERROR_STOP=1 -f tests/fixtures/sale-idempotency-baseline.sql
+          psql -d sale_idempotency_test -v ON_ERROR_STOP=1 -f supabase/migrations/20261021100000_add_sale_idempotency.sql
+          psql -d sale_idempotency_test -v ON_ERROR_STOP=1 -f tests/fixtures/sale-idempotency-assertions.sql
+          # Seed a stored response, reapply the migration, and verify the response survives.
+          psql -d sale_idempotency_test -v ON_ERROR_STOP=1 <<'SQL'
+          insert into private.sale_idempotency_requests
+            (organization_id, store_id, idempotency_key, payload, response)
+          values
+            ('40000000-0000-0000-0000-000000000001',
+             '50000000-0000-0000-0000-000000000001',
+             '60000000-0000-0000-0000-000000000001',
+             '{"sentinel":true}'::jsonb, '{"sentinel":true}'::jsonb);
+          SQL
+          psql -d sale_idempotency_test -v ON_ERROR_STOP=1 -f supabase/migrations/20261021100000_add_sale_idempotency.sql
+          psql -d sale_idempotency_test -v ON_ERROR_STOP=1 <<'SQL'
+          do $test$
+          begin
+            if not exists (
+              select 1 from private.sale_idempotency_requests
+               where idempotency_key = '60000000-0000-0000-0000-000000000001'
+                 and response = '{"sentinel":true}'::jsonb
+            ) then
+              raise exception 'reapplying migration lost a stored idempotency response';
+            end if;
+          end;
+          $test$;
+          SQL
+
+      - name: Verify idempotency migration rejects an incompatible pre-existing table
+        run: |
+          createdb sale_idempotency_incompatible_test
+          psql -d sale_idempotency_incompatible_test -v ON_ERROR_STOP=1 -f tests/fixtures/sale-idempotency-baseline.sql
+          psql -d sale_idempotency_incompatible_test -v ON_ERROR_STOP=1 <<'SQL'
+          create table private.sale_idempotency_requests (
+            organization_id uuid not null,
+            store_id uuid not null,
+            idempotency_key uuid not null,
+            payload_hash text not null,
+            response jsonb not null,
+            created_at timestamptz not null default now(),
+            primary key (organization_id, store_id, idempotency_key)
+          );
+          SQL
+          if psql -d sale_idempotency_incompatible_test -v ON_ERROR_STOP=1 -f supabase/migrations/20261021100000_add_sale_idempotency.sql > /tmp/sale-idempotency-schema-check.log 2>&1; then
+            echo "Migration unexpectedly accepted an incompatible idempotency table."
+            cat /tmp/sale-idempotency-schema-check.log
+            exit 1
+          fi
+          grep -q "missing, incompatible, or nullable columns: payload" /tmp/sale-idempotency-schema-check.log
+          psql -d sale_idempotency_incompatible_test -v ON_ERROR_STOP=1 <<'SQL'
+          do $test$
+          begin
+            if to_regprocedure('public.create_sale_transaction(uuid,uuid,uuid,text,bigint,jsonb,numeric,numeric,numeric,text,text,text)') is not null then
+              raise exception 'migration created the public wrapper despite incompatible table schema';
+            end if;
+          end;
+          $test$;
+          SQL
+
+      - name: Test idempotency against the real sale transaction implementation
+        run: |
+          createdb sale_business_test
+          psql -d sale_business_test -v ON_ERROR_STOP=1 -f tests/fixtures/sale-business-baseline.sql
+          psql -d sale_business_test -v ON_ERROR_STOP=1 -f supabase/migrations/20261006202000_harden_sales_numbering_and_payments.sql
+          psql -d sale_business_test -v ON_ERROR_STOP=1 -f supabase/migrations/20261021100000_add_sale_idempotency.sql
+          psql -d sale_business_test -v ON_ERROR_STOP=1 -f tests/fixtures/sale-business-assertions.sql
+          # Concurrent requests against the real sale transaction must return one result.
+          AUTH_ID="00000000-0000-0000-0000-000000000001"
+          ORG_ID="20000000-0000-0000-0000-000000000001"
+          STORE_ID="30000000-0000-0000-0000-000000000001"
+          PRODUCT_ID="$(psql -d sale_business_test -At -v ON_ERROR_STOP=1 -c 'select id from public.products limit 1')"
+          CONCURRENT_KEY="10000000-0000-4000-8000-000000000004"
+          SQL="with auth as materialized (select set_config('request.jwt.claim.sub', '$AUTH_ID', true)) select public.create_sale_transaction('$CONCURRENT_KEY'::uuid, '$ORG_ID'::uuid, '$STORE_ID'::uuid, null, null, jsonb_build_array(jsonb_build_object('product_id', $PRODUCT_ID, 'quantity', 1, 'discount', 0)), 0, 0, 0, 'cash', null, 'concurrent business integration') from auth;"
+          psql -d sale_business_test -At -v ON_ERROR_STOP=1 -c "$SQL" > /tmp/sale-business-retry-a.out &
+          PID_A=$!
+          psql -d sale_business_test -At -v ON_ERROR_STOP=1 -c "$SQL" > /tmp/sale-business-retry-b.out &
+          PID_B=$!
+          wait "$PID_A"
+          wait "$PID_B"
+          if [ "$(cat /tmp/sale-business-retry-a.out)" != "$(cat /tmp/sale-business-retry-b.out)" ]; then
+            echo "Concurrent business sale retries returned different responses."
+            cat /tmp/sale-business-retry-a.out /tmp/sale-business-retry-b.out
+            exit 1
+          fi
+          psql -d sale_business_test -v ON_ERROR_STOP=1 <<'SQL'
+          do $test$
+          begin
+            if (select count(*) from public.sales) <> 3 then
+              raise exception 'concurrent retries created duplicate sales';
+            end if;
+            if (select count(*) from private.sale_idempotency_requests) <> 3 then
+              raise exception 'concurrent retries did not create exactly one idempotency row';
+            end if;
+            if (select quantity from public.store_products limit 1) <> 6 then
+              raise exception 'concurrent retries decremented stock more than once';
+            end if;
+            if (select count(*) from public.inventory_movements) <> 3 then
+              raise exception 'concurrent retries duplicated inventory movements';
+            end if;
+          end;
+          $test$;
+          SQL
+          # Reapplying the wrapper migration must preserve actual sale and stock state.
+          psql -d sale_business_test -v ON_ERROR_STOP=1 -f supabase/migrations/20261021100000_add_sale_idempotency.sql
+          psql -d sale_business_test -v ON_ERROR_STOP=1 <<'SQL'
+          do $test$
+          begin
+            if (select count(*) from public.sales) <> 3 then
+              raise exception 'migration reapply changed existing sale rows';
+            end if;
+            if (select count(*) from private.sale_idempotency_requests) <> 3 then
+              raise exception 'migration reapply changed idempotency records';
+            end if;
+            if (select quantity from public.store_products limit 1) <> 6 then
+              raise exception 'migration reapply changed inventory quantity';
+            end if;
+          end;
+          $test$;
+          SQL
