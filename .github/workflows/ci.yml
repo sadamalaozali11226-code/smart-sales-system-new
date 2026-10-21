@@ -128,6 +128,37 @@ jobs:
           $test$;
           SQL
 
+      - name: Verify idempotency migration rejects an incompatible pre-existing table
+        run: |
+          createdb sale_idempotency_incompatible_test
+          psql -d sale_idempotency_incompatible_test -v ON_ERROR_STOP=1 -f tests/fixtures/sale-idempotency-baseline.sql
+          psql -d sale_idempotency_incompatible_test -v ON_ERROR_STOP=1 <<'SQL'
+          create table private.sale_idempotency_requests (
+            organization_id uuid not null,
+            store_id uuid not null,
+            idempotency_key uuid not null,
+            payload_hash text not null,
+            response jsonb not null,
+            created_at timestamptz not null default now(),
+            primary key (organization_id, store_id, idempotency_key)
+          );
+          SQL
+          if psql -d sale_idempotency_incompatible_test -v ON_ERROR_STOP=1 -f supabase/migrations/20261021100000_add_sale_idempotency.sql > /tmp/sale-idempotency-schema-check.log 2>&1; then
+            echo "Migration unexpectedly accepted an incompatible idempotency table."
+            cat /tmp/sale-idempotency-schema-check.log
+            exit 1
+          fi
+          grep -q "missing or incompatible columns: payload" /tmp/sale-idempotency-schema-check.log
+          psql -d sale_idempotency_incompatible_test -v ON_ERROR_STOP=1 <<'SQL'
+          do $test$
+          begin
+            if to_regprocedure('public.create_sale_transaction(uuid,uuid,uuid,text,bigint,jsonb,numeric,numeric,numeric,text,text,text)') is not null then
+              raise exception 'migration created the public wrapper despite incompatible table schema';
+            end if;
+          end;
+          $test$;
+          SQL
+
       - name: Test idempotency against the real sale transaction implementation
         run: |
           createdb sale_business_test
