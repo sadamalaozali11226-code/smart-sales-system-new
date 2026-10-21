@@ -183,8 +183,8 @@ $function$;
 revoke all on function public.create_sale_transaction(uuid,uuid,uuid,text,bigint,jsonb,numeric,numeric,numeric,text,text,text) from public, anon;
 grant execute on function public.create_sale_transaction(uuid,uuid,uuid,text,bigint,jsonb,numeric,numeric,numeric,text,text,text) to authenticated;
 
--- Remove the legacy public overload so PostgREST cannot resolve a retry to the
--- non-idempotent entry point when clients omit p_idempotency_key.
-drop function if exists public.create_sale_transaction(uuid,uuid,text,bigint,jsonb,numeric,numeric,numeric,text,text,text);
-
+-- Keep the legacy overload during rollout so already-open tabs and older deployed
+-- clients continue to create sales. New clients pass p_idempotency_key and resolve to
+-- the idempotent overload. Remove this compatibility path only in a later release,
+-- after old clients have been retired and the cutover has been verified.
 notify pgrst, 'reload schema';
