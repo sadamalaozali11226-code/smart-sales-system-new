@@ -35,6 +35,18 @@ against a disposable/local or explicitly approved staging project first.
    the old RPC overload until old clients are retired and a cleanup migration is
    separately reviewed and approved.
 
+## Schema drift note
+
+A read-only comparison of the live production function with the checked-in historical
+migration `20261006202000_harden_sales_numbering_and_payments.sql` found a body-level
+difference: the live function handles `store_products.cost_known` when recording
+cost totals, while the historical migration body does not. The idempotency candidate
+does not replace the underlying sale function, and its preflight checks signature,
+`SECURITY DEFINER`, and pinned `search_path`; nevertheless, the repository-based
+business integration test cannot prove every detail of the live function body.
+Keep staging acceptance as a release gate and do not rewrite the historical migration
+as a shortcut.
+
 ## Required acceptance tests
 
 - [ ] A normal sale produces exactly one sale, expected invoice, and correct stock
@@ -74,8 +86,13 @@ against a disposable/local or explicitly approved staging project first.
 
 ## Current verified state
 
-- CI and disposable local Supabase tests passed on commit
-  `26cdff3160bdd1528b871637ce8022ca58cce8da`.
-- This runbook is a documentation-only addition; its commit must pass CI before
-  being treated as part of the final validated candidate.
+- CI run #303 passed on candidate commit
+  `8f5fb653374d522de0ae294e3655f7b81a20d1bd`. It now tests the checked-in sale
+  transaction implementation end-to-end in an isolated PostgreSQL database:
+  invoice numbering, totals/payment status, stock decrement, inventory movements,
+  payment and audit rows, same-key retry, changed-payload rejection, insufficient
+  stock rollback, authorization rejection, concurrent same-key requests, and
+  migration reapplication without data loss.
+- Disposable Supabase local run #95 was still running at the last status check; do
+  not mark it passed until its final conclusion is successful.
 - Production migration and production deployment remain unapplied.
