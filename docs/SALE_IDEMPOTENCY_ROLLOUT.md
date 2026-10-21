@@ -86,13 +86,15 @@ as a shortcut.
 
 ## Current verified state
 
-- CI run #303 passed on candidate commit
-  `8f5fb653374d522de0ae294e3655f7b81a20d1bd`. It now tests the checked-in sale
-  transaction implementation end-to-end in an isolated PostgreSQL database:
-  invoice numbering, totals/payment status, stock decrement, inventory movements,
-  payment and audit rows, same-key retry, changed-payload rejection, insufficient
-  stock rollback, authorization rejection, concurrent same-key requests, and
-  migration reapplication without data loss.
-- Disposable Supabase local run #95 was still running at the last status check; do
-  not mark it passed until its final conclusion is successful.
+- CI run #309 passed on candidate commit
+  `0318be77747d8512e396fea5d3cd75d849ed7056`: [run #309](https://github.com/sadamalaozali11226-code/smart-sales-system-new/actions/runs/39666429315).
+  It tests the checked-in sale transaction implementation end-to-end in isolated
+  PostgreSQL: invoice numbering, totals/payment status, stock decrement, inventory
+  movements, payment/audit rows, same-key retry, changed-payload rejection,
+  insufficient-stock rollback, authorization rejection, concurrent same-key
+  requests, incompatible pre-existing table rejection, and migration reapplication
+  without data loss.
+- Disposable Supabase local run #99 was still running at the last status check:
+  [run #99](https://github.com/sadamalaozali11226-code/smart-sales-system-new/actions/runs/39666429370).
+  Do not mark it passed until its final conclusion is successful.
 - Production migration and production deployment remain unapplied.
