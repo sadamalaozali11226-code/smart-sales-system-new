@@ -13,6 +13,7 @@ on:
     paths:
       - "supabase/migrations/20261021100000_add_sale_idempotency.sql"
       - "tests/fixtures/sale-idempotency-*.sql"
+      - "tests/sale-rpc-postgrest-smoke.js"
       - ".github/workflows/supabase-local-sale-test.yml"
   workflow_dispatch:
 
@@ -110,7 +111,7 @@ jobs:
           SQL
 
           # Exercise named-argument resolution and durable retries through the actual local PostgREST HTTP API.
-          eval "$(supabase status -o env)"
+          eval "$(cd /tmp/supabase-sale-test && supabase status -o env)"
           export SUPABASE_API_URL="${API_URL:?missing local Supabase API_URL}"
           export SUPABASE_ANON_KEY="${ANON_KEY:?missing local Supabase ANON_KEY}"
           export SUPABASE_JWT_SECRET="${JWT_SECRET:?missing local Supabase JWT_SECRET}"
