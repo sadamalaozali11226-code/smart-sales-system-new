@@ -64,6 +64,16 @@ begin
     raise exception 'idempotency table must have row-level security enabled';
   end if;
 
+  if exists (
+    select 1
+      from information_schema.columns
+     where table_schema = 'private'
+       and table_name = 'sale_idempotency_requests'
+       and is_nullable <> 'NO'
+  ) then
+    raise exception 'all idempotency request columns must be NOT NULL';
+  end if;
+
   -- The SECURITY DEFINER helper must own the protected table (or otherwise be
   -- granted deliberate access); production migration ownership is expected to
   -- make both objects owned by the migration role, never a client role.
