@@ -94,7 +94,7 @@ begin
     'payment_method', p_payment_method,
     'reference', p_reference,
     'notes', p_notes
-  )::text);
+  );
 
   -- Serialize retries for this key. Store and compare canonical JSONB directly so
   -- payload equality never depends on a collision-prone digest.
