@@ -31,7 +31,7 @@ create table if not exists private.sale_idempotency_requests (
   organization_id uuid not null,
   store_id uuid not null,
   idempotency_key uuid not null,
-  payload_hash text not null,
+  payload jsonb not null,
   response jsonb not null,
   created_at timestamptz not null default now(),
   primary key (organization_id, store_id, idempotency_key)
@@ -62,8 +62,8 @@ security definer
 set search_path = ''
 as $function$
 declare
-  v_payload_hash text;
-  v_existing_hash text;
+  v_payload jsonb;
+  v_existing_payload jsonb;
   v_response jsonb;
 begin
   if auth.uid() is null then
@@ -82,7 +82,7 @@ begin
     raise exception 'sales.create permission required';
   end if;
 
-  v_payload_hash := md5(jsonb_build_object(
+  v_payload := jsonb_build_object(
     'organization_id', p_organization_id,
     'store_id', p_store_id,
     'invoice_number', p_invoice_number,
@@ -96,22 +96,22 @@ begin
     'notes', p_notes
   )::text);
 
-  -- Serialize retries for this key. Hash collisions only serialize unrelated requests;
-  -- the table's primary key remains the authoritative uniqueness constraint.
+  -- Serialize retries for this key. Store and compare canonical JSONB directly so
+  -- payload equality never depends on a collision-prone digest.
   perform pg_advisory_xact_lock(hashtextextended(
     p_organization_id::text || ':' || p_store_id::text || ':' || p_idempotency_key::text,
     0
   ));
 
-  select payload_hash, response
-    into v_existing_hash, v_response
+  select payload, response
+    into v_existing_payload, v_response
     from private.sale_idempotency_requests
    where organization_id = p_organization_id
      and store_id = p_store_id
      and idempotency_key = p_idempotency_key;
 
   if found then
-    if v_existing_hash <> v_payload_hash then
+    if v_existing_payload <> v_payload then
       raise exception 'idempotency key was already used for a different sale payload';
     end if;
     return v_response;
@@ -132,9 +132,9 @@ begin
   );
 
   insert into private.sale_idempotency_requests (
-    organization_id, store_id, idempotency_key, payload_hash, response
+    organization_id, store_id, idempotency_key, payload, response
   ) values (
-    p_organization_id, p_store_id, p_idempotency_key, v_payload_hash, v_response
+    p_organization_id, p_store_id, p_idempotency_key, v_payload, v_response
   );
 
   return v_response;
