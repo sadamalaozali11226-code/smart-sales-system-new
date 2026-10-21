@@ -37,6 +37,52 @@ create table if not exists private.sale_idempotency_requests (
   primary key (organization_id, store_id, idempotency_key)
 );
 
+-- CREATE TABLE IF NOT EXISTS does not validate an existing table's shape. Fail
+-- closed before replacing functions if a partial/older installation is incompatible.
+do $schema_check$
+declare
+  v_incompatible_columns text;
+begin
+  select string_agg(required.column_name, ', ' order by required.column_name)
+    into v_incompatible_columns
+    from (values
+      ('organization_id', 'uuid'),
+      ('store_id', 'uuid'),
+      ('idempotency_key', 'uuid'),
+      ('payload', 'jsonb'),
+      ('response', 'jsonb'),
+      ('created_at', 'timestamptz')
+    ) as required(column_name, expected_type)
+    left join information_schema.columns c
+      on c.table_schema = 'private'
+     and c.table_name = 'sale_idempotency_requests'
+     and c.column_name = required.column_name
+   where c.column_name is null
+      or c.udt_name <> required.expected_type;
+
+  if v_incompatible_columns is not null then
+    raise exception 'Cannot install sale idempotency: private.sale_idempotency_requests has missing or incompatible columns: %',
+      v_incompatible_columns;
+  end if;
+
+  if not exists (
+    select 1
+      from pg_constraint con
+     where con.conrelid = 'private.sale_idempotency_requests'::regclass
+       and con.contype = 'p'
+       and (
+         select array_agg(a.attname order by key_column.ordinality)
+           from unnest(con.conkey) with ordinality as key_column(attnum, ordinality)
+           join pg_attribute a
+             on a.attrelid = con.conrelid
+            and a.attnum = key_column.attnum
+       ) = array['organization_id', 'store_id', 'idempotency_key']::name[]
+  ) then
+    raise exception 'Cannot install sale idempotency: expected composite primary key is missing from private.sale_idempotency_requests';
+  end if;
+end;
+$schema_check$;
+
 -- Defense in depth: the SECURITY DEFINER helper owns the table; client roles have no policy.
 alter table private.sale_idempotency_requests enable row level security;
 
