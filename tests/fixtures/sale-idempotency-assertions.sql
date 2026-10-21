@@ -86,8 +86,8 @@ begin
     raise exception 'SECURITY DEFINER helper must not be owned by a client role';
   end if;
 
-  if to_regprocedure('public.create_sale_transaction(uuid,uuid,text,bigint,jsonb,numeric,numeric,numeric,text,text,text)') is not null then
-    raise exception 'legacy non-idempotent public RPC overload must be removed';
+  if to_regprocedure('public.create_sale_transaction(uuid,uuid,text,bigint,jsonb,numeric,numeric,numeric,text,text,text)') is null then
+    raise exception 'legacy public RPC overload must remain available during rolling rollout';
   end if;
 
   select prosecdef into v_public_security_definer
@@ -132,6 +132,13 @@ begin
     raise exception 'anon role must not have direct access to the idempotency table';
   end if;
 
+  -- Existing deployed clients omit p_idempotency_key. Keep that old RPC available
+  -- during rollout so deploying the migration before the frontend does not break sales.
+  v_first := public.create_sale_transaction(
+    v_org, v_store, null, null, v_items, 0, 0, 0, 'cash', null, null
+  );
+  if v_first->>'sale_id' <> '1' then raise exception 'legacy sale RPC compatibility path failed'; end if;
+
   v_first := public.create_sale_transaction(
     v_key, v_org, v_store, null, null, v_items, 0, 0, 0, 'cash', null, null
   );
@@ -141,7 +148,7 @@ begin
   if v_first <> v_retry then raise exception 'retry did not return the original sale response'; end if;
 
   select call_count into v_calls from private.sale_calls;
-  if v_calls <> 1 then raise exception 'expected one underlying sale call after retry, got %', v_calls; end if;
+  if v_calls <> 2 then raise exception 'expected legacy call plus one idempotent sale after retry, got %', v_calls; end if;
 
   begin
     perform public.create_sale_transaction(
@@ -158,9 +165,9 @@ begin
   v_second := public.create_sale_transaction(
     v_other_key, v_org, v_store, null, null, v_items, 0, 0, 0, 'cash', null, null
   );
-  if v_second->>'sale_id' <> '2' then raise exception 'new key did not create a new sale'; end if;
+  if v_second->>'sale_id' <> '3' then raise exception 'new key did not create a new sale'; end if;
 
   select call_count into v_calls from private.sale_calls;
-  if v_calls <> 2 then raise exception 'expected two underlying sale calls for two keys, got %', v_calls; end if;
+  if v_calls <> 3 then raise exception 'expected legacy sale plus two idempotent keys, got %', v_calls; end if;
 end;
 $test$;
