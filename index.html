@@ -4430,12 +4430,13 @@ if (!window.SmartSalesAPI) {
     const PENDING_SALE_STORAGE_KEY = "smart-sales-pending-sale-v1";
 
     function newSaleIdempotencyKey() {
-      const bytes = new Uint8Array(16);
-      if (window.crypto && typeof window.crypto.getRandomValues === "function") {
-        window.crypto.getRandomValues(bytes);
-      } else {
-        for (let i = 0; i < bytes.length; i += 1) bytes[i] = Math.floor(Math.random() * 256);
+      if (!window.crypto || typeof window.crypto.getRandomValues !== "function") {
+        const error = new Error("SECURE_SALE_KEY_UNAVAILABLE");
+        error.code = "SECURE_SALE_KEY_UNAVAILABLE";
+        throw error;
       }
+      const bytes = new Uint8Array(16);
+      window.crypto.getRandomValues(bytes);
       bytes[6] = (bytes[6] & 0x0f) | 0x40;
       bytes[8] = (bytes[8] & 0x3f) | 0x80;
       const hex = [...bytes].map(value => value.toString(16).padStart(2, "0")).join("");
@@ -4450,11 +4451,26 @@ if (!window.SmartSalesAPI) {
         try {
           pending = JSON.parse(saved);
         } catch (_) {
-          pending = null;
+          const error = new Error("PENDING_SALE_STATE_INVALID");
+          error.code = "PENDING_SALE_STATE_INVALID";
+          throw error;
+        }
+        if (
+          !pending ||
+          typeof pending !== "object" ||
+          Array.isArray(pending) ||
+          typeof pending.key !== "string" ||
+          !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(pending.key) ||
+          typeof pending.fingerprint !== "string" ||
+          pending.fingerprint.length === 0
+        ) {
+          const error = new Error("PENDING_SALE_STATE_INVALID");
+          error.code = "PENDING_SALE_STATE_INVALID";
+          throw error;
         }
       }
 
-      if (pending && pending.key && pending.fingerprint && pending.fingerprint !== fingerprint) {
+      if (pending && pending.fingerprint !== fingerprint) {
         const verifiedNoSale = window.confirm(
           currentLanguage === "ar"
             ? "توجد عملية بيع سابقة لم تُحسم نتيجتها. لا تتابع إلا بعد فحص سجل الفواتير والتأكد من أن البيع السابق لم يُسجّل. هل تحققت وتريد بدء عملية جديدة؟"
@@ -4574,11 +4590,21 @@ if (!window.SmartSalesAPI) {
       try {
         idempotencyKey = getSaleIdempotencyKey(saleRequest);
       } catch (error) {
-        console.error("Could not persist the sale request key.", error);
+        console.error("Could not safely recover or persist the sale request key.", error);
+        const pendingStateIsInvalid = error && error.code === "PENDING_SALE_STATE_INVALID";
+        const secureKeyUnavailable = error && error.code === "SECURE_SALE_KEY_UNAVAILABLE";
         showMessage(
-          currentLanguage === "ar"
-            ? "تعذر حفظ معرّف العملية الآمن في هذا المتصفح. لم يتم إرسال البيع؛ فعّل التخزين المحلي ثم أعد المحاولة."
-            : "Could not save the safe request key in this browser. The sale was not submitted; enable local storage and try again.",
+          pendingStateIsInvalid
+            ? (currentLanguage === "ar"
+                ? "تعذر قراءة حالة عملية البيع السابقة. لا تبدأ بيعًا جديدًا قبل مراجعة سجل الفواتير والتحقق من نتيجة العملية السابقة."
+                : "The previous sale state could not be read. Do not start a new sale until invoice history has been checked and the previous outcome is verified.")
+            : secureKeyUnavailable
+              ? (currentLanguage === "ar"
+                  ? "هذا المتصفح لا يوفر توليدًا آمنًا لمعرّف العملية. لم يُرسل طلب بيع جديد."
+                  : "This browser does not provide secure request-key generation. No new sale request was sent.")
+              : (currentLanguage === "ar"
+                  ? "تعذر حفظ معرّف العملية الآمن في هذا المتصفح. لم يُرسل طلب البيع الجديد؛ تحقق من إعدادات التخزين ثم أعد المحاولة."
+                  : "Could not save the safe request key in this browser. The new sale request was not sent; check storage settings and try again."),
           true
         );
         return;
