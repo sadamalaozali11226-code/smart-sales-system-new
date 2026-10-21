@@ -86,15 +86,15 @@ as a shortcut.
 
 ## Current verified state
 
-- CI run #309 passed on candidate commit
-  `0318be77747d8512e396fea5d3cd75d849ed7056`: [run #309](https://github.com/sadamalaozali11226-code/smart-sales-system-new/actions/runs/39666429315).
-  It tests the checked-in sale transaction implementation end-to-end in isolated
-  PostgreSQL: invoice numbering, totals/payment status, stock decrement, inventory
-  movements, payment/audit rows, same-key retry, changed-payload rejection,
-  insufficient-stock rollback, authorization rejection, concurrent same-key
-  requests, incompatible pre-existing table rejection, and migration reapplication
-  without data loss.
-- Disposable Supabase local run #99 was still running at the last status check:
-  [run #99](https://github.com/sadamalaozali11226-code/smart-sales-system-new/actions/runs/39666429370).
-  Do not mark it passed until its final conclusion is successful.
-- Production migration and production deployment remain unapplied.
+- Functional candidate commit `eaa4e24c389e724108d92fa2b55a809cf3349f86` passed CI run #311:
+  https://github.com/sadamalaozali11226-code/smart-sales-system-new/actions/runs/39666789282
+- The same candidate passed disposable Supabase local run #100:
+  https://github.com/sadamalaozali11226-code/smart-sales-system-new/actions/runs/39666789256
+- CI verifies the checked-in sale transaction implementation in isolated PostgreSQL, including invoice numbering, totals/payment state, stock decrement, inventory movements, payment/audit rows, same-key retry, changed-payload rejection, insufficient-stock rollback, authorization rejection, concurrent same-key requests, incompatible pre-existing table rejection, and migration reapplication without data loss.
+- Local Supabase run verifies migration and RPC behavior on a disposable Supabase stack. It is not a staging test of the actual production project.
+- The latest branch preview deployment for the candidate is READY and responds HTTP 200:
+  https://smart-sales-system-cnx3d6uob-my-project-3093.vercel.app
+  This confirms the preview is serving the app, not that authenticated end-to-end sales have been performed against a staging database.
+- A read-only production check confirms `private.sale_idempotency_requests` is still absent and the legacy public RPC is still available. The candidate migration has not been applied to production.
+- PR #50 remains Draft and unmerged. Its base is `audit/priority-integrity-2026-10-18`; before merging, confirm that this is the intended integration target because it differs from `main`.
+- Production migration and production deployment remain unapplied. Do not release until a restorable backup, staging acceptance, and explicit release approval are in place.
