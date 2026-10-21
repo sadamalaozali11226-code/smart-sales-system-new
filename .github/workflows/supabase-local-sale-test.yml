@@ -7,6 +7,7 @@ on:
     paths:
       - "supabase/migrations/20261021100000_add_sale_idempotency.sql"
       - "tests/fixtures/sale-idempotency-*.sql"
+      - "tests/sale-rpc-postgrest-smoke.js"
       - ".github/workflows/supabase-local-sale-test.yml"
   pull_request:
     paths:
@@ -103,6 +104,26 @@ jobs:
             if (select count(*) from private.sale_idempotency_requests
                  where idempotency_key = '70000000-0000-4000-8000-000000000001') <> 1 then
               raise exception 'expected one idempotency record for concurrent retries';
+            end if;
+          end;
+          $test$;
+          SQL
+
+          # Exercise named-argument resolution and durable retries through the actual local PostgREST HTTP API.
+          eval "$(supabase status -o env)"
+          export SUPABASE_API_URL="${API_URL:?missing local Supabase API_URL}"
+          export SUPABASE_ANON_KEY="${ANON_KEY:?missing local Supabase ANON_KEY}"
+          export SUPABASE_JWT_SECRET="${JWT_SECRET:?missing local Supabase JWT_SECRET}"
+          node tests/sale-rpc-postgrest-smoke.js
+          psql "$DB_URL" -v ON_ERROR_STOP=1 <<'SQL'
+          do $test$
+          begin
+            if (select call_count from private.sale_calls) <> 5 then
+              raise exception 'PostgREST retry did not create exactly one underlying sale';
+            end if;
+            if (select count(*) from private.sale_idempotency_requests
+                 where idempotency_key = '90000000-0000-4000-8000-000000000001') <> 1 then
+              raise exception 'PostgREST retry must persist exactly one idempotency record';
             end if;
           end;
           $test$;
