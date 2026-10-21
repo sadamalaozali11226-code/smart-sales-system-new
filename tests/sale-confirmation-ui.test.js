@@ -78,6 +78,21 @@ test("sale requests persist and reuse a durable idempotency key after an uncerta
   assert.match(confirmSale, /data = await SmartSalesAPI\.createSale\(saleRequest\)/);
 });
 
+
+test("invalid persisted sale state fails closed instead of silently generating a new key", () => {
+  assert.match(html, /PENDING_SALE_STATE_INVALID/);
+  assert.match(html, /typeof pending\.key !== "string"/);
+  assert.match(html, /typeof pending\.fingerprint !== "string"/);
+  assert.match(html, /Do not start a new sale until invoice history has been checked/);
+  assert.doesNotMatch(html, /catch \(_\) \{\s*pending = null;\s*\}/);
+});
+
+test("sale idempotency keys require cryptographically secure randomness", () => {
+  assert.match(html, /SECURE_SALE_KEY_UNAVAILABLE/);
+  assert.match(html, /window\.crypto\.getRandomValues\(bytes\)/);
+  assert.doesNotMatch(html, /Math\.random\(\) \* 256/);
+});
+
 test("inline scripts still parse after the sale-flow change", () => {
   const inlineScripts = [...html.matchAll(/<script\b(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/gi)];
   assert.ok(inlineScripts.length > 0, "Expected inline scripts in index.html");
