@@ -148,7 +148,7 @@ jobs:
             cat /tmp/sale-idempotency-schema-check.log
             exit 1
           fi
-          grep -q "missing or incompatible columns: payload" /tmp/sale-idempotency-schema-check.log
+          grep -q "missing, incompatible, or nullable columns: payload" /tmp/sale-idempotency-schema-check.log
           psql -d sale_idempotency_incompatible_test -v ON_ERROR_STOP=1 <<'SQL'
           do $test$
           begin
