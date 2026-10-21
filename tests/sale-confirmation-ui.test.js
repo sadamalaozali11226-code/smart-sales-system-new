@@ -71,7 +71,7 @@ test("definitive sale rejections clear the pending key and re-enable the form", 
 test("refresh failures are isolated and do not prevent other views from refreshing", () => {
   assert.match(confirmSale, /Promise\.allSettled\(\[/);
   assert.match(confirmSale, /loadProducts\(\),\s*loadSales\(\),\s*loadSalesHistory\(\)/);
-  assert.match(confirmSale, /error\.definitive === true/);
+  assert.ok(confirmSale.includes('typeof error.definitive === "boolean" ? error.definitive'));
 });
 
 
