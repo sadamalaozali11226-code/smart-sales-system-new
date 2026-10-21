@@ -4443,8 +4443,25 @@ if (!window.SmartSalesAPI) {
       return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
     }
 
-    function getSaleIdempotencyKey(payload) {
-      const fingerprint = JSON.stringify(payload);
+    function getSaleIdempotencyKey(payload, saleContext) {
+      if (
+        !saleContext ||
+        !saleContext.organization ||
+        saleContext.organization.id == null ||
+        !saleContext.store ||
+        saleContext.store.id == null
+      ) {
+        const error = new Error("SALE_CONTEXT_UNAVAILABLE");
+        error.code = "SALE_CONTEXT_UNAVAILABLE";
+        throw error;
+      }
+      // The same cart can be sold in different organizations/stores. Include the
+      // authenticated context so an uncertain sale key can never silently cross scopes.
+      const fingerprint = JSON.stringify({
+        organizationId: String(saleContext.organization.id),
+        storeId: String(saleContext.store.id),
+        payload
+      });
       let pending = null;
       let saved;
       try {
@@ -4595,7 +4612,10 @@ if (!window.SmartSalesAPI) {
 
       let idempotencyKey;
       try {
-        idempotencyKey = getSaleIdempotencyKey(saleRequest);
+        const saleContext = window.SmartSalesAuth && typeof window.SmartSalesAuth.getContext === "function"
+          ? window.SmartSalesAuth.getContext()
+          : null;
+        idempotencyKey = getSaleIdempotencyKey(saleRequest, saleContext);
       } catch (error) {
         console.error("Could not safely recover or persist the sale request key.", error);
         const pendingStateIsInvalid = error && error.code === "PENDING_SALE_STATE_INVALID";
