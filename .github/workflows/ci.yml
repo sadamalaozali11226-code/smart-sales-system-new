@@ -127,3 +127,28 @@ jobs:
           end;
           $test$;
           SQL
+
+      - name: Test idempotency against the real sale transaction implementation
+        run: |
+          createdb sale_business_test
+          psql -d sale_business_test -v ON_ERROR_STOP=1 -f tests/fixtures/sale-business-baseline.sql
+          psql -d sale_business_test -v ON_ERROR_STOP=1 -f supabase/migrations/20261006202000_harden_sales_numbering_and_payments.sql
+          psql -d sale_business_test -v ON_ERROR_STOP=1 -f supabase/migrations/20261021100000_add_sale_idempotency.sql
+          psql -d sale_business_test -v ON_ERROR_STOP=1 -f tests/fixtures/sale-business-assertions.sql
+          # Reapplying the wrapper migration must preserve actual sale and stock state.
+          psql -d sale_business_test -v ON_ERROR_STOP=1 -f supabase/migrations/20261021100000_add_sale_idempotency.sql
+          psql -d sale_business_test -v ON_ERROR_STOP=1 <<'SQL'
+          do $test$
+          begin
+            if (select count(*) from public.sales) <> 2 then
+              raise exception 'migration reapply changed existing sale rows';
+            end if;
+            if (select count(*) from private.sale_idempotency_requests) <> 2 then
+              raise exception 'migration reapply changed idempotency records';
+            end if;
+            if (select quantity from public.store_products limit 1) <> 7 then
+              raise exception 'migration reapply changed inventory quantity';
+            end if;
+          end;
+          $test$;
+          SQL
