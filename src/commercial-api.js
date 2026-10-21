@@ -360,9 +360,28 @@
       !Number.isInteger(item.product_id) ||
       item.product_id <= 0 ||
       !Number.isInteger(item.quantity) ||
-      item.quantity <= 0
+      item.quantity <= 0 ||
+      !Number.isFinite(item.discount) ||
+      item.discount < 0
     )) {
       const error = new Error("Invalid sale items.");
+      error.definitive = true;
+      throw error;
+    }
+
+    const customerId = body.customerId == null || body.customerId === "" ? null : Number(body.customerId);
+    const discount = Number(body.discount || 0);
+    const tax = Number(body.tax || 0);
+    const paidAmount = Number(body.paidAmount || 0);
+
+    if (customerId !== null && (!Number.isInteger(customerId) || customerId <= 0)) {
+      const error = new Error("Invalid customer id.");
+      error.definitive = true;
+      throw error;
+    }
+
+    if ([discount, tax, paidAmount].some(value => !Number.isFinite(value) || value < 0)) {
+      const error = new Error("Invalid sale amounts.");
       error.definitive = true;
       throw error;
     }
@@ -379,11 +398,11 @@
     const { data, error } = await client().rpc("create_sale_transaction", {
       p_idempotency_key: idempotencyKey,
       p_invoice_number: invoice,
-      p_customer_id: body.customerId == null || body.customerId === "" ? null : Number(body.customerId),
+      p_customer_id: customerId,
       p_items: normalizedItems,
-      p_discount: Number(body.discount || 0),
-      p_tax: Number(body.tax || 0),
-      p_paid_amount: Number(body.paidAmount || 0),
+      p_discount: discount,
+      p_tax: tax,
+      p_paid_amount: paidAmount,
       p_payment_method: body.paymentMethod ? String(body.paymentMethod) : "cash",
       p_reference: body.reference ? String(body.reference) : null,
       p_notes: body.notes ? String(body.notes) : null,
