@@ -52,6 +52,16 @@ test("ambiguous submission errors warn the operator and prevent immediate blind 
   assert.doesNotMatch(ambiguousBranch, /button\.disabled\s*=\s*false/);
 });
 
+test("definitive sale rejections clear the pending key and re-enable the form", () => {
+  const rejectionBranch = confirmSale.slice(
+    confirmSale.indexOf("if (hasDefinitiveServerError)"),
+    confirmSale.indexOf("} else {", confirmSale.indexOf("if (hasDefinitiveServerError)"))
+  );
+  assert.match(rejectionBranch, /clearPendingSaleIdempotencyKey\(idempotencyKey\)/);
+  assert.match(rejectionBranch, /saleSubmissionInProgress = false/);
+  assert.match(rejectionBranch, /button\.disabled = false/);
+});
+
 test("refresh failures are isolated and do not prevent other views from refreshing", () => {
   assert.match(confirmSale, /Promise\.allSettled\(\[/);
   assert.match(confirmSale, /loadProducts\(\),\s*loadSales\(\),\s*loadSalesHistory\(\)/);
