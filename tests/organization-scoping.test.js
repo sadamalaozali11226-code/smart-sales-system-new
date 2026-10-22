@@ -57,3 +57,14 @@ test("customer list is explicitly scoped to the active organization", async () =
   assert.ok(customers, "customers query should run");
   assert.ok(customers.filters.some(([column, value]) => column === "organization_id" && value === "org-a"));
 });
+
+
+test("inline fallback also scopes product and customer lists to the active organization", () => {
+  const html = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8");
+  const fallbackStart = html.indexOf("if (!window.SmartSalesAPI)");
+  const fallbackEnd = html.indexOf("</script>", fallbackStart);
+  assert.ok(fallbackStart >= 0 && fallbackEnd > fallbackStart, "Expected inline API fallback");
+  const fallback = html.slice(fallbackStart, fallbackEnd);
+  assert.match(fallback, /\.from\("products"\)[\s\S]*?\.eq\("organization_id", organization\.id\)/);
+  assert.match(fallback, /\.from\("customers"\)[\s\S]*?\.eq\("organization_id", organization\.id\)/);
+});
