@@ -200,4 +200,49 @@ test("inline deployment fallback keeps the same sale RPC and error propagation c
   assert.match(fallback, /PGRST\[1-6\]\[0-9\]\{2\}/);
   assert.doesNotMatch(fallback, /\[0-9A-Z\]\{5\}/);
   assert.match(fallback, /saleId: result\.sale_id == null \? null : Number\(result\.sale_id\)/);
+  assert.match(fallback, /At least one purchase receipt allocation is required/);
+  assert.match(fallback, /allocatedAmount-amount/);
+});
+
+
+test("supplier payment API rejects empty allocations before calling the database", async () => {
+  const { api, calls } = loadApi(() => ({ data: null, error: null }));
+  await assert.rejects(
+    api.recordSupplierPayment({ supplierId: 7, amount: 20, allocations: [] }),
+    /At least one purchase receipt allocation is required/
+  );
+  assert.equal(calls.length, 0);
+});
+
+test("supplier payment API rejects allocations that do not equal the payment amount", async () => {
+  const { api, calls } = loadApi(() => ({ data: null, error: null }));
+  await assert.rejects(
+    api.recordSupplierPayment({
+      supplierId: 7,
+      amount: 20,
+      allocations: [{ purchase_receipt_id: 41, amount: 19.99 }]
+    }),
+    /must equal the total allocated amount/
+  );
+  assert.equal(calls.length, 0);
+});
+
+test("supplier payment API allows exact allocation totals despite floating point addition", async () => {
+  const { api, calls } = loadApi(() => ({ data: { id: 12 }, error: null }));
+  const result = await api.recordSupplierPayment({
+    supplierId: 7,
+    amount: 0.3,
+    allocations: [
+      { purchase_receipt_id: 41, amount: 0.1 },
+      { purchase_receipt_id: 42, amount: 0.2 }
+    ]
+  });
+  assert.equal(result.id, 12);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].name, "record_supplier_payment");
+  assert.equal(calls[0].args.p_amount, 0.3);
+  assert.deepEqual(JSON.parse(JSON.stringify(calls[0].args.p_allocations)), [
+    { purchase_receipt_id: 41, amount: 0.1 },
+    { purchase_receipt_id: 42, amount: 0.2 }
+  ]);
 });
