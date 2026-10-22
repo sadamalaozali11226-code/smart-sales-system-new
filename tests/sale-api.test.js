@@ -202,7 +202,7 @@ test("inline deployment fallback keeps the same sale RPC and error propagation c
   assert.match(fallback, /saleId: result\.sale_id == null \? null : Number\(result\.sale_id\)/);
   assert.match(fallback, /At least one purchase receipt allocation is required/);
   assert.match(fallback, /allocatedAmount-amount/);
-  assert.match(fallback, /itemRefundTotal-refundAmount/);
+  assert.match(fallback, /itemRefundTotal\\s*-\\s*refundAmount/);
 });
 
 
