@@ -202,6 +202,7 @@ test("inline deployment fallback keeps the same sale RPC and error propagation c
   assert.match(fallback, /saleId: result\.sale_id == null \? null : Number\(result\.sale_id\)/);
   assert.match(fallback, /At least one purchase receipt allocation is required/);
   assert.match(fallback, /allocatedAmount-amount/);
+  assert.match(fallback, /itemRefundTotal-refundAmount/);
 });
 
 
@@ -245,4 +246,32 @@ test("supplier payment API allows exact allocation totals despite floating point
     { purchase_receipt_id: 41, amount: 0.1 },
     { purchase_receipt_id: 42, amount: 0.2 }
   ]);
+});
+
+
+test("sale return API rejects a header refund that differs from item refund allocations", async () => {
+  const { api, calls } = loadApi(() => ({ data: null, error: null }));
+  await assert.rejects(
+    api.returnSale({
+      saleId: 41,
+      refundAmount: 12,
+      items: [{ sale_item_id: 1, quantity: 1, refund_amount: 0 }]
+    }),
+    /must equal the total item refund allocation/
+  );
+  assert.equal(calls.length, 0);
+});
+
+test("sale return API forwards matching header and item refund allocations", async () => {
+  const { api, calls } = loadApi(() => ({ data: { id: 5 }, error: null }));
+  const result = await api.returnSale({
+    saleId: 41,
+    refundAmount: 12.01,
+    items: [{ sale_item_id: 1, quantity: 1, refund_amount: 12.01 }]
+  });
+  assert.equal(result.id, 5);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].name, "return_sale_items");
+  assert.equal(calls[0].args.p_refund_amount, 12.01);
+  assert.equal(calls[0].args.p_items[0].refund_amount, 12.01);
 });
