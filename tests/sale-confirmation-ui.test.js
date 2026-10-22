@@ -119,3 +119,49 @@ test("inline scripts still parse after the sale-flow change", () => {
     );
   });
 });
+
+
+test("sale return refund is allocated to item rows and sums to the requested refund", () => {
+  const helperStart = html.indexOf("    function allocateSaleReturnRefund(");
+  const helperEnd = html.indexOf("    async function confirmSaleReturn()", helperStart);
+  assert.ok(helperStart >= 0 && helperEnd > helperStart, "Expected refund allocation helper");
+  const helperSource = html.slice(helperStart, helperEnd).trim();
+  const allocate = vm.runInNewContext(`(${helperSource})`);
+  const invoice = {
+    subtotal: 100,
+    total: 110,
+    items: [
+      { id: 1, quantity: 2, total: 50 },
+      { id: 2, quantity: 2, total: 50 }
+    ]
+  };
+  const items = [
+    { sale_item_id: 1, quantity: 1 },
+    { sale_item_id: 2, quantity: 1 }
+  ];
+  const allocated = allocate(invoice, items, 30.01);
+  assert.equal(
+    Math.round(allocated.reduce((sum, item) => sum + item.refund_amount, 0) * 100),
+    3001
+  );
+  assert.ok(allocated.every(item => item.refund_amount >= 0 && item.refund_amount <= 27.5));
+});
+
+test("sale return refund allocation rejects an amount above returned net item value", () => {
+  const helperStart = html.indexOf("    function allocateSaleReturnRefund(");
+  const helperEnd = html.indexOf("    async function confirmSaleReturn()", helperStart);
+  const allocate = vm.runInNewContext(`(${html.slice(helperStart, helperEnd).trim()})`);
+  assert.throws(() => allocate({
+    subtotal: 100,
+    total: 110,
+    items: [{ id: 1, quantity: 1, total: 100 }]
+  }, [{ sale_item_id: 1, quantity: 1 }], 110.01), /القيمة الصافية/);
+});
+
+test("sale return confirmation passes calculated item refund amounts instead of zero-valued rows", () => {
+  const start = html.indexOf("    async function confirmSaleReturn()");
+  const end = html.indexOf("    function ", start + 10);
+  const confirmation = html.slice(start, end);
+  assert.match(confirmation, /allocateSaleReturnRefund\(selectedReturnInvoice, selectedItems, refundAmount\)/);
+  assert.match(confirmation, /items,\s*refundAmount,/);
+});
