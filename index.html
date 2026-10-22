@@ -5701,10 +5701,75 @@ if (!window.SmartSalesAPI) {
       selectedReturnInvoice = null;
     }
 
+    function allocateSaleReturnRefund(invoice, items, refundAmount) {
+      const requestedCents = Math.round(Number(refundAmount) * 100);
+      if (!Number.isSafeInteger(requestedCents) || requestedCents < 0) {
+        throw new Error("مبلغ الاسترداد غير صحيح.");
+      }
+
+      const subtotal = Number(invoice && invoice.subtotal || 0);
+      const saleTotal = Number(invoice && invoice.total || 0);
+      const weightedItems = items.map(item => {
+        const saleItem = (invoice.items || []).find(
+          candidate => Number(candidate.id) === Number(item.sale_item_id)
+        );
+        const soldQuantity = Number(saleItem && saleItem.quantity || 0);
+        const lineTotal = Number(saleItem && saleItem.total || 0);
+        const quantity = Number(item.quantity || 0);
+        const returnedValue = subtotal > 0 && soldQuantity > 0
+          ? Math.max(0, (lineTotal * saleTotal / subtotal) * (quantity / soldQuantity))
+          : 0;
+        return {
+          ...item,
+          capCents: Math.max(0, Math.round(returnedValue * 100))
+        };
+      });
+
+      const totalCapCents = weightedItems.reduce((sum, item) => sum + item.capCents, 0);
+      if (requestedCents > totalCapCents) {
+        throw new Error("مبلغ الاسترداد يتجاوز القيمة الصافية للأصناف المرتجعة.");
+      }
+      if (requestedCents === 0 || totalCapCents === 0) {
+        return weightedItems.map(item => ({ ...item, refund_amount: 0 }));
+      }
+
+      let assignedCents = 0;
+      const allocations = weightedItems.map((item, index) => {
+        const numerator = requestedCents * item.capCents;
+        const baseCents = Math.min(item.capCents, Math.floor(numerator / totalCapCents));
+        assignedCents += baseCents;
+        return {
+          ...item,
+          index,
+          refundCents: baseCents,
+          remainder: numerator % totalCapCents
+        };
+      });
+
+      let remainingCents = requestedCents - assignedCents;
+      const priority = [...allocations].sort((a, b) => b.remainder - a.remainder || a.index - b.index);
+      for (const item of priority) {
+        if (remainingCents <= 0) break;
+        if (item.refundCents < item.capCents) {
+          item.refundCents += 1;
+          remainingCents -= 1;
+        }
+      }
+      if (remainingCents !== 0) {
+        throw new Error("تعذر توزيع مبلغ الاسترداد على بنود المرتجع بدقة.");
+      }
+
+      return allocations.map(item => ({
+        sale_item_id: item.sale_item_id,
+        quantity: item.quantity,
+        refund_amount: item.refundCents / 100
+      }));
+    }
+
     async function confirmSaleReturn() {
       if (!selectedReturnInvoice) return;
       const inputs = [...document.querySelectorAll("[data-return-sale-item]")];
-      const items = inputs.map(input => ({
+      const selectedItems = inputs.map(input => ({
         sale_item_id: Number(input.dataset.returnSaleItem),
         quantity: Number(input.value || 0),
         refund_amount: 0
@@ -5716,6 +5781,13 @@ if (!window.SmartSalesAPI) {
       const refundAmount = Number(document.getElementById("saleReturnRefundAmount").value || 0);
       if (!Number.isFinite(refundAmount) || refundAmount < 0) {
         showMessage("مبلغ الاسترداد غير صحيح.", true);
+        return;
+      }
+      let items;
+      try {
+        items = allocateSaleReturnRefund(selectedReturnInvoice, selectedItems, refundAmount);
+      } catch (error) {
+        showMessage(error.message || "مبلغ الاسترداد غير صحيح.", true);
         return;
       }
       const button = document.getElementById("confirmSaleReturnButton");
