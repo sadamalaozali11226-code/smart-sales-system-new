@@ -87,12 +87,13 @@
 
   async function products() {
     const supabase = client();
-    const { store } = context();
+    const { organization, store } = context();
 
     const [p, sp] = await Promise.all([
       supabase
         .from("products")
         .select("id,name,price,organization_id")
+        .eq("organization_id", organization.id)
         .order("id"),
       supabase
         .from("store_products")
@@ -117,9 +118,11 @@
   }
 
   async function customers() {
+    const { organization } = context();
     const { data, error } = await client()
       .from("customers")
       .select("id,name,phone,address,notes,created_at")
+      .eq("organization_id", organization.id)
       .order("id");
 
     if (error) throw error;
