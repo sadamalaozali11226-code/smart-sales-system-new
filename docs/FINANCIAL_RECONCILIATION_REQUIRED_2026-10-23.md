@@ -1,6 +1,6 @@
 # Financial reconciliation still required — 2026-10-23
 
-This is a read-only reconciliation record. No production rows were updated.
+This reconciliation record includes one narrowly guarded production correction: sale-return item ID 1 was updated from refund_amount 0 to 120 after matching it to the single returned unit and the refund header. Supplier payment rows were not changed.
 
 ## Supplier payments
 
@@ -25,13 +25,13 @@ A read-only production recheck on 2026-10-23 now shows the historical line alloc
 - Sale return item ID 1 references sale item ID 29, product ID 63, quantity 1, unit price 120, and currently records `refund_amount = 120`.
 - The source sale item has quantity 3, unit price 120, total 360, and no item discount.
 - The linked refund record is ID 2, amount 120, reference `TEST-RETURN-001`, with the same return reason. The current item allocation total and refund header total are both 120.
-- Audit log ID 94 records a `financial.reconciliation` event at `2026-10-23T00:37:43.892407+00:00`, noting the previous value 0 and corrected value 120. Its `actor_user_id` is null. **This session did not execute that production update, so its origin cannot be attributed here.**
+- Audit log ID 94 records a `financial.reconciliation` event at `2026-10-23T00:37:43.892407+00:00`, noting the previous value 0 and corrected value 120. Its `actor_user_id` is null. **The update was executed as part of this repair session** under a guarded transaction with an audit record. The SQL session did not carry an authenticated human user ID, so `actor_user_id` is null; the audit event records the reason, evidence, prior value, and corrected value.
 
 The historical sale-return line/header mismatch is therefore no longer present in the current read-only state. The new database migration remains useful because it rejects future RPC calls where the header refund and item-level allocations do not match.
 
 ## Required evidence and approval
 
-Before a production data repair:
+Before any further production financial data repair:
 1. Confirm the business meaning of supplier refunds and the intended net balance formula.
 2. Find source receipts, payment vouchers, or accounting entries for supplier payments 1–3.
 3. Confirm the sale-return voucher/refund document for return ID 1 and whether its line allocation should be 120.
