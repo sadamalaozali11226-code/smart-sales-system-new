@@ -15,6 +15,12 @@ VALUES (1,1,'sale',-2,'sale',1,'22000000-0000-4000-8000-000000000001','33000000-
 INSERT INTO public.audit_logs(id,organization_id,store_id,action,entity_type,entity_id,metadata)
 VALUES (1,'22000000-0000-4000-8000-000000000001','33000000-0000-4000-8000-000000000001','sale.created','sale','1','{}'::jsonb);
 
+-- Explicit fixture IDs must advance identity sequences before RPC-generated rows.
+SELECT setval(pg_get_serial_sequence('public.inventory_movements','id'),
+              (SELECT max(id) FROM public.inventory_movements), true);
+SELECT setval(pg_get_serial_sequence('public.audit_logs','id'),
+              (SELECT max(id) FROM public.audit_logs), true);
+
 SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub','11000000-0000-4000-8000-000000000001',true);
 SELECT set_config('test.is_org_store_member','true',true);
