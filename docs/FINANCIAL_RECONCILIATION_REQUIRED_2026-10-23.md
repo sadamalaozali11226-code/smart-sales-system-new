@@ -20,13 +20,14 @@ Receipt 5 also has a completed purchase return of 100 and a linked supplier refu
 
 ## Sale return
 
-The current production data contains:
+A read-only production recheck on 2026-10-23 now shows the historical line allocation is reconciled:
 - Sale return header ID 1 for sale ID 22, reason `اختبار مرتجع بيع`, note `اختبار إعادة التكلفة إلى المخزون`.
-- Sale return item ID 1 references sale item ID 29, product ID 63, quantity 1, unit price 120, and recorded `refund_amount = 0`.
+- Sale return item ID 1 references sale item ID 29, product ID 63, quantity 1, unit price 120, and currently records `refund_amount = 120`.
 - The source sale item has quantity 3, unit price 120, total 360, and no item discount.
-- The linked refund record is ID 2, amount 120, reference `TEST-RETURN-001`, with the same return reason.
+- The linked refund record is ID 2, amount 120, reference `TEST-RETURN-001`, with the same return reason. The current item allocation total and refund header total are both 120.
+- Audit log ID 94 records a `financial.reconciliation` event at `2026-10-23T00:37:43.892407+00:00`, noting the previous value 0 and corrected value 120. Its `actor_user_id` is null. **This session did not execute that production update, so its origin cannot be attributed here.**
 
-The available records strongly indicate the item-level allocation should be 120 for the one returned unit, but this is still a historical financial-detail correction. It was not changed in production. The new database migration prevents future return RPC calls from creating a nonzero refund header with zero item allocations.
+The historical sale-return line/header mismatch is therefore no longer present in the current read-only state. The new database migration remains useful because it rejects future RPC calls where the header refund and item-level allocations do not match.
 
 ## Required evidence and approval
 
