@@ -29,18 +29,17 @@ Verified table names match between production and staging for all 31 public appl
 | Indexes | 121 | 122 |
 | Functions/procedures | 110 | 112 |
 | RLS policies | 31 | 31 |
-| Non-internal triggers | 4 | 4 |
+| Non-internal triggers | 4 | 7 |
 
 All 31 staging RLS policies match the production policy definitions exactly. All public application tables have RLS enabled. Staging contains no production business data. A disposable staging table confirmed that anonymous/authenticated roles cannot TRUNCATE a newly created public table.
 
 ## Tests
 
-- GitHub CI: passed on the current PR head.
-- Supabase local sale migration test: passed on the current PR head.
-- Vercel Preview: READY/success on the current PR head.
+- GitHub CI and the local Supabase sale migration test passed on code head `47b6691e0894ed348565216213f1be6d05260cf4`.
+- The latest PR head adds the purchase-return/refund hard-delete migration and its isolated PostgreSQL regression test; those latest workflow runs are pending. The intervening commits after the last green code head were documentation-only until this migration/test addition.
+- Vercel Preview: READY/success on the latest verified code head; a new preview for the hard-delete migration commit is pending.
 - Staging SQL acceptance: passed for sale idempotency (identical retry, changed-payload rejection, distinct request key, stock/audit invariants); valid/mismatched sale returns; paid sale cancellation with one refund and stock restoration; customer payment allocation and atomic overpayment rejection; supplier payment allocation and atomic incomplete-allocation rejection; tenant RLS isolation; and current/future client TRUNCATE restrictions, and hard-delete rejection across seven supplier purchase/return financial tables. All synthetic fixture writes were rolled back.
 - A new migration adds database hard-delete guards to `purchase_returns`, `purchase_return_items`, and `supplier_refunds`, reusing the existing guard function. The staging acceptance test confirmed all seven purchase/payment/return/refund tables reject hard deletion.
-- GitHub CI passed on PR head `47b6691e0894ed348565216213f1be6d05260cf4`, including the isolated PostgreSQL return-allocation migration test. The local Supabase sale migration workflow also passed on that head.
 - These results do not replace full browser-based end-to-end acceptance across all modules.
 
 ## Deterministic historical correction
