@@ -34,7 +34,7 @@ The historical sale-return line/header mismatch is therefore no longer present i
 Before any further production financial data repair:
 1. Confirm the business meaning of supplier refunds and the intended net balance formula.
 2. Find source receipts, payment vouchers, or accounting entries for supplier payments 1–3.
-3. Confirm the sale-return voucher/refund document for return ID 1 and whether its line allocation should be 120.
-4. Approve the exact row-level changes and the post-repair reconciliation checks.
+3. The test-return line was already corrected to 120 under guarded conditions; do not change it again unless source documentation contradicts the recorded sale line and refund header.
+4. Approve any exact row-level changes for supplier payments and the post-repair reconciliation checks.
 
 After approval, repairs must be narrowly guarded by primary keys and expected current values, run with a backup and transaction, and followed by checks of payment totals, allocations, receipt balances, return totals, and inventory movements. No historical amount should be inferred solely to make totals agree.
