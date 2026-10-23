@@ -5756,7 +5756,7 @@ if (!window.SmartSalesAPI) {
           : 0;
         return {
           ...item,
-          capCents: Math.max(0, Math.round(returnedValue * 100))
+          capCents: Math.max(0, Math.round((returnedValue + 1e-9) * 100))
         };
       });
 
