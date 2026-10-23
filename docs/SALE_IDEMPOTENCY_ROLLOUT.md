@@ -84,19 +84,16 @@ as a shortcut.
 - Restore from backup only under the project's incident procedure and after
   assessing data loss since the backup.
 
-## Current verified state
+## Current status and release gates (updated 2026-10-23)
 
-- Functional candidate commit `eaa4e24c389e724108d92fa2b55a809cf3349f86` passed CI run #311 and disposable Supabase local run #100.
-- Current branch head `6e6cc696d8a1c1d888eec8e45cdb058d6ecc7ff3` also passed CI run #313:
-  https://github.com/sadamalaozali11226-code/smart-sales-system-new/actions/runs/39669301857
-- The same current head passed disposable Supabase local run #101:
-  https://github.com/sadamalaozali11226-code/smart-sales-system-new/actions/runs/39669301665
-- The current-head CI adds a compatibility guard that rejects an incompatible pre-existing idempotency table before creating the new public RPC wrapper.
-- CI verifies the checked-in sale transaction implementation in isolated PostgreSQL, including invoice numbering, totals/payment state, stock decrement, inventory movements, payment/audit rows, same-key retry, changed-payload rejection, insufficient-stock rollback, authorization rejection, concurrent same-key requests, incompatible pre-existing table rejection, and migration reapplication without data loss.
-- Local Supabase run verifies migration and RPC behavior on a disposable Supabase stack. It is not a staging test of the actual production project.
-- The latest branch preview deployment for the candidate is READY and responds HTTP 200:
-  https://smart-sales-system-cnx3d6uob-my-project-3093.vercel.app
-  This confirms the preview is serving the app, not that authenticated end-to-end sales have been performed against a staging database.
-- A read-only production check confirms `private.sale_idempotency_requests` is still absent and the legacy public RPC is still available. The candidate migration has not been applied to production.
-- PR #50 remains Draft and unmerged. Its base is `audit/priority-integrity-2026-10-18`; before merging, confirm that this is the intended integration target because it differs from `main`.
-- Production migration and production deployment remain unapplied. Do not release until a restorable backup, staging acceptance, and explicit release approval are in place.
+- Candidate pull request: [PR #51](https://github.com/sadamalaozali11226-code/smart-sales-system-new/pull/51), base `main`, open as Draft and not merged.
+- The candidate adds durable sale idempotency, organization scoping for product/customer lists (including the inline fallback), item-level sale-return refund allocation, validation that return-line allocations equal the refund header, and pre-RPC supplier-payment allocation validation.
+- GitHub Actions CI and the disposable local Supabase workflow are required for the exact latest PR head. Prior passing runs only prove the commits they tested; they do not certify later edits. Use the PR's current checks rather than treating historical run numbers as proof for the latest commit.
+- Vercel Preview is an automatically generated preview of the web app. A READY/HTTP 200 preview does not prove authenticated sales or returns against a staging database.
+- Existing Supabase staging project `jqedxgdstifezjrtgucw` is active but currently has an empty schema and migration history. Do not apply the candidate migration to it until a trustworthy baseline is prepared.
+- Production project `kpllyyeirhdjwvkrwspg` has not received the candidate idempotency migration. The last read-only check found the idempotency table and candidate RPC absent; no production migration or deployment was performed.
+- Production has 57 migration-history entries while the repository has 39 migration files, with renames/re-numbering and missing historical source bodies. The repository is not yet a trustworthy standalone reconstruction of the live schema. Do not invent a baseline, rewrite history, or apply all files sequentially as a workaround.
+- No paid Supabase development branch has been created. The quoted branch rate was `$0.01344/hour`; a new paid resource requires separate explicit cost approval.
+- The current code changes do not reconcile historical financial records. The supplier-payment allocation discrepancy and sale-return item refund discrepancy must be reconciled against source documents before changing old rows. Never automatically allocate old supplier payments or rewrite historical refund amounts based only on aggregates.
+- Production release remains blocked on a restorable backup, trustworthy schema provenance/baseline, staging end-to-end acceptance with non-production data, financial/inventory reconciliation, and separate explicit approval to apply production migrations or deploy.
+
