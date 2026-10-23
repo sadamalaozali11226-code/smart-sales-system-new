@@ -87,12 +87,13 @@
 
   async function products() {
     const supabase = client();
-    const { store } = context();
+    const { organization, store } = context();
 
     const [p, sp] = await Promise.all([
       supabase
         .from("products")
         .select("id,name,price,organization_id")
+        .eq("organization_id", organization.id)
         .order("id"),
       supabase
         .from("store_products")
@@ -117,9 +118,11 @@
   }
 
   async function customers() {
+    const { organization } = context();
     const { data, error } = await client()
       .from("customers")
       .select("id,name,phone,address,notes,created_at")
+      .eq("organization_id", organization.id)
       .order("id");
 
     if (error) throw error;
@@ -345,7 +348,9 @@
     const { organization, store } = context();
     const items = Array.isArray(body.items) ? body.items : [];
     if (items.length === 0) {
-      throw new Error("At least one sale item is required.");
+      const error = new Error("At least one sale item is required.");
+      error.definitive = true;
+      throw error;
     }
 
     const normalizedItems = items.map(item => ({
@@ -358,20 +363,49 @@
       !Number.isInteger(item.product_id) ||
       item.product_id <= 0 ||
       !Number.isInteger(item.quantity) ||
-      item.quantity <= 0
+      item.quantity <= 0 ||
+      !Number.isFinite(item.discount) ||
+      item.discount < 0
     )) {
-      throw new Error("Invalid sale items.");
+      const error = new Error("Invalid sale items.");
+      error.definitive = true;
+      throw error;
+    }
+
+    const customerId = body.customerId == null || body.customerId === "" ? null : Number(body.customerId);
+    const discount = Number(body.discount || 0);
+    const tax = Number(body.tax || 0);
+    const paidAmount = Number(body.paidAmount || 0);
+
+    if (customerId !== null && (!Number.isInteger(customerId) || customerId <= 0)) {
+      const error = new Error("Invalid customer id.");
+      error.definitive = true;
+      throw error;
+    }
+
+    if ([discount, tax, paidAmount].some(value => !Number.isFinite(value) || value < 0)) {
+      const error = new Error("Invalid sale amounts.");
+      error.definitive = true;
+      throw error;
+    }
+
+    const idempotencyKey = String(body.idempotencyKey || "").trim();
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(idempotencyKey)) {
+      const error = new Error("A valid sale idempotency key is required.");
+      error.definitive = true;
+      throw error;
     }
 
     const invoice = null; // Invoice number is generated atomically by the database.
 
     const { data, error } = await client().rpc("create_sale_transaction", {
+      p_idempotency_key: idempotencyKey,
       p_invoice_number: invoice,
-      p_customer_id: body.customerId == null || body.customerId === "" ? null : Number(body.customerId),
+      p_customer_id: customerId,
       p_items: normalizedItems,
-      p_discount: Number(body.discount || 0),
-      p_tax: Number(body.tax || 0),
-      p_paid_amount: Number(body.paidAmount || 0),
+      p_discount: discount,
+      p_tax: tax,
+      p_paid_amount: paidAmount,
       p_payment_method: body.paymentMethod ? String(body.paymentMethod) : "cash",
       p_reference: body.reference ? String(body.reference) : null,
       p_notes: body.notes ? String(body.notes) : null,
@@ -379,7 +413,15 @@
       p_store_id: store.id
     });
 
-    if (error) throw error;
+    if (error) {
+      const rpcError = new Error(error.message || "Sale request failed.");
+      Object.assign(rpcError, error);
+      // Only known rejection classes are definitive. Connection failures (08xxx),
+      // transaction-outcome-unknown (40003), and gateway/pool failures remain
+      // ambiguous so the UI preserves the key and prevents duplicate sales.
+      rpcError.definitive = typeof error.code === "string" && /^(?:(?:22|23|28|2D|3D|3F|42|P0)[0-9A-Z]{3}|PGRST[1-6][0-9]{2})$/.test(error.code);
+      throw rpcError;
+    }
 
     const result = data || {};
     return {
@@ -406,6 +448,15 @@
       !Number.isFinite(item.refund_amount) || item.refund_amount < 0
     )) throw new Error("Invalid sale return items.");
 
+    const refundAmount = Number(body.refundAmount || 0);
+    if (!Number.isFinite(refundAmount) || refundAmount < 0) {
+      throw new Error("Invalid sale refund amount.");
+    }
+    const itemRefundTotal = normalizedItems.reduce((sum, item) => sum + item.refund_amount, 0);
+    if (Math.abs(itemRefundTotal - refundAmount) > 0.000001) {
+      throw new Error("Sale refund amount must equal the total item refund allocation.");
+    }
+
     const { data, error } = await client().rpc("return_sale_items", {
       p_organization_id: organization.id,
       p_store_id: store.id,
@@ -413,7 +464,7 @@
       p_items: normalizedItems,
       p_reason: body.reason ? String(body.reason).trim() : null,
       p_notes: body.notes ? String(body.notes).trim() : null,
-      p_refund_amount: Number(body.refundAmount || 0),
+      p_refund_amount: refundAmount,
       p_refund_payment_method: body.refundPaymentMethod ? String(body.refundPaymentMethod) : "cash",
       p_refund_reference: body.refundReference ? String(body.refundReference).trim() : null
     });
@@ -658,12 +709,23 @@
 
   async function recordSupplierPayment(body) {
     const { organization, store } = context();
+    const amount = Number(body.amount);
+    const supplierId = Number(body.supplierId);
     const allocations = Array.isArray(body.allocations) ? body.allocations : [];
     const normalizedAllocations = allocations.map(item => ({
       purchase_receipt_id: Number(item.purchase_receipt_id),
       amount: Number(item.amount)
     }));
 
+    if (!Number.isInteger(supplierId) || supplierId <= 0) {
+      throw new Error("A valid supplier is required.");
+    }
+    if (!Number.isFinite(amount) || amount <= 0) {
+      throw new Error("Supplier payment amount must be greater than zero.");
+    }
+    if (normalizedAllocations.length === 0) {
+      throw new Error("At least one purchase receipt allocation is required.");
+    }
     if (normalizedAllocations.some(item =>
       !Number.isInteger(item.purchase_receipt_id) ||
       item.purchase_receipt_id <= 0 ||
@@ -672,12 +734,16 @@
     )) {
       throw new Error("Invalid supplier payment allocations.");
     }
+    const allocatedAmount = normalizedAllocations.reduce((sum, item) => sum + item.amount, 0);
+    if (Math.abs(allocatedAmount - amount) > 0.000001) {
+      throw new Error("Supplier payment amount must equal the total allocated amount.");
+    }
 
     const { data, error } = await client().rpc("record_supplier_payment", {
       p_organization_id: organization.id,
       p_store_id: store.id,
-      p_supplier_id: Number(body.supplierId),
-      p_amount: Number(body.amount),
+      p_supplier_id: supplierId,
+      p_amount: amount,
       p_payment_method: body.paymentMethod ? String(body.paymentMethod) : "cash",
       p_reference: body.reference ? String(body.reference) : null,
       p_notes: body.notes ? String(body.notes) : null,

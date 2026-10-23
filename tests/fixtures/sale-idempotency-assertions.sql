@@ -1,0 +1,183 @@
+\set ON_ERROR_STOP on
+do $test$
+declare
+  v_first jsonb;
+  v_retry jsonb;
+  v_second jsonb;
+  v_calls integer;
+  v_public_security_definer boolean;
+  v_helper_security_definer boolean;
+  v_helper_search_path text;
+  v_key uuid := '10000000-0000-0000-0000-000000000001';
+  v_other_key uuid := '10000000-0000-0000-0000-000000000002';
+  v_org uuid := '20000000-0000-0000-0000-000000000001';
+  v_store uuid := '30000000-0000-0000-0000-000000000001';
+  v_items jsonb := '[{"product_id":1,"quantity":2,"discount":0}]'::jsonb;
+begin
+  -- Supply a deterministic authenticated subject to Supabase's built-in auth.uid().
+  perform set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000001', true);
+
+  -- An unauthenticated request must fail before invoking the underlying sale.
+  perform set_config('request.jwt.claim.sub', '', true);
+  begin
+    perform public.create_sale_transaction(
+      v_key, v_org, v_store, null, null, v_items, 0, 0, 0, 'cash', null, null
+    );
+    raise exception 'unauthenticated request unexpectedly succeeded';
+  exception when others then
+    if sqlerrm = 'unauthenticated request unexpectedly succeeded' then raise; end if;
+    if position('authentication required' in sqlerrm) = 0 then raise; end if;
+  end;
+  perform set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000001', true);
+
+  -- Membership is checked before the sale transaction is reached.
+  perform set_config('test.is_org_store_member', 'false', true);
+  begin
+    perform public.create_sale_transaction(
+      v_key, v_org, v_store, null, null, v_items, 0, 0, 0, 'cash', null, null
+    );
+    raise exception 'non-member request unexpectedly succeeded';
+  exception when others then
+    if sqlerrm = 'non-member request unexpectedly succeeded' then raise; end if;
+    if position('not authorized for this store' in sqlerrm) = 0 then raise; end if;
+  end;
+  select call_count into v_calls from private.sale_calls;
+  if v_calls <> 0 then raise exception 'unauthorized store member reached underlying sale'; end if;
+  perform set_config('test.is_org_store_member', 'true', true);
+
+  -- The create permission is independently enforced after membership succeeds.
+  perform set_config('test.has_org_permission', 'false', true);
+  begin
+    perform public.create_sale_transaction(
+      v_key, v_org, v_store, null, null, v_items, 0, 0, 0, 'cash', null, null
+    );
+    raise exception 'request without sales.create unexpectedly succeeded';
+  exception when others then
+    if sqlerrm = 'request without sales.create unexpectedly succeeded' then raise; end if;
+    if position('sales.create permission required' in sqlerrm) = 0 then raise; end if;
+  end;
+  select call_count into v_calls from private.sale_calls;
+  if v_calls <> 0 then raise exception 'caller without sales.create reached underlying sale'; end if;
+  perform set_config('test.has_org_permission', 'true', true);
+
+  if not (select relrowsecurity from pg_class where oid = 'private.sale_idempotency_requests'::regclass) then
+    raise exception 'idempotency table must have row-level security enabled';
+  end if;
+
+  if exists (
+    select 1
+      from information_schema.columns
+     where table_schema = 'private'
+       and table_name = 'sale_idempotency_requests'
+       and is_nullable <> 'NO'
+  ) then
+    raise exception 'all idempotency request columns must be NOT NULL';
+  end if;
+
+  -- The SECURITY DEFINER helper must own the protected table (or otherwise be
+  -- granted deliberate access); production migration ownership is expected to
+  -- make both objects owned by the migration role, never a client role.
+  if (
+    select table_owner.rolname
+      from pg_class c
+      join pg_namespace n on n.oid = c.relnamespace
+      join pg_roles table_owner on table_owner.oid = c.relowner
+     where n.nspname = 'private' and c.relname = 'sale_idempotency_requests'
+  ) in ('anon', 'authenticated') then
+    raise exception 'idempotency table must not be owned by a client role';
+  end if;
+
+  if (
+    select function_owner.rolname
+      from pg_proc p
+      join pg_roles function_owner on function_owner.oid = p.proowner
+     where p.oid = 'private.create_sale_transaction_idempotent(uuid,uuid,uuid,text,bigint,jsonb,numeric,numeric,numeric,text,text,text)'::regprocedure
+  ) in ('anon', 'authenticated') then
+    raise exception 'SECURITY DEFINER helper must not be owned by a client role';
+  end if;
+
+  if to_regprocedure('public.create_sale_transaction(uuid,uuid,text,bigint,jsonb,numeric,numeric,numeric,text,text,text)') is null then
+    raise exception 'legacy public RPC overload must remain available during rolling rollout';
+  end if;
+
+  select prosecdef into v_public_security_definer
+    from pg_proc
+   where oid = 'public.create_sale_transaction(uuid,uuid,uuid,text,bigint,jsonb,numeric,numeric,numeric,text,text,text)'::regprocedure;
+  if v_public_security_definer then raise exception 'public RPC wrapper must not be SECURITY DEFINER'; end if;
+
+  select prosecdef, array_to_string(proconfig, ',')
+    into v_helper_security_definer, v_helper_search_path
+    from pg_proc
+   where oid = 'private.create_sale_transaction_idempotent(uuid,uuid,uuid,text,bigint,jsonb,numeric,numeric,numeric,text,text,text)'::regprocedure;
+  if not v_helper_security_definer then raise exception 'internal idempotency helper must be SECURITY DEFINER'; end if;
+  if position('search_path=""' in coalesce(v_helper_search_path, '')) = 0 then
+    raise exception 'internal helper must pin an empty search_path; got %', v_helper_search_path;
+  end if;
+
+  if not has_function_privilege('authenticated', 'public.create_sale_transaction(uuid,uuid,uuid,text,bigint,jsonb,numeric,numeric,numeric,text,text,text)', 'EXECUTE') then
+    raise exception 'authenticated role must be able to execute the public RPC';
+  end if;
+  if has_function_privilege('anon', 'public.create_sale_transaction(uuid,uuid,uuid,text,bigint,jsonb,numeric,numeric,numeric,text,text,text)', 'EXECUTE') then
+    raise exception 'anon role must not be able to execute the public RPC';
+  end if;
+  if not has_schema_privilege('authenticated', 'private', 'USAGE') then
+    raise exception 'authenticated role must have schema USAGE for the invoker RPC';
+  end if;
+  if not has_function_privilege('authenticated', 'private.create_sale_transaction_idempotent(uuid,uuid,uuid,text,bigint,jsonb,numeric,numeric,numeric,text,text,text)', 'EXECUTE') then
+    raise exception 'authenticated role must be able to execute the internal helper';
+  end if;
+  if has_function_privilege('anon', 'private.create_sale_transaction_idempotent(uuid,uuid,uuid,text,bigint,jsonb,numeric,numeric,numeric,text,text,text)', 'EXECUTE') then
+    raise exception 'anon role must not be able to execute the internal helper';
+  end if;
+  if has_table_privilege('authenticated', 'private.sale_idempotency_requests', 'SELECT')
+     or has_table_privilege('authenticated', 'private.sale_idempotency_requests', 'INSERT')
+     or has_table_privilege('authenticated', 'private.sale_idempotency_requests', 'UPDATE')
+     or has_table_privilege('authenticated', 'private.sale_idempotency_requests', 'DELETE') then
+    raise exception 'authenticated role must not have direct access to the idempotency table';
+  end if;
+  if has_table_privilege('anon', 'private.sale_idempotency_requests', 'SELECT')
+     or has_table_privilege('anon', 'private.sale_idempotency_requests', 'INSERT')
+     or has_table_privilege('anon', 'private.sale_idempotency_requests', 'UPDATE')
+     or has_table_privilege('anon', 'private.sale_idempotency_requests', 'DELETE') then
+    raise exception 'anon role must not have direct access to the idempotency table';
+  end if;
+
+  -- Existing deployed clients omit p_idempotency_key. Keep that old RPC available
+  -- during rollout so deploying the migration before the frontend does not break sales.
+  v_first := public.create_sale_transaction(
+    v_org, v_store, null, null, v_items, 0, 0, 0, 'cash', null, null
+  );
+  if v_first->>'sale_id' <> '1' then raise exception 'legacy sale RPC compatibility path failed'; end if;
+
+  v_first := public.create_sale_transaction(
+    v_key, v_org, v_store, null, null, v_items, 0, 0, 0, 'cash', null, null
+  );
+  v_retry := public.create_sale_transaction(
+    v_key, v_org, v_store, null, null, v_items, 0, 0, 0, 'cash', null, null
+  );
+  if v_first <> v_retry then raise exception 'retry did not return the original sale response'; end if;
+
+  select call_count into v_calls from private.sale_calls;
+  if v_calls <> 2 then raise exception 'expected legacy call plus one idempotent sale after retry, got %', v_calls; end if;
+
+  begin
+    perform public.create_sale_transaction(
+      v_key, v_org, v_store, null, null,
+      '[{"product_id":1,"quantity":3,"discount":0}]'::jsonb,
+      0, 0, 0, 'cash', null, null
+    );
+    raise exception 'same key with changed payload unexpectedly succeeded';
+  exception when others then
+    if sqlerrm = 'same key with changed payload unexpectedly succeeded' then raise; end if;
+    if position('different sale payload' in sqlerrm) = 0 then raise; end if;
+  end;
+
+  v_second := public.create_sale_transaction(
+    v_other_key, v_org, v_store, null, null, v_items, 0, 0, 0, 'cash', null, null
+  );
+  if v_second->>'sale_id' <> '3' then raise exception 'new key did not create a new sale'; end if;
+
+  select call_count into v_calls from private.sale_calls;
+  if v_calls <> 3 then raise exception 'expected legacy sale plus two idempotent keys, got %', v_calls; end if;
+end;
+$test$;

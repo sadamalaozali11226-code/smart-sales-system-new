@@ -326,3 +326,37 @@ test("invitation handlers check write failures and never activate a non-invited 
   assert.match(source, /Failed to restore pending invitation after acceptance failure/,
     "Acceptance must attempt to restore pending status when activation fails");
 });
+
+
+test("sale return migration caps quantities, refunds, and preserves unknown historical cost", () => {
+  const migrationPath = path.join(__dirname, "..", "supabase", "migrations",
+    "20261010093246_harden_return_financial_invariants.sql");
+  const migration = fs.readFileSync(migrationPath, "utf8");
+
+  assert.match(migration, /case when v_cost_known then v_unit_cost else null end/,
+    "Sales with unknown cost must not store a fabricated unit cost");
+  assert.match(migration, /v_return_qty\+v_previous_return_qty>v_sale_item\.quantity/,
+    "Cumulative returned quantity must never exceed sold quantity");
+  assert.match(migration, /refund exceeds the net value of returned items/,
+    "Refunds must be capped at the net value of returned items");
+  assert.match(migration, /refund exceeds refundable payment balance/,
+    "Refunds must not exceed the refundable amount actually paid");
+  assert.match(migration, /payments\.refund/,
+    "Refund operations must check the refund permission");
+  assert.match(migration, /refund payment method is required/,
+    "Positive refunds must record a payment method");
+  assert.match(migration, /v_sale_item\.cost_total is null or v_sale_item\.unit_cost is null/,
+    "Returns of items with unknown historical cost must not invent cost data");
+});
+
+test("direct-write lockdown migration covers financial tables but does not silently imply TRUNCATE is revoked", () => {
+  const migrationPath = path.join(__dirname, "..", "supabase", "migrations",
+    "20261007020000_revoke_direct_business_table_writes.sql");
+  const migration = fs.readFileSync(migrationPath, "utf8").toLowerCase();
+
+  assert.match(migration, /revoke insert, update, delete on table[\s\S]*from authenticated/);
+  assert.match(migration, /public\.sales/);
+  assert.match(migration, /public\.sale_items/);
+  assert.doesNotMatch(migration, /revoke\s+truncate/,
+    "Known audit finding: this migration does not revoke TRUNCATE; verify the effective grant separately and do not treat this file as protection against table truncation");
+});
