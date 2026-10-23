@@ -20,7 +20,7 @@ This report describes the isolated repair branch and staging validation. Product
 
 A structure-only snapshot was derived from the live production catalog and applied to the existing staging project. No production business rows were copied.
 
-Verified table names match between production and staging for all 31 public application tables. The expected additions for the candidate changes are the private idempotency table and associated functions/constraints/index. Catalog counts:
+Verified table names match between production and staging for all 31 public application tables. The candidate changes add the private idempotency table and its functions/constraints/index, update the return RPC invariant, and add three hard-delete triggers for purchase returns, return lines, and supplier refunds. Catalog counts:
 
 | Object | Production | Staging |
 |---|---:|---:|
@@ -35,9 +35,9 @@ All 31 staging RLS policies match the production policy definitions exactly. All
 
 ## Tests
 
-- GitHub CI and the local Supabase sale migration test passed on code head `47b6691e0894ed348565216213f1be6d05260cf4`.
-- The latest PR head adds the purchase-return/refund hard-delete migration and its isolated PostgreSQL regression test; those latest workflow runs are pending. The intervening commits after the last green code head were documentation-only until this migration/test addition.
-- Vercel Preview: READY/success on the latest verified code head; a new preview for the hard-delete migration commit is pending.
+- GitHub CI passed on code head `540b0ea05c54833309633b43ef5711855f9ff673`, including the new isolated PostgreSQL hard-delete regression test.
+- The disposable local Supabase sale migration workflow also passed on code head `540b0ea05c54833309633b43ef5711855f9ff673`.
+- Vercel Preview: READY/success for the latest branch commit `b354a984f4864bb3f36967100930238bfe8c90ee`.
 - Staging SQL acceptance: passed for sale idempotency (identical retry, changed-payload rejection, distinct request key, stock/audit invariants); valid/mismatched sale returns; paid sale cancellation with one refund and stock restoration; customer payment allocation and atomic overpayment rejection; supplier payment allocation and atomic incomplete-allocation rejection; tenant RLS isolation; and current/future client TRUNCATE restrictions, and hard-delete rejection across seven supplier purchase/return financial tables. All synthetic fixture writes were rolled back.
 - A new migration adds database hard-delete guards to `purchase_returns`, `purchase_return_items`, and `supplier_refunds`, reusing the existing guard function. The staging acceptance test confirmed all seven purchase/payment/return/refund tables reject hard deletion.
 - These results do not replace full browser-based end-to-end acceptance across all modules.
