@@ -26,6 +26,7 @@ A read-only production recheck on 2026-10-23 now shows the historical line alloc
 - The source sale item has quantity 3, unit price 120, total 360, and no item discount.
 - The linked refund record is ID 2, amount 120, reference `TEST-RETURN-001`, with the same return reason. The current item allocation total and refund header total are both 120.
 - Audit log ID 94 records a `financial.reconciliation` event at `2026-10-23T00:37:43.892407+00:00`, noting the previous value 0 and corrected value 120. Its `actor_user_id` is null. **The update was executed as part of this repair session** under a guarded transaction with an audit record. The SQL session did not carry an authenticated human user ID, so `actor_user_id` is null; the audit event records the reason, evidence, prior value, and corrected value.
+- A guarded, reproducible SQL record is preserved at `supabase/repairs/guarded_sale_return_item_reconciliation_2026-10-23.sql`. It deliberately requires the old value 0 and exact source identifiers; against the current production state it aborts without changes.
 
 The historical sale-return line/header mismatch is therefore no longer present in the current read-only state. The new database migration remains useful because it rejects future RPC calls where the header refund and item-level allocations do not match.
 
