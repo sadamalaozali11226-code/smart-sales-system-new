@@ -1,11 +1,12 @@
 -- Candidate remediation logic tested in an isolated PostgreSQL fixture only.
--- The list models the 27 current public tables identified by read-only ACL inspection.
+-- The list models all 31 current public tables identified by read-only ACL inspection.
 REVOKE TRUNCATE ON TABLE
   audit_truncate_test.audit_logs,
   audit_truncate_test.customers,
   audit_truncate_test.expenses,
   audit_truncate_test.inventory_movements,
   audit_truncate_test.member_stores,
+  audit_truncate_test.organization_invitations,
   audit_truncate_test.organization_members,
   audit_truncate_test.organizations,
   audit_truncate_test.payments,
@@ -20,6 +21,9 @@ REVOKE TRUNCATE ON TABLE
   audit_truncate_test.sales,
   audit_truncate_test.stores,
   audit_truncate_test.supplier_refunds,
+  audit_truncate_test.supplier_payment_allocations,
+  audit_truncate_test.supplier_payments,
+  audit_truncate_test.suppliers,
   audit_truncate_test.customer_payment_allocations,
   audit_truncate_test.customer_payments,
   audit_truncate_test.purchase_receipt_items,
