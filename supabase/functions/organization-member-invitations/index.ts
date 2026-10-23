@@ -140,14 +140,56 @@ async function handleInvite(admin: any, userId: string, body: InvitePayload) {
 
   const { data: pending, error: pendingError } = await admin
     .from("organization_invitations")
-    .select("id")
+    .select("id,expires_at,auth_user_id,accepted_at")
     .eq("organization_id", organizationId)
     .eq("email", email)
     .eq("status", "pending")
     .maybeSingle();
 
   if (pendingError) throw pendingError;
-  if (pending) throw new Error("A pending invitation already exists for this email");
+  if (pending) {
+    let activeMembership: any = null;
+    if (pending.auth_user_id) {
+      const { data, error } = await admin
+        .from("organization_members")
+        .select("id,status")
+        .eq("organization_id", organizationId)
+        .eq("user_id", pending.auth_user_id)
+        .eq("status", "active")
+        .maybeSingle();
+      if (error) throw error;
+      activeMembership = data;
+    }
+
+    const reconciledAt = new Date().toISOString();
+    if (activeMembership) {
+      const { data: reconciled, error } = await admin
+        .from("organization_invitations")
+        .update({
+          status: "accepted",
+          accepted_at: pending.accepted_at || reconciledAt,
+          updated_at: reconciledAt,
+        })
+        .eq("id", pending.id)
+        .eq("status", "pending")
+        .select("id")
+        .maybeSingle();
+      if (error) throw error;
+      if (!reconciled) throw new Error("Invitation changed while reconciling; refresh and try again");
+    } else if (isInvitationExpired(pending.expires_at)) {
+      const { data: expired, error } = await admin
+        .from("organization_invitations")
+        .update({ status: "expired", updated_at: reconciledAt })
+        .eq("id", pending.id)
+        .eq("status", "pending")
+        .select("id")
+        .maybeSingle();
+      if (error) throw error;
+      if (!expired) throw new Error("Invitation changed while expiring; refresh and try again");
+    } else {
+      throw new Error("A pending invitation already exists for this email");
+    }
+  }
 
   const existingUser = await findAuthUserByEmail(admin, email);
   let authUserId = existingUser?.id || null;
@@ -300,7 +342,36 @@ async function handleList(admin: any, userId: string, body: InvitePayload) {
     .order("created_at", { ascending: false });
 
   if (error) throw error;
-  return { invitations: data || [] };
+
+  const invitations = data || [];
+  const pendingUserIds = [...new Set(
+    invitations
+      .filter((invitation: any) => invitation.status === "pending" && invitation.auth_user_id)
+      .map((invitation: any) => invitation.auth_user_id)
+  )];
+  let activeUserIds = new Set<string>();
+
+  if (pendingUserIds.length) {
+    const { data: activeMembers, error: membersError } = await admin
+      .from("organization_members")
+      .select("user_id")
+      .eq("organization_id", organizationId)
+      .eq("status", "active")
+      .in("user_id", pendingUserIds);
+    if (membersError) throw membersError;
+    activeUserIds = new Set((activeMembers || []).map((member: any) => member.user_id));
+  }
+
+  return {
+    invitations: invitations.map((invitation: any) => ({
+      ...invitation,
+      status: getInvitationDisplayStatus(
+        invitation.status,
+        invitation.expires_at,
+        activeUserIds.has(invitation.auth_user_id) ? "active" : null
+      ),
+    })),
+  };
 }
 
 async function handleRevoke(admin: any, userId: string, body: InvitePayload) {
