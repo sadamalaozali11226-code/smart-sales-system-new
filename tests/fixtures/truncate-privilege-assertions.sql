@@ -3,10 +3,10 @@ DECLARE
   v_table text;
   v_tables text[] := ARRAY[
     'audit_logs', 'customers', 'expenses', 'inventory_movements',
-    'member_stores', 'organization_members', 'organizations', 'payments',
+    'member_stores', 'organization_invitations', 'organization_members', 'organizations', 'payments',
     'permissions', 'products', 'purchase_return_items', 'purchase_returns',
     'refunds', 'role_permissions', 'roles', 'sale_items', 'sales', 'stores',
-    'supplier_refunds', 'customer_payment_allocations', 'customer_payments',
+    'supplier_refunds', 'supplier_payment_allocations', 'supplier_payments', 'suppliers', 'customer_payment_allocations', 'customer_payments',
     'purchase_receipt_items', 'purchase_receipts', 'sale_return_items',
     'sale_returns', 'stock_transfers', 'store_products'
   ];
@@ -31,6 +31,6 @@ BEGIN
     RAISE EXCEPTION 'Narrow TRUNCATE revocation unexpectedly removed authenticated SELECT';
   END IF;
 
-  RAISE NOTICE 'isolated 27-table anon/authenticated TRUNCATE revocation assertions passed';
+  RAISE NOTICE 'isolated 31-table anon/authenticated TRUNCATE revocation assertions passed';
 END
 $test$;
