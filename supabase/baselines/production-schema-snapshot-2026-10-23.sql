@@ -991,7 +991,7 @@ AS $function$
                                                                                                                                                                                                                                                                                             'customer_id', p_customer_id
                                                                                                                                                                                                                                                                                               );
                                                                                                                                                                                                                                                                                               END;
-                                                                                                                                                                                                                                                                                              $function$
+                                                                                                                                                                                                                                                                                              $function$;
 
 
 CREATE OR REPLACE FUNCTION public.record_product_sale_with_payment(p_product_id bigint, p_customer_id bigint, p_payment_status text, p_paid_amount numeric, p_payment_method text DEFAULT NULL::text, p_reference text DEFAULT NULL::text)
@@ -1185,7 +1185,7 @@ AS $function$
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                when others then
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    raise;
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    end;
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   $function$
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   $function$;
 
 
 CREATE OR REPLACE FUNCTION public.record_sale_payment(p_sale_id bigint, p_amount numeric, p_payment_method text DEFAULT 'cash'::text, p_reference text DEFAULT NULL::text)
@@ -1556,7 +1556,7 @@ select r.id,p.id from public.roles r join public.permissions p on p.code in (
 'customers.create','customers.read','customers.update','payments.create','products.read','sales.create','sales.read','sales.update')
 where r.organization_id=v_org_id and r.code in ('cashier','sales_employee') on conflict do nothing;
 return jsonb_build_object('organization_id',v_org_id,'store_id',v_store_id,'role_id',v_role_id,'member_id',v_member_id,'permissions_assigned',v_permission_count);
-end;$function$
+end;$function$;
 
 
 CREATE OR REPLACE FUNCTION public.bootstrap_organization(p_organization_name text, p_slug text, p_store_name text, p_store_code text)
@@ -1709,7 +1709,7 @@ CREATE OR REPLACE FUNCTION public.update_product(p_organization_id uuid, p_produ
  RETURNS products
  LANGUAGE sql
  SET search_path TO 'public', 'private'
-AS $function$ select private.update_product($1,$2,$3,$4); $function$
+AS $function$ select private.update_product($1,$2,$3,$4); $function$;
 
 
 CREATE OR REPLACE FUNCTION private.update_customer(p_organization_id uuid, p_customer_id bigint, p_name text, p_phone text DEFAULT NULL::text, p_address text DEFAULT NULL::text, p_notes text DEFAULT NULL::text)
@@ -1742,7 +1742,7 @@ CREATE OR REPLACE FUNCTION public.update_customer(p_organization_id uuid, p_cust
  RETURNS customers
  LANGUAGE sql
  SET search_path TO 'public', 'private'
-AS $function$ select private.update_customer($1,$2,$3,$4,$5,$6); $function$
+AS $function$ select private.update_customer($1,$2,$3,$4,$5,$6); $function$;
 
 
 CREATE OR REPLACE FUNCTION private.cancel_sale(p_organization_id uuid, p_sale_id bigint, p_reason text DEFAULT NULL::text)
@@ -2524,7 +2524,7 @@ begin
  v_new_status:=private.refresh_sale_return_status(p_sale_id);
  v_audit_id:=private.write_audit_log(p_organization_id,p_store_id,'sale.item_returned','sale',p_sale_id::text,jsonb_build_object('return_id',v_return.id,'refund_amount',v_refund_total,'returned_items',jsonb_array_length(p_items),'new_sale_status',v_new_status));
  return jsonb_build_object('return_id',v_return.id,'sale_id',p_sale_id,'returned_items',jsonb_array_length(p_items),'refund_amount',v_refund_total,'total_refunded_for_sale',v_total_refunded,'sale_status',v_new_status,'audit_log_id',v_audit_id);
-end;$function$
+end;$function$;
 
 
 CREATE OR REPLACE FUNCTION public.return_sale_items(p_organization_id uuid, p_store_id uuid, p_sale_id bigint, p_items jsonb, p_reason text DEFAULT NULL::text, p_notes text DEFAULT NULL::text, p_refund_amount numeric DEFAULT 0, p_refund_payment_method text DEFAULT 'cash'::text, p_refund_reference text DEFAULT NULL::text)
@@ -2534,7 +2534,7 @@ CREATE OR REPLACE FUNCTION public.return_sale_items(p_organization_id uuid, p_st
 AS $function$
 begin
  return private.return_sale_items(p_organization_id,p_store_id,p_sale_id,p_items,p_reason,p_notes,p_refund_amount,p_refund_payment_method,p_refund_reference);
-end;$function$
+end;$function$;
 
 
 CREATE OR REPLACE FUNCTION private.refresh_sale_return_status(p_sale_id bigint)
@@ -3474,7 +3474,7 @@ into v_current from public.store_products sp join public.products pr on pr.id=sp
 select jsonb_build_object('purchase_units',coalesce(sum(pri.quantity),0),'purchase_value',coalesce(sum(pri.quantity*pri.unit_cost),0),'sold_units',coalesce((select sum(si.quantity) from public.sale_items si join public.sales s on s.id=si.sale_id where s.organization_id=p_organization_id and s.store_id=p_store_id and s.status in('completed','partially_returned','fully_returned') and si.unit_cost is not null and(p_from is null or s.created_at>=p_from)and(p_to is null or s.created_at<p_to)),0),'cogs',coalesce((select sum(si.cost_total) from public.sale_items si join public.sales s on s.id=si.sale_id where s.organization_id=p_organization_id and s.store_id=p_store_id and s.status in('completed','partially_returned','fully_returned') and si.unit_cost is not null and(p_from is null or s.created_at>=p_from)and(p_to is null or s.created_at<p_to)),0),'returned_units',coalesce((select sum(sri.quantity) from public.sale_return_items sri join public.sale_returns sr on sr.id=sri.return_id where sr.organization_id=p_organization_id and sr.store_id=p_store_id and(p_from is null or sr.created_at>=p_from)and(p_to is null or sr.created_at<p_to)),0),'returned_cost_value',coalesce((select sum(sri.quantity*si.unit_cost) from public.sale_return_items sri join public.sale_returns sr on sr.id=sri.return_id join public.sale_items si on si.id=sri.sale_item_id where sr.organization_id=p_organization_id and sr.store_id=p_store_id and si.unit_cost is not null and(p_from is null or sr.created_at>=p_from)and(p_to is null or sr.created_at<p_to)),0)) into v_flow from public.purchase_receipt_items pri join public.purchase_receipts prc on prc.id=pri.receipt_id where prc.organization_id=p_organization_id and prc.store_id=p_store_id and prc.status <> 'cancelled' and(p_from is null or prc.created_at>=p_from)and(p_to is null or prc.created_at<p_to);
 select coalesce(jsonb_agg(to_jsonb(x) order by x.inventory_value desc nulls last,x.product_id),'[]'::jsonb) into v_products from(select sp.product_id,pr.name product_name,sp.quantity,sp.average_cost,sp.cost_known,case when sp.cost_known then sp.quantity*sp.average_cost else null end inventory_value from public.store_products sp join public.products pr on pr.id=sp.product_id where sp.store_id=p_store_id and pr.organization_id=p_organization_id limit 100)x;
 return jsonb_build_object('period',jsonb_build_object('from',p_from,'to',p_to),'current_inventory',v_current,'period_flow',v_flow,'products',v_products);
-end;$function$
+end;$function$;
 
 
 CREATE OR REPLACE FUNCTION public.financial_operations_report(p_organization_id uuid, p_store_id uuid, p_from timestamp with time zone DEFAULT NULL::timestamp with time zone, p_to timestamp with time zone DEFAULT NULL::timestamp with time zone, p_as_of timestamp with time zone DEFAULT now())
@@ -3642,7 +3642,7 @@ CREATE OR REPLACE FUNCTION public.update_product_for_store(p_product_id bigint, 
  RETURNS jsonb
  LANGUAGE sql
  SET search_path TO 'public', 'private'
-AS $function$ select private.update_product_for_store(p_product_id,p_name,p_price,p_quantity,p_organization_id,p_store_id); $function$
+AS $function$ select private.update_product_for_store(p_product_id,p_name,p_price,p_quantity,p_organization_id,p_store_id); $function$;
 
 
 CREATE OR REPLACE FUNCTION private.create_supplier(p_organization_id uuid, p_name text, p_phone text DEFAULT NULL::text, p_address text DEFAULT NULL::text, p_tax_number text DEFAULT NULL::text, p_notes text DEFAULT NULL::text)
@@ -4166,14 +4166,14 @@ CREATE OR REPLACE FUNCTION public.create_supplier(p_organization_id uuid, p_name
  RETURNS suppliers
  LANGUAGE sql
  SET search_path TO ''
-AS $function$ select private.create_supplier(p_organization_id,p_name,p_phone,p_address,p_tax_number,p_notes); $function$
+AS $function$ select private.create_supplier(p_organization_id,p_name,p_phone,p_address,p_tax_number,p_notes); $function$;
 
 
 CREATE OR REPLACE FUNCTION public.update_supplier(p_organization_id uuid, p_supplier_id bigint, p_name text, p_phone text, p_address text, p_tax_number text, p_notes text, p_status text)
  RETURNS suppliers
  LANGUAGE sql
  SET search_path TO ''
-AS $function$ select private.update_supplier(p_organization_id,p_supplier_id,p_name,p_phone,p_address,p_tax_number,p_notes,p_status); $function$
+AS $function$ select private.update_supplier(p_organization_id,p_supplier_id,p_name,p_phone,p_address,p_tax_number,p_notes,p_status); $function$;
 
 
 CREATE OR REPLACE FUNCTION public.create_purchase(p_organization_id uuid, p_store_id uuid, p_supplier_id bigint, p_receipt_number text, p_items jsonb, p_discount numeric, p_tax numeric, p_paid_amount numeric, p_payment_method text, p_reference text, p_due_date date, p_notes text)
@@ -4192,14 +4192,14 @@ CREATE OR REPLACE FUNCTION public.list_suppliers(p_organization_id uuid)
  RETURNS SETOF suppliers
  LANGUAGE sql
  SET search_path TO ''
-AS $function$ select * from private.list_suppliers(p_organization_id); $function$
+AS $function$ select * from private.list_suppliers(p_organization_id); $function$;
 
 
 CREATE OR REPLACE FUNCTION public.record_supplier_payment(p_organization_id uuid, p_store_id uuid, p_supplier_id bigint, p_amount numeric, p_payment_method text, p_reference text, p_notes text, p_allocations jsonb)
  RETURNS jsonb
  LANGUAGE sql
  SET search_path TO ''
-AS $function$ select private.record_supplier_payment(p_organization_id,p_store_id,p_supplier_id,p_amount,p_payment_method,p_reference,p_notes,p_allocations); $function$
+AS $function$ select private.record_supplier_payment(p_organization_id,p_store_id,p_supplier_id,p_amount,p_payment_method,p_reference,p_notes,p_allocations); $function$;
 
 
 CREATE OR REPLACE FUNCTION private.list_purchase_receipts(p_organization_id uuid, p_store_id uuid)
@@ -4818,14 +4818,14 @@ begin
     'available_quantity',pri.quantity-coalesce((select sum(pri2.quantity) from public.purchase_return_items pri2 join public.purchase_returns pr2 on pr2.id=pri2.purchase_return_id where pri2.purchase_receipt_item_id=pri.id and pr2.status='completed'),0)
   ) order by pri.id) from public.purchase_receipt_items pri join public.products p on p.id=pri.product_id where pri.receipt_id=v_purchase.id),'[]'::jsonb)
  );
-end; $function$
+end; $function$;
 
 
 CREATE OR REPLACE FUNCTION public.purchase_return_details(p_organization_id uuid, p_store_id uuid, p_purchase_receipt_id bigint)
  RETURNS jsonb
  LANGUAGE plpgsql
  SET search_path TO 'public', 'private'
-AS $function$ begin return private.purchase_return_details(p_organization_id,p_store_id,p_purchase_receipt_id); end; $function$
+AS $function$ begin return private.purchase_return_details(p_organization_id,p_store_id,p_purchase_receipt_id); end; $function$;
 
 
 CREATE OR REPLACE FUNCTION private.customer_account_summary(p_organization_id uuid, p_store_id uuid DEFAULT NULL::uuid)
@@ -4912,28 +4912,28 @@ CREATE OR REPLACE FUNCTION public.customer_account_summary(p_organization_id uui
  RETURNS TABLE(customer_id bigint, customer_name text, sales_total numeric, invoice_payments numeric, account_payments numeric, sales_refunds numeric, balance numeric)
  LANGUAGE sql
  SET search_path TO 'public', 'private'
-AS $function$ select * from private.customer_account_summary(p_organization_id,p_store_id); $function$
+AS $function$ select * from private.customer_account_summary(p_organization_id,p_store_id); $function$;
 
 
 CREATE OR REPLACE FUNCTION public.supplier_account_summary(p_organization_id uuid, p_store_id uuid DEFAULT NULL::uuid)
  RETURNS TABLE(supplier_id bigint, supplier_name text, purchases_total numeric, supplier_payments numeric, supplier_refunds numeric, balance numeric)
  LANGUAGE sql
  SET search_path TO 'public', 'private'
-AS $function$ select * from private.supplier_account_summary(p_organization_id,p_store_id); $function$
+AS $function$ select * from private.supplier_account_summary(p_organization_id,p_store_id); $function$;
 
 
 CREATE OR REPLACE FUNCTION public.customer_statement(p_organization_id uuid, p_customer_id bigint, p_store_id uuid DEFAULT NULL::uuid, p_from date DEFAULT NULL::date, p_to date DEFAULT NULL::date)
  RETURNS TABLE(occurred_at timestamp with time zone, entry_type text, reference_id bigint, reference_number text, description text, debit numeric, credit numeric, balance numeric)
  LANGUAGE sql
  SET search_path TO 'public', 'private'
-AS $function$ select * from private.customer_statement(p_organization_id,p_customer_id,p_store_id,p_from,p_to); $function$
+AS $function$ select * from private.customer_statement(p_organization_id,p_customer_id,p_store_id,p_from,p_to); $function$;
 
 
 CREATE OR REPLACE FUNCTION public.supplier_statement(p_organization_id uuid, p_supplier_id bigint, p_store_id uuid DEFAULT NULL::uuid, p_from date DEFAULT NULL::date, p_to date DEFAULT NULL::date)
  RETURNS TABLE(occurred_at timestamp with time zone, entry_type text, reference_id bigint, reference_number text, description text, debit numeric, credit numeric, balance numeric)
  LANGUAGE sql
  SET search_path TO 'public', 'private'
-AS $function$ select * from private.supplier_statement(p_organization_id,p_supplier_id,p_store_id,p_from,p_to); $function$
+AS $function$ select * from private.supplier_statement(p_organization_id,p_supplier_id,p_store_id,p_from,p_to); $function$;
 
 
 CREATE OR REPLACE FUNCTION private.next_expense_number(p_organization_id uuid)
@@ -4952,7 +4952,7 @@ begin
   on conflict (organization_id,document_type) do update set next_number=private.document_sequences.next_number+1,updated_at=now()
   returning next_number-1 into n;
   return 'EXP-'||lpad(n::text,6,'0');
-end $function$
+end $function$;
 
 
 CREATE OR REPLACE FUNCTION private.create_expense(p_organization_id uuid, p_store_id uuid, p_category text, p_amount numeric, p_expense_date date DEFAULT CURRENT_DATE, p_payment_method text DEFAULT 'cash'::text, p_reference text DEFAULT NULL::text, p_notes text DEFAULT NULL::text)
@@ -4998,7 +4998,7 @@ CREATE OR REPLACE FUNCTION public.create_expense(p_organization_id uuid, p_store
  RETURNS expenses
  LANGUAGE sql
  SET search_path TO 'public', 'private'
-AS $function$ select private.create_expense(p_organization_id,p_store_id,p_category,p_amount,p_expense_date,p_payment_method,p_reference,p_notes); $function$
+AS $function$ select private.create_expense(p_organization_id,p_store_id,p_category,p_amount,p_expense_date,p_payment_method,p_reference,p_notes); $function$;
 
 
 CREATE OR REPLACE FUNCTION private.cancel_expense(p_organization_id uuid, p_expense_id bigint, p_reason text)
@@ -5021,14 +5021,14 @@ begin
  insert into public.audit_logs(organization_id,store_id,actor_user_id,action,entity_type,entity_id,metadata)
  values(p_organization_id,v.store_id,auth.uid(),'expense.cancelled','expense',v.id::text,jsonb_build_object('reason',v.cancel_reason,'amount',v.amount));
  return v;
-end $function$
+end $function$;
 
 
 CREATE OR REPLACE FUNCTION public.cancel_expense(p_organization_id uuid, p_expense_id bigint, p_reason text)
  RETURNS expenses
  LANGUAGE sql
  SET search_path TO 'public', 'private'
-AS $function$ select private.cancel_expense(p_organization_id,p_expense_id,p_reason); $function$
+AS $function$ select private.cancel_expense(p_organization_id,p_expense_id,p_reason); $function$;
 
 
 CREATE OR REPLACE FUNCTION private.profitability_summary(p_organization_id uuid, p_store_id uuid DEFAULT NULL::uuid, p_from_date date DEFAULT NULL::date, p_to_date date DEFAULT NULL::date)
@@ -5387,7 +5387,7 @@ CREATE OR REPLACE FUNCTION private.update_product_for_store(p_product_id bigint,
  LANGUAGE plpgsql
  SECURITY DEFINER
  SET search_path TO 'public'
-AS $function$ declare v_user_id uuid:=auth.uid(); v_member_id uuid; v_current_quantity integer; v_delta integer; v_product products%rowtype; begin if v_user_id is null then raise exception 'Authentication required'; end if; if p_product_id is null or p_product_id<=0 then raise exception 'Invalid product id'; end if; if p_organization_id is null or p_store_id is null then raise exception 'Organization and store are required'; end if; if p_name is null or btrim(p_name)='' then raise exception 'Product name is required'; end if; if p_price is null or p_price<0 then raise exception 'Product price must be non-negative'; end if; if p_quantity is null or p_quantity<0 then raise exception 'Product quantity must be non-negative'; end if; select om.id into v_member_id from organization_members om join member_stores ms on ms.member_id=om.id where om.user_id=v_user_id and om.organization_id=p_organization_id and om.status='active' and ms.store_id=p_store_id limit 1; if v_member_id is null then raise exception 'Organization and store access denied'; end if; if not exists(select 1 from organization_members om join roles r on r.id=om.role_id join role_permissions rp on rp.role_id=r.id join permissions p on p.id=rp.permission_id where om.id=v_member_id and p.code='products.update') then raise exception 'Permission denied: products.update'; end if; select * into v_product from products where id=p_product_id and organization_id=p_organization_id for update; if not found then raise exception 'Product not found'; end if; select quantity into v_current_quantity from store_products where product_id=p_product_id and store_id=p_store_id for update; if not found then raise exception 'Product is not assigned to this store'; end if; v_delta:=p_quantity-v_current_quantity; if v_delta<>0 and not exists(select 1 from organization_members om join roles r on r.id=om.role_id join role_permissions rp on rp.role_id=r.id join permissions p on p.id=rp.permission_id where om.id=v_member_id and p.code='inventory.adjust') then raise exception 'Permission denied: inventory.adjust'; end if; update products set name=btrim(p_name),price=p_price where id=p_product_id and organization_id=p_organization_id; update store_products set quantity=p_quantity,updated_at=now() where product_id=p_product_id and store_id=p_store_id; if v_delta<>0 then insert into inventory_movements(product_id,movement_type,quantity_change,reference_type,reference_id,notes,created_at,organization_id,store_id) values(p_product_id,'adjustment',v_delta,'product_update',p_product_id,'Manual stock adjustment during product edit',now(),p_organization_id,p_store_id); end if; insert into audit_logs(organization_id,store_id,actor_user_id,action,entity_type,entity_id,metadata) values(p_organization_id,p_store_id,v_user_id,'update','product',p_product_id::text,jsonb_build_object('old_name',v_product.name,'new_name',btrim(p_name),'old_price',v_product.price,'new_price',p_price,'old_quantity',v_current_quantity,'new_quantity',p_quantity,'quantity_delta',v_delta)); return jsonb_build_object('id',p_product_id,'name',btrim(p_name),'price',p_price,'quantity',p_quantity); end; $function$
+AS $function$ declare v_user_id uuid:=auth.uid(); v_member_id uuid; v_current_quantity integer; v_delta integer; v_product products%rowtype; begin if v_user_id is null then raise exception 'Authentication required'; end if; if p_product_id is null or p_product_id<=0 then raise exception 'Invalid product id'; end if; if p_organization_id is null or p_store_id is null then raise exception 'Organization and store are required'; end if; if p_name is null or btrim(p_name)='' then raise exception 'Product name is required'; end if; if p_price is null or p_price<0 then raise exception 'Product price must be non-negative'; end if; if p_quantity is null or p_quantity<0 then raise exception 'Product quantity must be non-negative'; end if; select om.id into v_member_id from organization_members om join member_stores ms on ms.member_id=om.id where om.user_id=v_user_id and om.organization_id=p_organization_id and om.status='active' and ms.store_id=p_store_id limit 1; if v_member_id is null then raise exception 'Organization and store access denied'; end if; if not exists(select 1 from organization_members om join roles r on r.id=om.role_id join role_permissions rp on rp.role_id=r.id join permissions p on p.id=rp.permission_id where om.id=v_member_id and p.code='products.update') then raise exception 'Permission denied: products.update'; end if; select * into v_product from products where id=p_product_id and organization_id=p_organization_id for update; if not found then raise exception 'Product not found'; end if; select quantity into v_current_quantity from store_products where product_id=p_product_id and store_id=p_store_id for update; if not found then raise exception 'Product is not assigned to this store'; end if; v_delta:=p_quantity-v_current_quantity; if v_delta<>0 and not exists(select 1 from organization_members om join roles r on r.id=om.role_id join role_permissions rp on rp.role_id=r.id join permissions p on p.id=rp.permission_id where om.id=v_member_id and p.code='inventory.adjust') then raise exception 'Permission denied: inventory.adjust'; end if; update products set name=btrim(p_name),price=p_price where id=p_product_id and organization_id=p_organization_id; update store_products set quantity=p_quantity,updated_at=now() where product_id=p_product_id and store_id=p_store_id; if v_delta<>0 then insert into inventory_movements(product_id,movement_type,quantity_change,reference_type,reference_id,notes,created_at,organization_id,store_id) values(p_product_id,'adjustment',v_delta,'product_update',p_product_id,'Manual stock adjustment during product edit',now(),p_organization_id,p_store_id); end if; insert into audit_logs(organization_id,store_id,actor_user_id,action,entity_type,entity_id,metadata) values(p_organization_id,p_store_id,v_user_id,'update','product',p_product_id::text,jsonb_build_object('old_name',v_product.name,'new_name',btrim(p_name),'old_price',v_product.price,'new_price',p_price,'old_quantity',v_current_quantity,'new_quantity',p_quantity,'quantity_delta',v_delta)); return jsonb_build_object('id',p_product_id,'name',btrim(p_name),'price',p_price,'quantity',p_quantity); end; $function$;
 
 
 CREATE OR REPLACE FUNCTION private.commercial_reports_summary(p_organization_id uuid, p_store_id uuid DEFAULT NULL::uuid, p_from_date date DEFAULT NULL::date, p_to_date date DEFAULT NULL::date)
@@ -5502,7 +5502,7 @@ CREATE OR REPLACE FUNCTION public.profitability_report_v2(p_organization_id uuid
  RETURNS jsonb
  LANGUAGE sql
  SET search_path TO 'public', 'private'
-AS $function$ select private.profitability_summary(p_organization_id,p_store_id,p_from_date,p_to_date); $function$
+AS $function$ select private.profitability_summary(p_organization_id,p_store_id,p_from_date,p_to_date); $function$;
 
 
 CREATE OR REPLACE FUNCTION private.create_product_for_store_with_cost(p_organization_id uuid, p_store_id uuid, p_name text, p_price numeric, p_initial_quantity integer DEFAULT 0, p_reorder_level integer DEFAULT 0, p_notes text DEFAULT NULL::text, p_initial_unit_cost numeric DEFAULT NULL::numeric)
@@ -5529,14 +5529,14 @@ values(v_product.id,'opening',p_initial_quantity,'store_product',v_store_product
 end if;
 perform private.write_audit_log(p_organization_id,p_store_id,'inventory.product_added_to_store','store_product',v_store_product.id::text,jsonb_build_object('product_id',v_product.id,'initial_quantity',p_initial_quantity,'initial_unit_cost',p_initial_unit_cost,'reorder_level',p_reorder_level));
 return v_store_product;
-end;$function$
+end;$function$;
 
 
 CREATE OR REPLACE FUNCTION public.create_product_for_store_with_cost(p_organization_id uuid, p_store_id uuid, p_name text, p_price numeric, p_initial_quantity integer DEFAULT 0, p_reorder_level integer DEFAULT 0, p_notes text DEFAULT NULL::text, p_initial_unit_cost numeric DEFAULT NULL::numeric)
  RETURNS store_products
  LANGUAGE sql
  SET search_path TO 'public'
-AS $function$ select private.create_product_for_store_with_cost(p_organization_id,p_store_id,p_name,p_price,p_initial_quantity,p_reorder_level,p_notes,p_initial_unit_cost); $function$
+AS $function$ select private.create_product_for_store_with_cost(p_organization_id,p_store_id,p_name,p_price,p_initial_quantity,p_reorder_level,p_notes,p_initial_unit_cost); $function$;
 
 
 CREATE OR REPLACE FUNCTION private.list_organization_members(p_organization_id uuid)
@@ -5565,7 +5565,7 @@ begin
   where om.organization_id=p_organization_id
   group by om.id,om.user_id,om.status,r.id,r.name,r.code
   order by om.created_at;
-end;$function$
+end;$function$;
 
 
 CREATE OR REPLACE FUNCTION private.assign_member_role(p_organization_id uuid, p_member_id uuid, p_role_id uuid)
@@ -5594,7 +5594,7 @@ begin
     if v_owner_count<=1 and v_target_code<>'owner' then raise exception 'cannot remove the last active owner'; end if;
   end if;
   update public.organization_members set role_id=p_role_id where id=p_member_id and organization_id=p_organization_id;
-end;$function$
+end;$function$;
 
 
 CREATE OR REPLACE FUNCTION private.set_member_stores(p_organization_id uuid, p_member_id uuid, p_store_ids uuid[])
@@ -5614,7 +5614,7 @@ begin
   insert into public.member_stores(member_id,store_id)
   select p_member_id,x.id from unnest(coalesce(p_store_ids,'{}'::uuid[])) x(id)
   on conflict do nothing;
-end;$function$
+end;$function$;
 
 
 CREATE OR REPLACE FUNCTION private.set_member_status(p_organization_id uuid, p_member_id uuid, p_status text)
@@ -5639,35 +5639,35 @@ begin
     end if;
   end if;
   update public.organization_members set status=p_status where id=p_member_id and organization_id=p_organization_id;
-end;$function$
+end;$function$;
 
 
 CREATE OR REPLACE FUNCTION public.list_organization_members(p_organization_id uuid)
  RETURNS TABLE(member_id uuid, user_id uuid, status text, role_id uuid, role_name text, role_code text, store_ids uuid[], store_names text[])
  LANGUAGE sql
  SET search_path TO 'public'
-AS $function$ select * from private.list_organization_members(p_organization_id); $function$
+AS $function$ select * from private.list_organization_members(p_organization_id); $function$;
 
 
 CREATE OR REPLACE FUNCTION public.assign_member_role(p_organization_id uuid, p_member_id uuid, p_role_id uuid)
  RETURNS void
  LANGUAGE sql
  SET search_path TO 'public'
-AS $function$ select private.assign_member_role(p_organization_id,p_member_id,p_role_id); $function$
+AS $function$ select private.assign_member_role(p_organization_id,p_member_id,p_role_id); $function$;
 
 
 CREATE OR REPLACE FUNCTION public.set_member_stores(p_organization_id uuid, p_member_id uuid, p_store_ids uuid[])
  RETURNS void
  LANGUAGE sql
  SET search_path TO 'public'
-AS $function$ select private.set_member_stores(p_organization_id,p_member_id,p_store_ids); $function$
+AS $function$ select private.set_member_stores(p_organization_id,p_member_id,p_store_ids); $function$;
 
 
 CREATE OR REPLACE FUNCTION public.set_member_status(p_organization_id uuid, p_member_id uuid, p_status text)
  RETURNS void
  LANGUAGE sql
  SET search_path TO 'public'
-AS $function$ select private.set_member_status(p_organization_id,p_member_id,p_status); $function$
+AS $function$ select private.set_member_status(p_organization_id,p_member_id,p_status); $function$;
 
 
 CREATE OR REPLACE FUNCTION private.prevent_supplier_purchase_financial_hard_delete()
