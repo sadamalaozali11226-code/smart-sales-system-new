@@ -4,17 +4,21 @@ This reconciliation record includes one narrowly guarded production correction: 
 
 ## Supplier payments
 
-The current production records show five supplier payments, totaling 2,865, with 1,400 allocated and 1,465 unallocated.
+The current production records show five supplier payments, totaling 2,865, with 1,400 currently allocated and 1,465 unallocated. Read-only audit evidence now identifies the likely historical receipt links for the three unallocated payments, but the original receipt headers and line items are missing.
 
-| Payment ID | Amount | Payment method | Recorded note/reference | Allocations | Evidence currently available |
+| Payment ID | Amount | Method | Current note/reference | Current allocations | Historical evidence |
 |---:|---:|---|---|---:|---|
-| 1 | 780 | bank | `Initial payment for purchase ١` | 0 | No purchase receipt with ID 1 exists in the current `purchase_receipts` table. |
-| 2 | 10 | cash | No note/reference | 0 | No receipt allocation or direct receipt reference found. |
-| 3 | 675 | card | No note/reference | 0 | No receipt allocation or direct receipt reference found. |
+| 1 | 780 | bank | `Initial payment for purchase ١` | 0 | Audit log 16 records purchase receipt ID 1, receipt number `١`, subtotal 780, tax 10, total 790, two items, and `paid_amount=780` at the same timestamp as this payment. |
+| 2 | 10 | cash | None | 0 | Audit log 17 records `supplier.payment_recorded` for payment ID 2 with amount 10, allocated 10, unallocated 0 at 2026-10-05 23:22 UTC. At that time receipt 1 (total 790, initial paid amount 780) existed; receipt 2 was not created until 23:56 UTC. This strongly indicates the 10 completed the first receipt's 790 balance. |
+| 3 | 675 | card | None | 0 | Audit log 19 records `supplier.payment_recorded` for payment ID 3 with amount 675, allocated 675, unallocated 0 at 2026-10-05 23:58 UTC. Receipt 2 had been created at 23:56 UTC with total 675. This strongly links payment 3 to receipt 2. |
 | 4 | 900 | cash | `TEST-001`; note refers to `PUR-000004` | 900 to receipt 4 | Receipt 4 is `PUR-000004`, total 900, status completed, payment status paid. |
 | 5 | 500 | cash | `TEST-PUR-002`; note refers to `PUR-000005` | 500 to receipt 5 | Receipt 5 is `PUR-000005`, total 500, status completed, payment status paid. |
 
-The three unallocated payments total 1,465. Receipts 1–3 are absent from the current receipt table; receipts 4 and 5 are present. This is not enough evidence to determine whether payments 1–3 are orphaned payments, belong to deleted receipts, or require another historical accounting treatment. Do not allocate them to receipts 4 or 5 by inference.
+The audit evidence reconciles the unallocated amount at the header level: payments 1 and 2 sum to receipt 1's historical total of 790, and payment 3 equals receipt 2's historical total of 675. Receipt 3 was separately recorded as total 448 and later cancelled as an unpaid invoice; it does not correspond to any of the three payment rows.
+
+However, `purchase_receipts` and `purchase_receipt_items` currently contain no rows for IDs 1–3, and there are no retained purchase-receipt inventory movements for those IDs. The audit logs preserve receipt totals and item counts, but not the product IDs, quantities, or unit costs needed to reconstruct the line items. The current FK from `supplier_payment_allocations.purchase_receipt_id` uses `ON DELETE RESTRICT`; therefore the current absence of allocation rows cannot safely be explained as a simple cascade from receipt deletion. The allocation rows may have been removed separately or the old audit metadata may not fully reflect the surviving allocation table. No deletion event explains that gap.
+
+**Do not allocate payments 1–3 to receipts 4 or 5.** Recreating operational receipts 1 and 2 with no line items would leave purchase totals, inventory, and reporting inconsistent. The safe resolution is to recover a backup/source export containing the original receipt lines and allocation rows, or have the accounting owner formally classify these as legacy payments against deleted receipts and approve a documented non-operational archival treatment. No receipt header, line item, allocation, or payment amount was recreated or changed in this work.
 
 Receipt 5 also has a completed purchase return of 100 and a linked supplier refund record of 100. The existing payment allocation is 500. The intended business meaning of the refund/return balance formula should be confirmed by the accounting owner before changing any historical amount or payment status.
 
