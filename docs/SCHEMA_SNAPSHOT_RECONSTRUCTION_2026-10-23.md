@@ -41,6 +41,8 @@ Synthetic fixtures were run inside transactions that ended with `ROLLBACK`; no f
 - valid partial sale return succeeds when header and line refund allocations match;
 - mismatched return refund allocation is rejected before writing a return;
 - a complete supplier payment allocation succeeds, while an incomplete allocation is rolled back atomically;
+- a paid sale can be cancelled once, restoring stock and recording one refund; a second cancellation is rejected;
+- a customer payment is allocated to an outstanding sale, while overpayment is rejected atomically;
 - an authenticated member cannot read another organization's product through RLS;
 - client roles cannot TRUNCATE existing public tables in staging, and the `postgres` default-privilege path was tested with a temporary table inside a rolled-back transaction.
 
@@ -49,6 +51,6 @@ Synthetic fixtures were run inside transactions that ended with `ROLLBACK`; no f
 1. The individual historical SQL sources for the missing migration-history entries have not been recovered. The current snapshot gives us a trustworthy rebuild of the present schema, not proof of each historical migration's provenance.
 2. Historical supplier-payment allocation discrepancies remain unresolved. The sale-return line/header mismatch was corrected under a guarded production transaction as part of this repair session (line allocation total 120 equals refund header 120); audit log ID 94 records the old value 0, new value 120, and the evidence, with a null human actor ID because the administrative SQL session had no authenticated user identity.
 3. The `supabase_admin` default ACL path in `public` remains a separate platform-permission issue; this work deliberately did not alter it.
-4. Full application acceptance still needs coverage for cancellation, customer payments, purchasing and inventory edge cases, reporting, and browser-level flows.
+4. Database-level cancellation and customer-payment tests passed. Full application acceptance still needs purchasing and inventory edge cases, reporting, and browser-level flows.
 
 One narrowly guarded production financial-detail correction was performed: sale_return_items.id=1 refund_amount 0 → 120, with audit log ID 94. No production schema migration, merge, or production deployment was performed.
