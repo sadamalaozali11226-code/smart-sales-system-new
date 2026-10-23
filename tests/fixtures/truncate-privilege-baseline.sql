@@ -21,10 +21,10 @@ DECLARE
   v_table text;
   v_tables text[] := ARRAY[
     'audit_logs', 'customers', 'expenses', 'inventory_movements',
-    'member_stores', 'organization_members', 'organizations', 'payments',
+    'member_stores', 'organization_invitations', 'organization_members', 'organizations', 'payments',
     'permissions', 'products', 'purchase_return_items', 'purchase_returns',
     'refunds', 'role_permissions', 'roles', 'sale_items', 'sales', 'stores',
-    'supplier_refunds', 'customer_payment_allocations', 'customer_payments',
+    'supplier_refunds', 'supplier_payment_allocations', 'supplier_payments', 'suppliers', 'customer_payment_allocations', 'customer_payments',
     'purchase_receipt_items', 'purchase_receipts', 'sale_return_items',
     'sale_returns', 'stock_transfers', 'store_products'
   ];
@@ -36,7 +36,7 @@ BEGIN
 END
 $tables$;
 
--- Production read-only inspection found anon TRUNCATE on these 19 of 27 tables.
+-- Production read-only inspection found anon TRUNCATE on these 19 of 31 tables.
 GRANT TRUNCATE ON TABLE
   audit_truncate_test.audit_logs,
   audit_truncate_test.customers,
