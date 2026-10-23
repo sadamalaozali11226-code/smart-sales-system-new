@@ -38,7 +38,8 @@ All 31 staging RLS policies match the production policy definitions exactly. All
 - GitHub CI: passed on the current PR head.
 - Supabase local sale migration test: passed on the current PR head.
 - Vercel Preview: READY/success on the current PR head.
-- Staging SQL acceptance: passed for sale idempotency (identical retry, changed-payload rejection, distinct request key, stock/audit invariants) and for return refund-allocation rejection/valid return consistency. Test fixtures were rolled back.
+- Staging SQL acceptance: passed for sale idempotency (identical retry, changed-payload rejection, distinct request key, stock/audit invariants); valid/mismatched sale returns; paid sale cancellation with one refund and stock restoration; customer payment allocation and atomic overpayment rejection; supplier payment allocation and atomic incomplete-allocation rejection; tenant RLS isolation; and current/future client TRUNCATE restrictions. All synthetic fixture writes were rolled back.
+- GitHub CI passed on PR head `47b6691e0894ed348565216213f1be6d05260cf4`, including the isolated PostgreSQL return-allocation migration test. The local Supabase sale migration workflow also passed on that head.
 - These results do not replace full browser-based end-to-end acceptance across all modules.
 
 ## Deterministic historical correction
@@ -51,7 +52,7 @@ No other historical financial rows were altered.
 
 1. **Migration provenance:** production has 57 migration-history rows while the current branch contains 42 SQL migration files (including the newly added candidate migrations). Names/versions differ and some historical source migrations are unavailable. The snapshot makes staging structurally useful, but it does not reconstruct the missing historical migration provenance. Do not mark the production migration history as repaired by fabricating versions.
 2. **Three legacy supplier payments are unallocated:** IDs 1–3 are `780.00`, `10.00`, and `675.00` (total `1,465.00`). Their allocation total is zero. The only current purchase receipts for this supplier are IDs 4 and 5, fully allocated at `900.00` and `500.00`; there are no receipt rows for IDs 1–3 to attach these payments to. Payment 1's note refers to an earlier purchase, while payments 2–3 have no matching receipt reference. These may be legacy advances, deleted/archived purchases, or migration residue. They must not be allocated to unrelated receipts by inference.
-3. **Full application acceptance:** run the complete sales, returns, inventory, purchasing, supplier payments, customer collections, permissions, and reporting workflows on staging with representative test accounts before declaring production readiness.
+3. **Full application acceptance:** database-level tests now cover sales, returns, cancellation, customer collections, supplier payments, and tenant isolation. Still run browser-level workflows and complete purchasing/inventory edge cases, permissions, and reporting with representative test accounts before declaring production readiness.
 
 ## Release status
 
