@@ -1,4 +1,4 @@
--- Narrow privilege hardening for application tables in public.
+-- Narrow privilege hardening for all 31 current application tables in public.
 -- This migration is intentionally limited to TRUNCATE. It does not change RLS,
 -- row-level CRUD grants, sequences, functions, or service_role privileges.
 --
@@ -11,6 +11,7 @@ REVOKE TRUNCATE ON TABLE
   public.expenses,
   public.inventory_movements,
   public.member_stores,
+  public.organization_invitations,
   public.organization_members,
   public.organizations,
   public.payments,
@@ -25,6 +26,9 @@ REVOKE TRUNCATE ON TABLE
   public.sales,
   public.stores,
   public.supplier_refunds,
+  public.supplier_payment_allocations,
+  public.supplier_payments,
+  public.suppliers,
   public.customer_payment_allocations,
   public.customer_payments,
   public.purchase_receipt_items,
