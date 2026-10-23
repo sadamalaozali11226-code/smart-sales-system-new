@@ -159,6 +159,15 @@ jobs:
           $test$;
           SQL
 
+      - name: Test database-enforced sale return refund allocation
+        run: |
+          createdb sale_return_refund_test
+          psql -d sale_return_refund_test -v ON_ERROR_STOP=1 -f tests/fixtures/sale-return-refund-baseline.sql
+          psql -d sale_return_refund_test -v ON_ERROR_STOP=1 -f supabase/migrations/20261023100000_enforce_sale_return_item_refund_total.sql
+          psql -d sale_return_refund_test -v ON_ERROR_STOP=1 -c "GRANT USAGE ON SCHEMA public, private TO authenticated"
+          psql -d sale_return_refund_test -v ON_ERROR_STOP=1 -c "GRANT EXECUTE ON FUNCTION public.return_sale_items(uuid, uuid, bigint, jsonb, text, text, numeric, text, text) TO authenticated"
+          psql -d sale_return_refund_test -v ON_ERROR_STOP=1 -f tests/fixtures/sale-return-refund-assertions.sql
+
       - name: Test idempotency against the real sale transaction implementation
         run: |
           createdb sale_business_test
