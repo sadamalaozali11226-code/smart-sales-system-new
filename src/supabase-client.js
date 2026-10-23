@@ -1,17 +1,12 @@
 (function () {
   "use strict";
 
-  // Keep production traffic pinned to the verified production project.
-  // Any non-production hostname (Vercel Preview, localhost, etc.) uses staging.
-  // This is a publishable client key, not a service-role secret.
-  const productionHosts = new Set([
-    "smart-sales-system-new.vercel.app",
-    "smart-sales-system-new-my-project-3093.vercel.app",
-    "smart-sales-system-new-git-main-my-project-3093.vercel.app"
-  ]);
-  const isProduction = productionHosts.has(
-    String(window.location.hostname || "").toLowerCase()
-  );
+  // The verified production domain stays on production.
+  // Every other host (Vercel Preview, localhost, or direct deployment URL)
+  // defaults to the isolated staging project. Never use a service-role key here.
+  const isProduction =
+    String(window.location.hostname || "").toLowerCase() ===
+    "smart-sales-system-new.vercel.app";
 
   const url = isProduction
     ? "https://kpllyyeirhdjwvkrwspg.supabase.co"
