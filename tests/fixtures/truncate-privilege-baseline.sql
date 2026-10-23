@@ -1,5 +1,5 @@
--- Isolated PostgreSQL fixture only. Models the observed production ACL shape;
--- it does not connect to Supabase or prove who granted production privileges.
+-- Isolated PostgreSQL fixture only. Models a representative ACL shape for regression testing;
+-- it does not connect to Supabase or assert the live production grant count.
 DO $roles$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'anon') THEN
@@ -36,7 +36,7 @@ BEGIN
 END
 $tables$;
 
--- Production read-only inspection found anon TRUNCATE on these 19 of 31 tables.
+-- Fixture-only setup: grant anon TRUNCATE on these 19 representative tables.
 GRANT TRUNCATE ON TABLE
   audit_truncate_test.audit_logs,
   audit_truncate_test.customers,
