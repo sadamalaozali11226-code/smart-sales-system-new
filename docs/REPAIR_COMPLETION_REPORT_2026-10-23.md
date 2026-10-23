@@ -13,7 +13,7 @@ This report describes the isolated repair branch and staging validation. Product
 - Database-level guard rejects sale-return RPC calls when line refund allocations do not equal the requested refund.
 - Post-commit UI refresh failures no longer report a committed financial operation as failed.
 - Supabase client routing uses production only on explicitly enumerated production hostnames; preview/local/alternate hosts route to staging.
-- Client TRUNCATE grants are revoked for existing application tables and default privileges are narrowed for future public tables.
+- Client TRUNCATE grants are revoked for existing application tables and default privileges are narrowed for future public tables created by the normal `postgres` migration role.
 - Runbooks and acceptance documentation distinguish CI/migration tests from full production acceptance.
 
 ## Staging baseline and verification
@@ -31,16 +31,19 @@ Verified table names match between production and staging for all 31 public appl
 | RLS policies | 31 | 31 |
 | Non-internal triggers | 4 | 7 |
 
-All 31 staging RLS policies match the production policy definitions exactly. All public application tables have RLS enabled. Staging contains no production business data. A disposable staging table confirmed that anonymous/authenticated roles cannot TRUNCATE a newly created public table.
+All 31 staging RLS policies match the production policy definitions exactly. All public application tables have RLS enabled. Staging contains no production business data. A disposable staging table confirmed that anonymous/authenticated roles cannot TRUNCATE a new public table created by the normal `postgres` migration role.
+
+The staging catalog also contains platform-managed default privileges for `supabase_admin` in `public` that include TRUNCATE for client roles. The connected SQL session cannot manage that role's default ACL through the normal migration role, and no unsupported role escalation was attempted. This remains a release security blocker until the supported administrative path is confirmed. Existing application tables were checked separately and client roles do not have TRUNCATE on them.
 
 ## Tests
 
-- GitHub CI passed on code head `540b0ea05c54833309633b43ef5711855f9ff673`, including the new isolated PostgreSQL hard-delete regression test ([CI run](https://github.com/sadamalaozali11226-code/smart-sales-system-new/actions/runs/39880849949)).
-- The disposable local Supabase sale migration workflow also passed on that code head ([local Supabase run](https://github.com/sadamalaozali11226-code/smart-sales-system-new/actions/runs/39880849948)).
-- Vercel Preview was READY at `smart-sales-system-jde0038j9-my-project-3093.vercel.app` on branch revision `e02e55c4ef2dc0ca5721d58090cd2c360d5f9239`; later changes to this report are documentation-only.
-- Staging SQL acceptance: passed for sale idempotency (identical retry, changed-payload rejection, distinct request key, stock/audit invariants); valid/mismatched sale returns; paid sale cancellation with one refund and stock restoration; customer payment allocation and atomic overpayment rejection; supplier payment allocation and atomic incomplete-allocation rejection; tenant RLS isolation; and current/future client TRUNCATE restrictions, and hard-delete rejection across seven supplier purchase/return financial tables. All synthetic fixture writes were rolled back.
-- A new migration adds database hard-delete guards to `purchase_returns`, `purchase_return_items`, and `supplier_refunds`, reusing the existing guard function. The staging acceptance test confirmed all seven purchase/payment/return/refund tables reject hard deletion.
-- These results do not replace full browser-based end-to-end acceptance across all modules.
+- GitHub CI passed on current code head `a287a51673f567b36771ecda0a98ce122744dee4` ([CI run](https://github.com/sadamalaozali11226-code/smart-sales-system-new/actions/runs/39881165287)).
+- The disposable local Supabase sale-migration workflow passed on the same head ([local Supabase run](https://github.com/sadamalaozali11226-code/smart-sales-system-new/actions/runs/39881165451)).
+- Vercel Preview was READY at `smart-sales-system-25bzoj4wl-my-project-3093.vercel.app` on the same branch revision.
+- Live preview HTTP smoke checks: homepage returned 200; `/src/supabase-client.js` returned 200 and contained the production-host allowlist/staging fallback; legacy `/api/products` returned 410 with the expected “Legacy API disabled” response.
+- Staging SQL acceptance passed for sale idempotency (identical retry, changed-payload rejection, distinct request key, stock/audit invariants); valid/mismatched sale returns; paid sale cancellation with one refund and stock restoration; customer payment allocation and atomic overpayment rejection; supplier payment allocation and atomic incomplete-allocation rejection; tenant RLS isolation; current/future client TRUNCATE restrictions for the normal migration role; and hard-delete rejection across seven supplier purchase/return financial tables. All synthetic fixture writes were rolled back.
+- A new migration adds database hard-delete guards to `purchase_returns`, `purchase_return_items`, and `supplier_refunds`, reusing the existing guard function. Staging acceptance confirmed all seven purchase/payment/return/refund tables reject hard deletion.
+- These results do not replace full authenticated browser-based end-to-end acceptance across all modules. No test user credentials were available in this workflow, so no production account was used or modified.
 
 ## Deterministic historical correction
 
@@ -50,14 +53,16 @@ No other historical financial rows were altered.
 
 ## Remaining release blockers
 
-1. **Migration provenance:** production has 57 migration-history rows while the current branch contains 43 SQL migration files (including the newly added candidate migrations). Names/versions differ and some historical source migrations are unavailable. The snapshot makes staging structurally useful, but it does not reconstruct the missing historical migration provenance. Do not mark the production migration history as repaired by fabricating versions.
+1. **Migration provenance:** production has 57 migration-history rows while the current branch contains 43 SQL migration files (including candidate migrations). Names/versions differ and some historical source migrations are unavailable. The snapshot makes staging structurally useful, but it does not reconstruct the missing historical migration provenance. Do not mark the production migration history as repaired by fabricating versions.
 2. **Three legacy supplier payments are unallocated in the current tables:** IDs 1–3 are `780.00`, `10.00`, and `675.00` (total `1,465.00`). Read-only audit logs strongly link payments 1+2 to deleted receipt 1 (historical total `790.00`) and payment 3 to deleted receipt 2 (historical total `675.00`); receipt 3 (total `448.00`) was recorded as cancelled and unpaid. But receipt headers, line items, and allocation rows for IDs 1–3 are missing, and no retained purchase inventory movements provide product/quantity details. Recreating header-only receipts would make purchase details and inventory reporting inconsistent. Recover a source backup or obtain an accounting-approved archival treatment; do not allocate these payments to current receipts 4 or 5.
-3. **Full application acceptance:** database-level tests now cover sales, returns, cancellation, customer collections, supplier payments, and tenant isolation. Still run browser-level workflows and complete purchasing/inventory edge cases, permissions, and reporting with representative test accounts before declaring production readiness.
+3. **Platform-managed default ACL:** client TRUNCATE is still present in `supabase_admin`'s default ACL for `public`. The connected migration role cannot change that role's defaults, so this must be resolved through a supported Supabase administrative path before release. Existing tables and defaults for the normal `postgres` migration role were checked separately.
+4. **Full application acceptance:** database-level tests cover sales, returns, cancellation, customer collections, supplier payments, and tenant isolation. Still run authenticated browser workflows and complete purchasing/inventory edge cases, permissions, and reporting with representative test accounts before declaring production readiness.
 
 ## Release status
 
 - PR #51: open Draft, not merged.
 - Production deployment: not changed.
 - Production schema migrations: not applied.
+- One explicitly identified test-return line was reconciled and audit-logged; supplier payment rows were not changed.
 - Staging schema: reconstructed and validated for the current candidate.
-- Production readiness: **not yet certified** until migration provenance is resolved and the three legacy payments are reconciled against source documents or explicitly classified as unapplied advances.
+- Production readiness: **not yet certified** until migration provenance, the platform-managed default ACL, and the three legacy payments are resolved, and authenticated browser acceptance is complete.
