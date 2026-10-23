@@ -4,7 +4,9 @@
   // Only the canonical production hostname may connect to production.
   // Every preview, local, and alternate hostname is isolated to staging.
   const PRODUCTION_HOSTNAMES = new Set([
-    "smart-sales-system-new.vercel.app"
+    "smart-sales-system-new.vercel.app",
+    "smart-sales-system-new-my-project-3093.vercel.app",
+    "smart-sales-system-new-git-main-my-project-3093.vercel.app"
   ]);
   const isProduction = PRODUCTION_HOSTNAMES.has(
     String(window.location && window.location.hostname || "").toLowerCase()
