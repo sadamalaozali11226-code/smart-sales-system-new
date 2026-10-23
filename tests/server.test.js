@@ -278,8 +278,12 @@ test("supplier payment migration caps allocations at purchase balance after retu
 });
 
 test("invitation lifecycle state rules fail closed and permit deliberate re-invitation", async () => {
-  const { getInviteMembershipAction, getAcceptanceAction, isInvitationExpired } =
-    await import("../supabase/functions/organization-member-invitations/invitation-state.mjs");
+  const {
+    getInviteMembershipAction,
+    getAcceptanceAction,
+    isInvitationExpired,
+    getInvitationDisplayStatus,
+  } = await import("../supabase/functions/organization-member-invitations/invitation-state.mjs");
 
   assert.equal(getInviteMembershipAction(null), "create");
   assert.equal(getInviteMembershipAction("suspended"), "reinvite");
@@ -295,12 +299,42 @@ test("invitation lifecycle state rules fail closed and permit deliberate re-invi
   assert.equal(isInvitationExpired("2020-01-01T00:00:00.000Z", Date.parse("2021-01-01T00:00:00.000Z")), true);
   assert.equal(isInvitationExpired("2030-01-01T00:00:00.000Z", Date.parse("2029-01-01T00:00:00.000Z")), false);
   assert.equal(isInvitationExpired("not-a-date", Date.now()), true);
+
+  const fixedNow = Date.parse("2026-10-23T00:00:00.000Z");
+  assert.equal(
+    getInvitationDisplayStatus("pending", "2026-10-15T00:00:00.000Z", "active", fixedNow),
+    "accepted",
+    "An active member must not still appear to have a pending invitation"
+  );
+  assert.equal(
+    getInvitationDisplayStatus("pending", "2026-10-15T00:00:00.000Z", "invited", fixedNow),
+    "expired",
+    "An expired invitation for a non-active member must be shown as expired"
+  );
+  assert.equal(
+    getInvitationDisplayStatus("pending", "2026-10-30T00:00:00.000Z", null, fixedNow),
+    "pending"
+  );
+  assert.equal(
+    getInvitationDisplayStatus("accepted", "2020-01-01T00:00:00.000Z", "active", fixedNow),
+    "accepted",
+    "A final invitation state must not be overwritten"
+  );
 });
 
 test("invitation handlers check write failures and never activate a non-invited membership", () => {
   const functionPath = path.join(__dirname, "..", "supabase", "functions",
     "organization-member-invitations", "index.ts");
   const source = fs.readFileSync(functionPath, "utf8");
+
+  assert.match(source, /\.select\("id,expires_at,auth_user_id,accepted_at"\)/,
+    "Pending invitation checks must load expiry and identity data for safe reconciliation");
+  assert.match(source, /if \(activeMembership\)[\s\S]*?status: "accepted"/,
+    "An invitation linked to an already-active member must be reconciled as accepted");
+  assert.match(source, /else if \(isInvitationExpired\(pending\.expires_at\)\)[\s\S]*?status: "expired"/,
+    "Expired pending invitations must stop blocking a future invite attempt");
+  assert.match(source, /getInvitationDisplayStatus\([\s\S]*?activeUserIds\.has\(invitation\.auth_user_id\)/,
+    "The invitation list must derive an accurate display state from membership and expiry");
 
   assert.match(source, /\.in\("status", \["suspended", "inactive", "invited"\]\)/,
     "Re-invitation must only re-enable a previously suspended or inactive membership");
