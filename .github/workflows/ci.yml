@@ -168,6 +168,14 @@ jobs:
           psql -d sale_return_refund_test -v ON_ERROR_STOP=1 -c "GRANT EXECUTE ON FUNCTION public.return_sale_items(uuid, uuid, bigint, jsonb, text, text, numeric, text, text) TO authenticated"
           psql -d sale_return_refund_test -v ON_ERROR_STOP=1 -f tests/fixtures/sale-return-refund-assertions.sql
 
+      - name: Test supplier purchase and return hard-delete guards
+        run: |
+          createdb purchase_hard_delete_test
+          psql -d purchase_hard_delete_test -v ON_ERROR_STOP=1 -f tests/fixtures/purchase-hard-delete-baseline.sql
+          psql -d purchase_hard_delete_test -v ON_ERROR_STOP=1 -f supabase/migrations/20261009205628_prevent_hard_delete_supplier_purchase_financial_records.sql
+          psql -d purchase_hard_delete_test -v ON_ERROR_STOP=1 -f supabase/migrations/20261023120000_prevent_purchase_return_financial_hard_delete.sql
+          psql -d purchase_hard_delete_test -v ON_ERROR_STOP=1 -f tests/fixtures/purchase-hard-delete-assertions.sql
+
       - name: Test idempotency against the real sale transaction implementation
         run: |
           createdb sale_business_test
