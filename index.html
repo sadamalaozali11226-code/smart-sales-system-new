@@ -5669,24 +5669,36 @@ if (!window.SmartSalesAPI) {
       }
       const button = document.getElementById("confirmSaleCancelButton");
       button.disabled = true;
+      const saleId = Number(selectedCancelInvoice.id);
       try {
         await SmartSalesAPI.cancelSale({
-          saleId: Number(selectedCancelInvoice.id),
+          saleId,
           reason,
           refundPaymentMethod: document.getElementById("saleCancelRefundMethod").value,
           refundReference: document.getElementById("saleCancelRefundReference").value.trim() || null
         });
-        const saleId = Number(selectedCancelInvoice.id);
-        closeSaleCancelModal();
-        closeInvoiceModal();
-        await loadProducts();
-        await loadSales();
-        await loadSalesHistory();
-        showMessage(translations[currentLanguage].cancelSuccess);
-        await openInvoiceById(saleId);
       } catch (error) {
         console.error(error);
         showMessage(error.message || translations[currentLanguage].cancelSale, true);
+        button.disabled = false;
+        return;
+      }
+
+      closeSaleCancelModal();
+      closeInvoiceModal();
+      showMessage(translations[currentLanguage].cancelSuccess);
+      const refreshResults = await Promise.allSettled([
+        loadProducts(),
+        loadSales(),
+        loadSalesHistory()
+      ]);
+      if (refreshResults.some(result => result.status === "rejected")) {
+        console.error("Sale cancellation was saved, but one screen refresh failed.", refreshResults);
+      }
+      try {
+        await openInvoiceById(saleId);
+      } catch (error) {
+        console.error("Sale cancellation was saved, but its invoice could not be opened.", error);
       } finally {
         button.disabled = false;
       }
@@ -5797,7 +5809,7 @@ if (!window.SmartSalesAPI) {
         quantity: Number(input.value || 0),
         refund_amount: 0
       })).filter(item => item.quantity > 0);
-      if (!items.length) {
+      if (!selectedItems.length) {
         showMessage("أدخل كمية مرتجعة واحدة على الأقل.", true);
         return;
       }
@@ -5813,26 +5825,40 @@ if (!window.SmartSalesAPI) {
         showMessage(error.message || "مبلغ الاسترداد غير صحيح.", true);
         return;
       }
+
       const button = document.getElementById("confirmSaleReturnButton");
       button.disabled = true;
+      const saleId = Number(selectedReturnInvoice.id);
       try {
         await SmartSalesAPI.returnSale({
-          saleId: Number(selectedReturnInvoice.id),
+          saleId,
           items,
           refundAmount,
           reason: document.getElementById("saleReturnReason").value.trim()
         });
-        const saleId = Number(selectedReturnInvoice.id);
-        closeSaleReturnModal();
-        closeInvoiceModal();
-        await loadProducts();
-        await loadSalesHistory();
-        await loadSales();
-        showMessage(translations[currentLanguage].returnSuccess);
-        await openInvoiceById(saleId);
       } catch (error) {
         console.error(error);
         showMessage(error.message || "تعذر تسجيل المرتجع", true);
+        button.disabled = false;
+        return;
+      }
+
+      closeSaleReturnModal();
+      closeInvoiceModal();
+      showMessage(translations[currentLanguage].returnSuccess);
+
+      const refreshResults = await Promise.allSettled([
+        loadProducts(),
+        loadSalesHistory(),
+        loadSales()
+      ]);
+      if (refreshResults.some(result => result.status === "rejected")) {
+        console.error("Sale return was saved, but one screen refresh failed.", refreshResults);
+      }
+      try {
+        await openInvoiceById(saleId);
+      } catch (error) {
+        console.error("Sale return was saved, but its invoice could not be opened.", error);
       } finally {
         button.disabled = false;
       }
