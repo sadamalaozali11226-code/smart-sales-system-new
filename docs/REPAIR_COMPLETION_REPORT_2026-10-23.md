@@ -35,9 +35,9 @@ All 31 staging RLS policies match the production policy definitions exactly. All
 
 ## Tests
 
-- GitHub CI passed on code head `540b0ea05c54833309633b43ef5711855f9ff673`, including the new isolated PostgreSQL hard-delete regression test.
-- The disposable local Supabase sale migration workflow also passed on code head `540b0ea05c54833309633b43ef5711855f9ff673`.
-- Vercel Preview: READY/success for the latest branch commit `b354a984f4864bb3f36967100930238bfe8c90ee`.
+- GitHub CI passed on code head `540b0ea05c54833309633b43ef5711855f9ff673`, including the new isolated PostgreSQL hard-delete regression test ([CI run](https://github.com/sadamalaozali11226-code/smart-sales-system-new/actions/runs/39880849949)).
+- The disposable local Supabase sale migration workflow also passed on that code head ([local Supabase run](https://github.com/sadamalaozali11226-code/smart-sales-system-new/actions/runs/39880849948)).
+- Vercel Preview was READY at `smart-sales-system-jde0038j9-my-project-3093.vercel.app` on branch revision `e02e55c4ef2dc0ca5721d58090cd2c360d5f9239`; later changes to this report are documentation-only.
 - Staging SQL acceptance: passed for sale idempotency (identical retry, changed-payload rejection, distinct request key, stock/audit invariants); valid/mismatched sale returns; paid sale cancellation with one refund and stock restoration; customer payment allocation and atomic overpayment rejection; supplier payment allocation and atomic incomplete-allocation rejection; tenant RLS isolation; and current/future client TRUNCATE restrictions, and hard-delete rejection across seven supplier purchase/return financial tables. All synthetic fixture writes were rolled back.
 - A new migration adds database hard-delete guards to `purchase_returns`, `purchase_return_items`, and `supplier_refunds`, reusing the existing guard function. The staging acceptance test confirmed all seven purchase/payment/return/refund tables reject hard deletion.
 - These results do not replace full browser-based end-to-end acceptance across all modules.
