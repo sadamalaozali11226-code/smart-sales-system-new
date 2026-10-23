@@ -94,7 +94,7 @@ jobs:
       - name: Test the actual public TRUNCATE migration in isolated PostgreSQL
         run: |
           psql -v ON_ERROR_STOP=1 -f tests/fixtures/truncate-public-migration-baseline.sql
-          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261019090000_revoke_client_truncate_public.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261023143947_revoke_client_truncate_public.sql
           psql -v ON_ERROR_STOP=1 -f tests/fixtures/truncate-public-migration-assertions.sql
 
       - name: Test durable sale idempotency in an isolated database
