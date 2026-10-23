@@ -31,14 +31,14 @@ Verified table names match between production and staging for all 31 public appl
 | RLS policies | 31 | 31 |
 | Non-internal triggers | 4 | 7 |
 
-All 31 staging RLS policies match the production policy definitions exactly. All public application tables have RLS enabled. Staging contains no production business data. A disposable staging table confirmed that anonymous/authenticated roles cannot TRUNCATE a new public table created by the normal `postgres` migration role.
+All 31 staging RLS policies match the production policy definitions exactly. All public application tables have RLS enabled. Staging contains no production business data. A disposable staging table confirmed that anonymous/authenticated roles cannot TRUNCATE a new public table created by the normal `postgres` migration role. During the final verification pass, the staging default ACL for `postgres` was explicitly narrowed again with `ALTER DEFAULT PRIVILEGES ... REVOKE TRUNCATE`; a newly created public probe table returned `has_table_privilege(..., 'TRUNCATE') = false` for both `anon` and `authenticated`, and the probe table was then dropped. ACL expansion confirmed that the `postgres` default ACL no longer grants TRUNCATE to either client role.
 
 The staging catalog also contains platform-managed default privileges for `supabase_admin` in `public` that include TRUNCATE for client roles. The connected SQL session cannot manage that role's default ACL through the normal migration role, and no unsupported role escalation was attempted. This remains a release security blocker until the supported administrative path is confirmed. Existing application tables were checked separately and client roles do not have TRUNCATE on them.
 
 ## Tests
 
-- GitHub CI passed on current code head `a287a51673f567b36771ecda0a98ce122744dee4` ([CI run](https://github.com/sadamalaozali11226-code/smart-sales-system-new/actions/runs/39881165287)).
-- The disposable local Supabase sale-migration workflow passed on the same head ([local Supabase run](https://github.com/sadamalaozali11226-code/smart-sales-system-new/actions/runs/39881165451)).
+- GitHub CI passed on current PR head `3887070727f907edb4560f2836b492d373960b2f` ([CI run](https://github.com/sadamalaozali11226-code/smart-sales-system-new/actions/runs/39953031009)).
+- The disposable local Supabase sale-migration workflow passed on the same head ([local Supabase run](https://github.com/sadamalaozali11226-code/smart-sales-system-new/actions/runs/39953031083)).
 - Vercel Preview was READY at `smart-sales-system-25bzoj4wl-my-project-3093.vercel.app` on the same branch revision.
 - Live preview HTTP smoke checks: homepage returned 200; `/src/supabase-client.js` returned 200 and contained the production-host allowlist/staging fallback; legacy `/api/products` returned 410 with the expected “Legacy API disabled” response.
 - Staging SQL acceptance passed for sale idempotency (identical retry, changed-payload rejection, distinct request key, stock/audit invariants); valid/mismatched sale returns; paid sale cancellation with one refund and stock restoration; customer payment allocation and atomic overpayment rejection; supplier payment allocation and atomic incomplete-allocation rejection; tenant RLS isolation; current/future client TRUNCATE restrictions for the normal migration role; and hard-delete rejection across seven supplier purchase/return financial tables. All synthetic fixture writes were rolled back.
