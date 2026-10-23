@@ -12,10 +12,16 @@ function configFor(hostname) {
   return window.SmartSalesSupabase;
 }
 
-test("canonical production hostname alone receives production Supabase configuration", () => {
-  const config = configFor("smart-sales-system-new.vercel.app");
-  assert.equal(config.url, "https://kpllyyeirhdjwvkrwspg.supabase.co");
-  assert.equal(config.publishableKey, "sb_publishable_OCdRHiaZySGrsgNYV3w0jQ_bWSL1ACV");
+test("only verified production aliases receive production Supabase configuration", () => {
+  for (const hostname of [
+    "smart-sales-system-new.vercel.app",
+    "smart-sales-system-new-my-project-3093.vercel.app",
+    "smart-sales-system-new-git-main-my-project-3093.vercel.app"
+  ]) {
+    const config = configFor(hostname);
+    assert.equal(config.url, "https://kpllyyeirhdjwvkrwspg.supabase.co", hostname);
+    assert.equal(config.publishableKey, "sb_publishable_OCdRHiaZySGrsgNYV3w0jQ_bWSL1ACV", hostname);
+  }
 });
 
 test("Vercel preview hosts route to the isolated staging Supabase project", () => {
