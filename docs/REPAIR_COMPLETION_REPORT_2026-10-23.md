@@ -49,7 +49,7 @@ No other historical financial rows were altered.
 
 ## Remaining release blockers
 
-1. **Migration provenance:** production has 57 migration-history rows while the repository has 39 SQL migration files. Names/versions differ and some historical source migrations are unavailable. The snapshot makes staging structurally useful, but it does not reconstruct the missing historical migration provenance. Do not mark the production migration history as repaired by fabricating versions.
+1. **Migration provenance:** production has 57 migration-history rows while the current branch contains 42 SQL migration files (including the newly added candidate migrations). Names/versions differ and some historical source migrations are unavailable. The snapshot makes staging structurally useful, but it does not reconstruct the missing historical migration provenance. Do not mark the production migration history as repaired by fabricating versions.
 2. **Three legacy supplier payments are unallocated:** IDs 1–3 are `780.00`, `10.00`, and `675.00` (total `1,465.00`). Their allocation total is zero. The only current purchase receipts for this supplier are IDs 4 and 5, fully allocated at `900.00` and `500.00`; there are no receipt rows for IDs 1–3 to attach these payments to. Payment 1's note refers to an earlier purchase, while payments 2–3 have no matching receipt reference. These may be legacy advances, deleted/archived purchases, or migration residue. They must not be allocated to unrelated receipts by inference.
 3. **Full application acceptance:** run the complete sales, returns, inventory, purchasing, supplier payments, customer collections, permissions, and reporting workflows on staging with representative test accounts before declaring production readiness.
 
