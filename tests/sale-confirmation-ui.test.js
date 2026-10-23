@@ -165,3 +165,30 @@ test("sale return confirmation passes calculated item refund amounts instead of 
   assert.match(confirmation, /allocateSaleReturnRefund\(selectedReturnInvoice, selectedItems, refundAmount\)/);
   assert.match(confirmation, /items,\s*refundAmount,/);
 });
+
+
+test("sale return requires selected return items and does not confuse refresh errors with transaction failure", () => {
+  const start = html.indexOf("    async function confirmSaleReturn()");
+  const end = html.indexOf("    function closeInvoiceModal()", start);
+  assert.ok(start >= 0 && end > start, "Expected confirmSaleReturn() body");
+  const confirmation = html.slice(start, end);
+  assert.match(confirmation, /if\s*\(!selectedItems\.length\)/);
+  const rpc = confirmation.indexOf("await SmartSalesAPI.returnSale");
+  const success = confirmation.indexOf("showMessage(translations[currentLanguage].returnSuccess)");
+  const refresh = confirmation.indexOf("Promise.allSettled([", rpc);
+  assert.ok(rpc >= 0 && success > rpc && refresh > success, "Return success must be acknowledged before UI refresh");
+  assert.match(confirmation, /Sale return was saved, but one screen refresh failed/);
+  assert.match(confirmation, /Sale return was saved, but its invoice could not be opened/);
+});
+
+test("sale cancellation does not report a committed cancellation as failed when invoice refresh fails", () => {
+  const start = html.indexOf("    async function confirmSaleCancel()");
+  const end = html.indexOf("    function openSaleReturnFromCurrentInvoice()", start);
+  assert.ok(start >= 0 && end > start, "Expected confirmSaleCancel() body");
+  const confirmation = html.slice(start, end);
+  const rpc = confirmation.indexOf("await SmartSalesAPI.cancelSale");
+  const success = confirmation.indexOf("showMessage(translations[currentLanguage].cancelSuccess)");
+  const refresh = confirmation.indexOf("Promise.allSettled([", rpc);
+  assert.ok(rpc >= 0 && success > rpc && refresh > success, "Cancellation success must be acknowledged before UI refresh");
+  assert.match(confirmation, /Sale cancellation was saved, but its invoice could not be opened/);
+});
