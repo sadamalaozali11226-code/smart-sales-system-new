@@ -73,3 +73,9 @@ jobs:
             exit 1
           fi
           grep -q "Expected one supplier balance validation pattern" /tmp/supplier-migration-reapply.log
+
+      - name: Test public TRUNCATE privilege migration across all 31 tables
+        run: |
+          psql -v ON_ERROR_STOP=1 -f tests/fixtures/truncate-public-migration-baseline.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261023143947_revoke_client_truncate_public.sql
+          psql -v ON_ERROR_STOP=1 -f tests/fixtures/truncate-public-migration-assertions.sql
