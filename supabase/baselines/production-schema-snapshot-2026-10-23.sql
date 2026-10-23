@@ -1198,7 +1198,7 @@ begin
     p_sale_id, p_amount, p_payment_method, p_reference
   );
 end;
-$function$
+$function$;
 
 
 CREATE OR REPLACE FUNCTION private.is_org_member(p_organization_id uuid)
@@ -1214,7 +1214,7 @@ AS $function$
       and om.user_id = (select auth.uid())
       and om.status = 'active'
   );
-$function$
+$function$;
 
 
 CREATE OR REPLACE FUNCTION private.is_store_member(p_store_id uuid)
@@ -1232,7 +1232,7 @@ AS $function$
       and om.user_id = (select auth.uid())
       and om.status = 'active'
   );
-$function$
+$function$;
 
 
 CREATE OR REPLACE FUNCTION private.is_org_store_member(p_organization_id uuid, p_store_id uuid)
@@ -1254,7 +1254,7 @@ AS $function$
       and om.user_id = (select auth.uid())
       and om.status = 'active'
   );
-$function$
+$function$;
 
 
 CREATE OR REPLACE FUNCTION private.can_access_sale(p_sale_id bigint)
@@ -1278,7 +1278,7 @@ AS $function$
      and st.organization_id = s.organization_id
     where s.id = p_sale_id
   );
-$function$
+$function$;
 
 
 CREATE OR REPLACE FUNCTION private.create_sale_transaction(p_organization_id uuid, p_store_id uuid, p_invoice_number text, p_customer_id bigint DEFAULT NULL::bigint, p_items jsonb DEFAULT '[]'::jsonb, p_discount numeric DEFAULT 0, p_tax numeric DEFAULT 0, p_paid_amount numeric DEFAULT 0, p_payment_method text DEFAULT 'cash'::text, p_reference text DEFAULT NULL::text, p_notes text DEFAULT NULL::text)
@@ -1480,7 +1480,7 @@ begin
 exception
   when unique_violation then raise exception 'invoice number already exists';
 end;
-$function$
+$function$;
 
 
 CREATE OR REPLACE FUNCTION private.has_org_permission(p_organization_id uuid, p_permission_code text)
@@ -1501,7 +1501,7 @@ AS $function$
       and r.organization_id = p_organization_id
       and p.code = p_permission_code
   );
-$function$
+$function$;
 
 
 CREATE OR REPLACE FUNCTION private.bootstrap_organization(p_organization_name text, p_slug text, p_store_name text, p_store_code text)
@@ -1565,7 +1565,7 @@ CREATE OR REPLACE FUNCTION public.bootstrap_organization(p_organization_name tex
  SET search_path TO 'public', 'private'
 AS $function$
   select private.bootstrap_organization($1, $2, $3, $4);
-$function$
+$function$;
 
 
 CREATE OR REPLACE FUNCTION public.create_sale_transaction(p_organization_id uuid, p_store_id uuid, p_invoice_number text, p_customer_id bigint DEFAULT NULL::bigint, p_items jsonb DEFAULT '[]'::jsonb, p_discount numeric DEFAULT 0, p_tax numeric DEFAULT 0, p_paid_amount numeric DEFAULT 0, p_payment_method text DEFAULT 'cash'::text, p_reference text DEFAULT NULL::text, p_notes text DEFAULT NULL::text)
@@ -1576,7 +1576,7 @@ AS $function$
   select private.create_sale_transaction(
     $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11
   );
-$function$
+$function$;
 
 
 CREATE OR REPLACE FUNCTION private.create_product(p_organization_id uuid, p_name text, p_price numeric, p_quantity integer DEFAULT 0)
@@ -1596,7 +1596,7 @@ begin
   insert into public.products(name, price, quantity, organization_id) values (trim(p_name), p_price, 0, p_organization_id) returning * into v_product;
   return v_product;
 end;
-$function$
+$function$;
 
 
 CREATE OR REPLACE FUNCTION public.create_product(p_organization_id uuid, p_name text, p_price numeric, p_quantity integer DEFAULT 0)
@@ -1605,7 +1605,7 @@ CREATE OR REPLACE FUNCTION public.create_product(p_organization_id uuid, p_name 
  SET search_path TO 'public', 'private'
 AS $function$
   select private.create_product($1,$2,$3,$4);
-$function$
+$function$;
 
 
 CREATE OR REPLACE FUNCTION private.create_customer(p_organization_id uuid, p_name text, p_phone text DEFAULT NULL::text, p_address text DEFAULT NULL::text, p_notes text DEFAULT NULL::text)
@@ -1628,7 +1628,7 @@ begin
 
   return v_customer;
 end;
-$function$
+$function$;
 
 
 CREATE OR REPLACE FUNCTION public.create_customer(p_organization_id uuid, p_name text, p_phone text DEFAULT NULL::text, p_address text DEFAULT NULL::text, p_notes text DEFAULT NULL::text)
@@ -1637,7 +1637,7 @@ CREATE OR REPLACE FUNCTION public.create_customer(p_organization_id uuid, p_name
  SET search_path TO 'public', 'private'
 AS $function$
   select private.create_customer($1,$2,$3,$4,$5);
-$function$
+$function$;
 
 
 CREATE OR REPLACE FUNCTION private.update_product(p_organization_id uuid, p_product_id bigint, p_name text, p_price numeric)
@@ -1702,7 +1702,7 @@ begin
 
   return v_product;
 end;
-$function$
+$function$;
 
 
 CREATE OR REPLACE FUNCTION public.update_product(p_organization_id uuid, p_product_id bigint, p_name text, p_price numeric)
@@ -1735,7 +1735,7 @@ begin
   if not found then raise exception 'customer not found'; end if;
   return v_customer;
 end;
-$function$
+$function$;
 
 
 CREATE OR REPLACE FUNCTION public.update_customer(p_organization_id uuid, p_customer_id bigint, p_name text, p_phone text DEFAULT NULL::text, p_address text DEFAULT NULL::text, p_notes text DEFAULT NULL::text)
@@ -1800,7 +1800,7 @@ begin
     null
   );
 end;
-$function$
+$function$;
 
 
 CREATE OR REPLACE FUNCTION public.cancel_sale(p_organization_id uuid, p_sale_id bigint, p_reason text DEFAULT NULL::text)
@@ -1811,7 +1811,7 @@ AS $function$
 begin
   return private.cancel_sale(p_organization_id, p_sale_id, p_reason);
 end;
-$function$
+$function$;
 
 
 CREATE OR REPLACE FUNCTION private.refund_sale_payment(p_organization_id uuid, p_sale_id bigint, p_amount numeric, p_payment_method text DEFAULT 'cash'::text, p_reference text DEFAULT NULL::text, p_reason text DEFAULT NULL::text)
@@ -1907,7 +1907,7 @@ begin
     'audit_log_id', v_audit_id
   );
 end;
-$function$
+$function$;
 
 
 CREATE OR REPLACE FUNCTION public.refund_sale_payment(p_organization_id uuid, p_sale_id bigint, p_amount numeric, p_payment_method text DEFAULT 'cash'::text, p_reference text DEFAULT NULL::text, p_reason text DEFAULT NULL::text)
@@ -1925,7 +1925,7 @@ begin
     p_reason
   );
 end;
-$function$
+$function$;
 
 
 CREATE OR REPLACE FUNCTION private.write_audit_log(p_organization_id uuid, p_store_id uuid, p_action text, p_entity_type text DEFAULT NULL::text, p_entity_id text DEFAULT NULL::text, p_metadata jsonb DEFAULT '{}'::jsonb)
@@ -1967,7 +1967,7 @@ begin
 
   return v_id;
 end;
-$function$
+$function$;
 
 
 CREATE OR REPLACE FUNCTION private.adjust_product_stock(p_organization_id uuid, p_store_id uuid, p_product_id bigint, p_quantity_change integer, p_notes text DEFAULT NULL::text)
@@ -2007,7 +2007,7 @@ begin
 
   return jsonb_build_object('product_id', p_product_id, 'store_id', p_store_id, 'quantity_before', v_balance.quantity, 'quantity_change', p_quantity_change, 'quantity_after', v_after, 'audit_log_id', v_audit_id);
 end;
-$function$
+$function$;
 
 
 CREATE OR REPLACE FUNCTION public.adjust_product_stock(p_organization_id uuid, p_store_id uuid, p_product_id bigint, p_quantity_change integer, p_notes text DEFAULT NULL::text)
@@ -2018,7 +2018,7 @@ AS $function$
   select private.adjust_product_stock(
     p_organization_id, p_store_id, p_product_id, p_quantity_change, p_notes
   );
-$function$
+$function$;
 
 
 CREATE OR REPLACE FUNCTION private.add_product_to_store(p_organization_id uuid, p_store_id uuid, p_product_id bigint, p_initial_quantity integer DEFAULT 0, p_reorder_level integer DEFAULT 0, p_notes text DEFAULT NULL::text)
@@ -2062,7 +2062,7 @@ begin
 
   return v_row;
 end;
-$function$
+$function$;
 
 
 CREATE OR REPLACE FUNCTION public.add_product_to_store(p_organization_id uuid, p_store_id uuid, p_product_id bigint, p_initial_quantity integer DEFAULT 0, p_reorder_level integer DEFAULT 0, p_notes text DEFAULT NULL::text)
@@ -2073,7 +2073,7 @@ AS $function$
 begin
   return private.add_product_to_store(p_organization_id, p_store_id, p_product_id, p_initial_quantity, p_reorder_level, p_notes);
 end;
-$function$
+$function$;
 
 
 CREATE OR REPLACE FUNCTION private.create_product_for_store(p_organization_id uuid, p_store_id uuid, p_name text, p_price numeric, p_initial_quantity integer DEFAULT 0, p_reorder_level integer DEFAULT 0, p_notes text DEFAULT NULL::text)
@@ -2106,7 +2106,7 @@ begin
 
   return v_store_product;
 end;
-$function$
+$function$;
 
 
 CREATE OR REPLACE FUNCTION public.create_product_for_store(p_organization_id uuid, p_store_id uuid, p_name text, p_price numeric, p_initial_quantity integer DEFAULT 0, p_reorder_level integer DEFAULT 0, p_notes text DEFAULT NULL::text)
@@ -2117,7 +2117,7 @@ AS $function$
 begin
   return private.create_product_for_store(p_organization_id, p_store_id, p_name, p_price, p_initial_quantity, p_reorder_level, p_notes);
 end;
-$function$
+$function$;
 
 
 CREATE OR REPLACE FUNCTION private.update_store_product_settings(p_organization_id uuid, p_store_id uuid, p_product_id bigint, p_reorder_level integer)
@@ -2179,7 +2179,7 @@ begin
 
   return v_row;
 end;
-$function$
+$function$;
 
 
 CREATE OR REPLACE FUNCTION public.update_store_product_settings(p_organization_id uuid, p_store_id uuid, p_product_id bigint, p_reorder_level integer)
@@ -2195,7 +2195,7 @@ begin
     p_reorder_level
   );
 end;
-$function$
+$function$;
 
 
 CREATE OR REPLACE FUNCTION private.transfer_stock(p_organization_id uuid, p_from_store_id uuid, p_to_store_id uuid, p_product_id bigint, p_quantity integer, p_notes text DEFAULT NULL::text)
@@ -2287,7 +2287,7 @@ begin
   );
   return v_transfer;
 end;
-$function$
+$function$;
 
 
 CREATE OR REPLACE FUNCTION public.transfer_stock(p_organization_id uuid, p_from_store_id uuid, p_to_store_id uuid, p_product_id bigint, p_quantity integer, p_notes text DEFAULT NULL::text)
@@ -2301,7 +2301,7 @@ begin
     p_product_id, p_quantity, p_notes
   );
 end;
-$function$
+$function$;
 
 
 CREATE OR REPLACE FUNCTION private.receive_purchase(p_organization_id uuid, p_store_id uuid, p_receipt_number text, p_items jsonb, p_notes text DEFAULT NULL::text)
@@ -2416,7 +2416,7 @@ exception
   when unique_violation then
     raise exception 'receipt number already exists in this store';
 end;
-$function$
+$function$;
 
 
 CREATE OR REPLACE FUNCTION public.receive_purchase(p_organization_id uuid, p_store_id uuid, p_receipt_number text, p_items jsonb, p_notes text DEFAULT NULL::text)
@@ -2429,7 +2429,7 @@ begin
     p_organization_id, p_store_id, p_receipt_number, p_items, p_notes
   );
 end;
-$function$
+$function$;
 
 
 CREATE OR REPLACE FUNCTION private.return_sale_items(p_organization_id uuid, p_store_id uuid, p_sale_id bigint, p_items jsonb, p_reason text DEFAULT NULL::text, p_notes text DEFAULT NULL::text, p_refund_amount numeric DEFAULT 0, p_refund_payment_method text DEFAULT 'cash'::text, p_refund_reference text DEFAULT NULL::text)
@@ -2577,7 +2577,7 @@ begin
 
   return v_status;
 end;
-$function$
+$function$;
 
 
 CREATE OR REPLACE FUNCTION public.customer_balances(p_organization_id uuid, p_store_id uuid)
@@ -2643,7 +2643,7 @@ AS $function$
   where c.organization_id = p_organization_id
   group by c.id, c.name
   order by c.name;
-$function$
+$function$;
 
 
 CREATE OR REPLACE FUNCTION private.record_customer_payment(p_organization_id uuid, p_store_id uuid, p_customer_id bigint, p_amount numeric, p_payment_method text DEFAULT 'cash'::text, p_reference text DEFAULT NULL::text, p_notes text DEFAULT NULL::text)
@@ -2776,7 +2776,7 @@ begin
     'audit_log_id', v_audit_id
   );
 end;
-$function$
+$function$;
 
 
 CREATE OR REPLACE FUNCTION public.record_customer_payment(p_organization_id uuid, p_store_id uuid, p_customer_id bigint, p_amount numeric, p_payment_method text DEFAULT 'cash'::text, p_reference text DEFAULT NULL::text, p_notes text DEFAULT NULL::text)
@@ -2790,7 +2790,7 @@ begin
     p_payment_method, p_reference, p_notes
   );
 end;
-$function$
+$function$;
 
 
 CREATE OR REPLACE FUNCTION public.customer_ledger(p_organization_id uuid, p_store_id uuid, p_customer_id bigint, p_from timestamp with time zone DEFAULT NULL::timestamp with time zone, p_to timestamp with time zone DEFAULT NULL::timestamp with time zone)
@@ -2875,7 +2875,7 @@ AS $function$
     ) as running_balance
   from normalized n
   order by n.seq;
-$function$
+$function$;
 
 
 CREATE OR REPLACE FUNCTION public.customer_debt_aging(p_organization_id uuid, p_store_id uuid, p_as_of timestamp with time zone DEFAULT now())
@@ -2946,7 +2946,7 @@ AS $function$
   where c.organization_id = p_organization_id
   group by c.id, c.name
   order by sum(b.current_due + b.due_1_30 + b.due_31_60 + b.due_61_90 + b.due_over_90) desc, c.name;
-$function$
+$function$;
 
 
 CREATE OR REPLACE FUNCTION public.customer_debt_aging_summary(p_organization_id uuid, p_store_id uuid, p_as_of timestamp with time zone DEFAULT now())
@@ -2962,7 +2962,7 @@ AS $function$
     coalesce(sum(a.due_over_90),0)::numeric,
     coalesce(sum(a.total_due),0)::numeric
   from public.customer_debt_aging(p_organization_id, p_store_id, p_as_of) a;
-$function$
+$function$;
 
 
 CREATE OR REPLACE FUNCTION public.customer_reports(p_organization_id uuid, p_store_id uuid, p_customer_id bigint DEFAULT NULL::bigint, p_from timestamp with time zone DEFAULT NULL::timestamp with time zone, p_to timestamp with time zone DEFAULT NULL::timestamp with time zone, p_as_of timestamp with time zone DEFAULT now())
@@ -3003,7 +3003,7 @@ begin
     'aging_summary', coalesce(v_summary, '{}'::jsonb)
   );
 end;
-$function$
+$function$;
 
 
 CREATE OR REPLACE FUNCTION public.customer_financial_dashboard(p_organization_id uuid, p_store_id uuid, p_as_of timestamp with time zone DEFAULT now())
@@ -3101,7 +3101,7 @@ begin
     'top_debtors', v_top_debtors
   );
 end;
-$function$
+$function$;
 
 
 CREATE OR REPLACE FUNCTION public.sales_inventory_reports(p_organization_id uuid, p_store_id uuid, p_from timestamp with time zone DEFAULT NULL::timestamp with time zone, p_to timestamp with time zone DEFAULT NULL::timestamp with time zone, p_as_of timestamp with time zone DEFAULT now())
@@ -3226,7 +3226,7 @@ begin
     'top_products', v_top_products
   );
 end;
-$function$
+$function$;
 
 
 CREATE OR REPLACE FUNCTION public.management_dashboard(p_organization_id uuid, p_store_id uuid, p_from timestamp with time zone DEFAULT NULL::timestamp with time zone, p_to timestamp with time zone DEFAULT NULL::timestamp with time zone, p_as_of timestamp with time zone DEFAULT now())
@@ -3278,7 +3278,7 @@ begin
       coalesce(v_customer_financial->'top_debtors', '[]'::jsonb)
   );
 end;
-$function$
+$function$;
 
 
 CREATE OR REPLACE FUNCTION public.operational_reports(p_organization_id uuid, p_store_id uuid, p_product_id bigint DEFAULT NULL::bigint, p_from timestamp with time zone DEFAULT NULL::timestamp with time zone, p_to timestamp with time zone DEFAULT NULL::timestamp with time zone, p_limit integer DEFAULT 100)
@@ -3365,7 +3365,7 @@ begin
     'product_stock', v_product_stock
   );
 end;
-$function$
+$function$;
 
 
 CREATE OR REPLACE FUNCTION public.profitability_report(p_organization_id uuid, p_store_id uuid, p_from timestamp with time zone DEFAULT NULL::timestamp with time zone, p_to timestamp with time zone DEFAULT NULL::timestamp with time zone)
@@ -3459,7 +3459,7 @@ begin
     'products', v_products
   );
 end;
-$function$
+$function$;
 
 
 CREATE OR REPLACE FUNCTION public.inventory_valuation_report(p_organization_id uuid, p_store_id uuid, p_from timestamp with time zone DEFAULT NULL::timestamp with time zone, p_to timestamp with time zone DEFAULT NULL::timestamp with time zone)
@@ -3635,7 +3635,7 @@ begin
     )
   );
 end;
-$function$
+$function$;
 
 
 CREATE OR REPLACE FUNCTION public.update_product_for_store(p_product_id bigint, p_name text, p_price numeric, p_quantity integer, p_organization_id uuid, p_store_id uuid)
@@ -3678,7 +3678,7 @@ exception
   when unique_violation then
     raise exception 'supplier name already exists in this organization';
 end;
-$function$
+$function$;
 
 
 CREATE OR REPLACE FUNCTION private.update_supplier(p_organization_id uuid, p_supplier_id bigint, p_name text, p_phone text DEFAULT NULL::text, p_address text DEFAULT NULL::text, p_tax_number text DEFAULT NULL::text, p_notes text DEFAULT NULL::text, p_status text DEFAULT 'active'::text)
@@ -3717,7 +3717,7 @@ exception
   when unique_violation then
     raise exception 'supplier name already exists in this organization';
 end;
-$function$
+$function$;
 
 
 CREATE OR REPLACE FUNCTION private.create_purchase(p_organization_id uuid, p_store_id uuid, p_supplier_id bigint, p_receipt_number text, p_items jsonb, p_discount numeric DEFAULT 0, p_tax numeric DEFAULT 0, p_paid_amount numeric DEFAULT 0, p_payment_method text DEFAULT 'cash'::text, p_reference text DEFAULT NULL::text, p_due_date date DEFAULT NULL::date, p_notes text DEFAULT NULL::text)
@@ -3912,7 +3912,7 @@ exception
   when unique_violation then
     raise exception 'supplier invoice number already exists for this supplier';
 end;
-$function$
+$function$;
 
 
 CREATE OR REPLACE FUNCTION private.record_supplier_payment(p_organization_id uuid, p_store_id uuid, p_supplier_id bigint, p_amount numeric, p_payment_method text DEFAULT 'cash'::text, p_reference text DEFAULT NULL::text, p_notes text DEFAULT NULL::text, p_allocations jsonb DEFAULT '[]'::jsonb)
@@ -3974,7 +3974,7 @@ begin
   return jsonb_build_object('id',v_payment_id,'amount',p_amount,'allocated',v_total_allocated,'unallocated',0);
 exception when unique_violation then raise exception 'duplicate supplier payment allocation';
 end;
-$function$
+$function$;
 
 
 CREATE OR REPLACE FUNCTION private.list_suppliers(p_organization_id uuid)
@@ -3992,7 +3992,7 @@ begin
     where organization_id=p_organization_id
     order by id;
 end;
-$function$
+$function$;
 
 
 CREATE OR REPLACE FUNCTION private.cancel_purchase(p_organization_id uuid, p_store_id uuid, p_purchase_receipt_id bigint, p_reason text DEFAULT NULL::text)
@@ -4145,7 +4145,7 @@ begin
     'reason', v_reason
   );
 end;
-$function$
+$function$;
 
 
 CREATE OR REPLACE FUNCTION public.cancel_purchase(p_organization_id uuid, p_store_id uuid, p_purchase_receipt_id bigint, p_reason text DEFAULT NULL::text)
@@ -4159,7 +4159,7 @@ AS $function$
     p_purchase_receipt_id,
     p_reason
   );
-$function$
+$function$;
 
 
 CREATE OR REPLACE FUNCTION public.create_supplier(p_organization_id uuid, p_name text, p_phone text, p_address text, p_tax_number text, p_notes text)
@@ -4185,7 +4185,7 @@ AS $function$
     p_organization_id,p_store_id,p_supplier_id,p_receipt_number,p_items,
     p_discount,p_tax,p_paid_amount,p_payment_method,p_reference,p_due_date,p_notes
   );
-$function$
+$function$;
 
 
 CREATE OR REPLACE FUNCTION public.list_suppliers(p_organization_id uuid)
@@ -4228,7 +4228,7 @@ begin
     group by pr.id,s.id
     order by pr.created_at desc,pr.id desc;
 end;
-$function$
+$function$;
 
 
 CREATE OR REPLACE FUNCTION public.list_purchase_receipts(p_organization_id uuid, p_store_id uuid)
@@ -4237,7 +4237,7 @@ CREATE OR REPLACE FUNCTION public.list_purchase_receipts(p_organization_id uuid,
  SET search_path TO ''
 AS $function$
   select * from private.list_purchase_receipts(p_organization_id,p_store_id);
-$function$
+$function$;
 
 
 CREATE OR REPLACE FUNCTION private.next_document_number(p_organization_id uuid, p_document_type text, p_prefix text DEFAULT 'DOC'::text)
@@ -4280,7 +4280,7 @@ begin
 
   return upper(trim(p_prefix)) || '-' || lpad(v_number::text, 6, '0');
 end;
-$function$
+$function$;
 
 
 CREATE OR REPLACE FUNCTION private.record_sale_payment(p_sale_id bigint, p_amount numeric, p_payment_method text DEFAULT 'cash'::text, p_reference text DEFAULT NULL::text)
@@ -4407,7 +4407,7 @@ begin
     'auditLogId', v_audit_id
   );
 end;
-$function$
+$function$;
 
 
 CREATE OR REPLACE FUNCTION private.cancel_sale(p_organization_id uuid, p_sale_id bigint, p_reason text DEFAULT NULL::text, p_refund_payment_method text DEFAULT 'cash'::text, p_refund_reference text DEFAULT NULL::text)
@@ -4571,7 +4571,7 @@ begin
     'restored_quantity', v_restored,'paid_amount', v_paid,'refund_amount', v_refundable,
     'refund_id', v_refund_id,'audit_log_id', v_audit_id);
 end;
-$function$
+$function$;
 
 
 CREATE OR REPLACE FUNCTION public.cancel_sale(p_organization_id uuid, p_sale_id bigint, p_reason text DEFAULT NULL::text, p_refund_payment_method text DEFAULT 'cash'::text, p_refund_reference text DEFAULT NULL::text)
@@ -4584,7 +4584,7 @@ begin
     p_organization_id,p_sale_id,p_reason,p_refund_payment_method,p_refund_reference
   );
 end;
-$function$
+$function$;
 
 
 CREATE OR REPLACE FUNCTION private.next_purchase_return_number(p_organization_id uuid)
@@ -4607,7 +4607,7 @@ begin
 
   return 'PR-' || lpad(v_next::text,6,'0');
 end;
-$function$
+$function$;
 
 
 CREATE OR REPLACE FUNCTION private.return_purchase_items(p_organization_id uuid, p_store_id uuid, p_purchase_receipt_id bigint, p_items jsonb, p_reason text, p_refund_amount numeric DEFAULT 0, p_refund_payment_method text DEFAULT 'cash'::text, p_refund_reference text DEFAULT NULL::text, p_notes text DEFAULT NULL::text)
@@ -4779,7 +4779,7 @@ begin
   return jsonb_build_object('id',v_return.id,'return_number',v_return_number,'total',v_total,
     'refund_amount',v_refund,'refund_id',v_refund_id,'status','completed');
 end;
-$function$
+$function$;
 
 
 CREATE OR REPLACE FUNCTION public.return_purchase_items(p_organization_id uuid, p_store_id uuid, p_purchase_receipt_id bigint, p_items jsonb, p_reason text, p_refund_amount numeric DEFAULT 0, p_refund_payment_method text DEFAULT 'cash'::text, p_refund_reference text DEFAULT NULL::text, p_notes text DEFAULT NULL::text)
@@ -4791,7 +4791,7 @@ begin
  return private.return_purchase_items(p_organization_id,p_store_id,p_purchase_receipt_id,p_items,p_reason,
    p_refund_amount,p_refund_payment_method,p_refund_reference,p_notes);
 end;
-$function$
+$function$;
 
 
 CREATE OR REPLACE FUNCTION private.purchase_return_details(p_organization_id uuid, p_store_id uuid, p_purchase_receipt_id bigint)
@@ -4848,7 +4848,7 @@ AS $function$
     and auth.uid() is not null
     and ((p_store_id is null and exists(select 1 from public.organization_members om where om.organization_id=p_organization_id and om.user_id=auth.uid() and om.status='active'))
       or (p_store_id is not null and private.is_org_store_member(p_organization_id,p_store_id)));
-$function$
+$function$;
 
 
 CREATE OR REPLACE FUNCTION private.supplier_account_summary(p_organization_id uuid, p_store_id uuid DEFAULT NULL::uuid)
@@ -4869,7 +4869,7 @@ AS $function$
   where s.organization_id=p_organization_id and auth.uid() is not null
     and ((p_store_id is null and exists(select 1 from public.organization_members om where om.organization_id=p_organization_id and om.user_id=auth.uid() and om.status='active'))
       or (p_store_id is not null and private.is_org_store_member(p_organization_id,p_store_id)));
-$function$
+$function$;
 
 
 CREATE OR REPLACE FUNCTION private.customer_statement(p_organization_id uuid, p_customer_id bigint, p_store_id uuid DEFAULT NULL::uuid, p_from date DEFAULT NULL::date, p_to date DEFAULT NULL::date)
@@ -4887,7 +4887,7 @@ AS $function$
   select e.occurred_at,e.entry_type,e.reference_id,e.reference_number,e.description,e.debit,e.credit,sum(e.debit-e.credit) over(order by e.occurred_at,e.entry_type,e.reference_id rows unbounded preceding)
   from entries e where auth.uid() is not null and ((p_store_id is null and exists(select 1 from public.organization_members om where om.organization_id=p_organization_id and om.user_id=auth.uid() and om.status='active')) or (p_store_id is not null and private.is_org_store_member(p_organization_id,p_store_id)))
   order by e.occurred_at,e.entry_type,e.reference_id;
-$function$
+$function$;
 
 
 CREATE OR REPLACE FUNCTION private.supplier_statement(p_organization_id uuid, p_supplier_id bigint, p_store_id uuid DEFAULT NULL::uuid, p_from date DEFAULT NULL::date, p_to date DEFAULT NULL::date)
@@ -4905,7 +4905,7 @@ AS $function$
   select e.occurred_at,e.entry_type,e.reference_id,e.reference_number,e.description,e.debit,e.credit,sum(e.debit-e.credit) over(order by e.occurred_at,e.entry_type,e.reference_id rows unbounded preceding)
   from entries e where auth.uid() is not null and ((p_store_id is null and exists(select 1 from public.organization_members om where om.organization_id=p_organization_id and om.user_id=auth.uid() and om.status='active')) or (p_store_id is not null and private.is_org_store_member(p_organization_id,p_store_id)))
   order by e.occurred_at,e.entry_type,e.reference_id;
-$function$
+$function$;
 
 
 CREATE OR REPLACE FUNCTION public.customer_account_summary(p_organization_id uuid, p_store_id uuid DEFAULT NULL::uuid)
@@ -4991,7 +4991,7 @@ begin
   );
   return v;
 end
-$function$
+$function$;
 
 
 CREATE OR REPLACE FUNCTION public.create_expense(p_organization_id uuid, p_store_id uuid, p_category text, p_amount numeric, p_expense_date date DEFAULT CURRENT_DATE, p_payment_method text DEFAULT 'cash'::text, p_reference text DEFAULT NULL::text, p_notes text DEFAULT NULL::text)
@@ -5149,7 +5149,7 @@ begin
   'store_id',p_store_id
  );
 end;
-$function$
+$function$;
 
 
 CREATE OR REPLACE FUNCTION public.profitability_summary(p_organization_id uuid, p_store_id uuid DEFAULT NULL::uuid, p_from_date date DEFAULT NULL::date, p_to_date date DEFAULT NULL::date)
@@ -5158,7 +5158,7 @@ CREATE OR REPLACE FUNCTION public.profitability_summary(p_organization_id uuid, 
  SET search_path TO 'public', 'private'
 AS $function$
   select private.profitability_summary(p_organization_id, p_store_id, p_from_date, p_to_date);
-$function$
+$function$;
 
 
 CREATE OR REPLACE FUNCTION public.commercial_reports_summary(p_organization_id uuid, p_store_id uuid DEFAULT NULL::uuid, p_from_date date DEFAULT NULL::date, p_to_date date DEFAULT NULL::date)
@@ -5172,7 +5172,7 @@ AS $function$
     p_from_date,
     p_to_date
   );
-$function$
+$function$;
 
 
 CREATE OR REPLACE FUNCTION private.commercial_reports(p_organization_id uuid, p_store_id uuid DEFAULT NULL::uuid, p_from_date date DEFAULT NULL::date, p_to_date date DEFAULT NULL::date)
@@ -5365,7 +5365,7 @@ begin
 
   return v_result;
 end;
-$function$
+$function$;
 
 
 CREATE OR REPLACE FUNCTION public.commercial_reports(p_organization_id uuid, p_store_id uuid DEFAULT NULL::uuid, p_from_date date DEFAULT NULL::date, p_to_date date DEFAULT NULL::date)
@@ -5379,7 +5379,7 @@ AS $function$
     p_from_date,
     p_to_date
   );
-$function$
+$function$;
 
 
 CREATE OR REPLACE FUNCTION private.update_product_for_store(p_product_id bigint, p_name text, p_price numeric, p_quantity integer, p_organization_id uuid, p_store_id uuid)
@@ -5495,7 +5495,7 @@ begin
 
   return v_result;
 end;
-$function$
+$function$;
 
 
 CREATE OR REPLACE FUNCTION public.profitability_report_v2(p_organization_id uuid, p_store_id uuid DEFAULT NULL::uuid, p_from_date date DEFAULT NULL::date, p_to_date date DEFAULT NULL::date)
@@ -5679,7 +5679,7 @@ begin
   raise exception 'Hard deletion of supplier purchase financial records is prohibited; use the approved cancellation or reversal workflow.'
     using errcode = '55000';
 end;
-$function$
+$function$;
 
 
 CREATE TRIGGER prevent_purchase_receipt_item_hard_delete BEFORE DELETE ON purchase_receipt_items FOR EACH ROW EXECUTE FUNCTION private.prevent_supplier_purchase_financial_hard_delete();
