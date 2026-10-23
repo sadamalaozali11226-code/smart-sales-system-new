@@ -5113,37 +5113,36 @@ if (!window.SmartSalesAPI) {
       }
 
       button.disabled = true;
+      const invoiceSaleId = Number(selectedPaymentSaleId);
       try {
-        const invoiceSaleId = Number(selectedPaymentSaleId);
         await SmartSalesAPI.payment({
           saleId: invoiceSaleId,
           amount: Number(amount.toFixed(2)),
           paymentMethod,
           reference: reference || null
         });
-
-        closePaymentModal();
-        await loadSalesHistory();
-        await loadSales();
-        showMessage(t.paymentSuccess);
-        await openInvoiceById(invoiceSaleId);
       } catch (error) {
         console.error(error);
         showMessage(error.message || t.paymentError, true);
         button.disabled = false;
+        return;
       }
-    }
 
-    async function openInvoiceById(saleId) {
+      closePaymentModal();
+      showMessage(t.paymentSuccess);
+      const refreshResults = await Promise.allSettled([
+        loadSalesHistory(),
+        loadSales()
+      ]);
+      if (refreshResults.some(result => result.status === "rejected")) {
+        console.error("Customer debt payment was saved, but one screen refresh failed.", refreshResults);
+      }
       try {
-        const invoice = await SmartSalesAPI.saleInvoice(saleId);
-        if (!invoice) {
-          throw new Error(translations[currentLanguage].invoiceNotFound);
-        }
-        openInvoiceModal(invoice);
+        await openInvoiceById(invoiceSaleId);
       } catch (error) {
-        console.error(error);
-        showMessage(error.message || translations[currentLanguage].invoiceLoadError, true);
+        console.error("Customer debt payment was saved, but its invoice could not be opened.", error);
+      } finally {
+        button.disabled = false;
       }
     }
 
