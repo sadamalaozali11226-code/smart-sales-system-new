@@ -775,323 +775,6 @@ CREATE UNIQUE INDEX suppliers_org_name_unique ON public.suppliers USING btree (o
 
 CREATE INDEX suppliers_organization_id_idx ON public.suppliers USING btree (organization_id);
 
-CREATE OR REPLACE FUNCTION public.record_product_sale(p_product_id bigint, p_customer_id bigint DEFAULT NULL::bigint)
- RETURNS jsonb
- LANGUAGE plpgsql
- SECURITY DEFINER
- SET search_path TO 'public'
-AS $function$
-    DECLARE
-      v_product products%ROWTYPE;
-        v_customer customers%ROWTYPE;
-          v_sale_id bigint;
-            v_invoice_number text;
-              v_total numeric;
-              BEGIN
-                SELECT *
-                  INTO v_product
-                    FROM products
-                      WHERE id = p_product_id
-                        FOR UPDATE;
-
-                          IF NOT FOUND THEN
-                              RAISE EXCEPTION 'Product not found';
-                                END IF;
-
-                                  IF v_product.quantity <= 0 THEN
-                                      RAISE EXCEPTION 'Product is out of stock';
-                                        END IF;
-
-                                          IF p_customer_id IS NOT NULL THEN
-
-                                              SELECT *
-                                                  INTO v_customer
-                                                      FROM customers
-                                                          WHERE id = p_customer_id;
-
-                                                              IF NOT FOUND THEN
-                                                                    RAISE EXCEPTION 'Customer not found';
-                                                                        END IF;
-
-                                                                          END IF;
-
-                                                                            v_total := v_product.price;
-
-                                                                              v_invoice_number :=
-                                                                                  'INV-' ||
-                                                                                      to_char(clock_timestamp(), 'YYYYMMDDHH24MISSMS') ||
-                                                                                          '-' ||
-                                                                                              floor(random() * 10000)::int;
-
-                                                                                                INSERT INTO sales (
-                                                                                                    invoice_number,
-                                                                                                        customer_id,
-                                                                                                            subtotal,
-                                                                                                                discount,
-                                                                                                                    tax,
-                                                                                                                        total,
-                                                                                                                            payment_status,
-                                                                                                                                status,
-                                                                                                                                    notes
-                                                                                                                                      )
-                                                                                                                                        VALUES (
-                                                                                                                                            v_invoice_number,
-                                                                                                                                                p_customer_id,
-                                                                                                                                                    v_total,
-                                                                                                                                                        0,
-                                                                                                                                                            0,
-                                                                                                                                                                v_total,
-                                                                                                                                                                    'paid',
-                                                                                                                                                                        'completed',
-                                                                                                                                                                            NULL
-                                                                                                                                                                              )
-                                                                                                                                                                                RETURNING id INTO v_sale_id;
-
-                                                                                                                                                                                  INSERT INTO sale_items (
-                                                                                                                                                                                      sale_id,
-                                                                                                                                                                                          product_id,
-                                                                                                                                                                                              product_name,
-                                                                                                                                                                                                  unit_price,
-                                                                                                                                                                                                      quantity,
-                                                                                                                                                                                                          discount,
-                                                                                                                                                                                                              total
-                                                                                                                                                                                                                )
-                                                                                                                                                                                                                  VALUES (
-                                                                                                                                                                                                                      v_sale_id,
-                                                                                                                                                                                                                          v_product.id,
-                                                                                                                                                                                                                              v_product.name,
-                                                                                                                                                                                                                                  v_product.price,
-                                                                                                                                                                                                                                      1,
-                                                                                                                                                                                                                                          0,
-                                                                                                                                                                                                                                              v_total
-                                                                                                                                                                                                                                                );
-
-                                                                                                                                                                                                                                                  UPDATE products
-                                                                                                                                                                                                                                                    SET quantity = quantity - 1
-                                                                                                                                                                                                                                                      WHERE id = p_product_id;
-
-                                                                                                                                                                                                                                                        RETURN jsonb_build_object(
-                                                                                                                                                                                                                                                            'success', true,
-                                                                                                                                                                                                                                                                'sale_id', v_sale_id,
-                                                                                                                                                                                                                                                                    'invoice_number', v_invoice_number,
-                                                                                                                                                                                                                                                                        'product_id', v_product.id,
-                                                                                                                                                                                                                                                                            'product_name', v_product.name,
-                                                                                                                                                                                                                                                                                'price', v_product.price,
-                                                                                                                                                                                                                                                                                    'quantity', v_product.quantity - 1,
-                                                                                                                                                                                                                                                                                        'total', v_total,
-                                                                                                                                                                                                                                                                                            'customer_id', p_customer_id
-                                                                                                                                                                                                                                                                                              );
-                                                                                                                                                                                                                                                                                              END;
-                                                                                                                                                                                                                                                                                              $function$;
-
-
-CREATE OR REPLACE FUNCTION public.record_product_sale_with_payment(p_product_id bigint, p_customer_id bigint, p_payment_status text, p_paid_amount numeric, p_payment_method text DEFAULT NULL::text, p_reference text DEFAULT NULL::text)
- RETURNS json
- LANGUAGE plpgsql
- SECURITY DEFINER
- SET search_path TO 'public'
-AS $function$
-            declare
-              v_product public.products%rowtype;
-                v_customer public.customers%rowtype;
-                  v_sale_id bigint;
-                    v_invoice_number text;
-                      v_total numeric;
-                        v_paid_amount numeric;
-                          v_remaining numeric;
-                          begin
-
-                            -- التحقق من حالة الدفع
-                              if p_payment_status not in ('paid', 'partial', 'unpaid') then
-                                  raise exception 'Invalid payment status';
-                                    end if;
-
-                                      -- التحقق من المبلغ المدفوع
-                                        if p_paid_amount is null or p_paid_amount < 0 then
-                                            raise exception 'Invalid paid amount';
-                                              end if;
-
-                                                -- الحصول على المنتج مع قفل الصف
-                                                  select *
-                                                    into v_product
-                                                      from public.products
-                                                        where id = p_product_id
-                                                          for update;
-
-                                                            if not found then
-                                                                raise exception 'Product not found';
-                                                                  end if;
-
-                                                                    -- التحقق من المخزون
-                                                                      if v_product.quantity <= 0 then
-                                                                          raise exception 'Product is out of stock';
-                                                                            end if;
-
-                                                                              -- التحقق من العميل
-                                                                                if p_customer_id is not null then
-
-                                                                                    select *
-                                                                                        into v_customer
-                                                                                            from public.customers
-                                                                                                where id = p_customer_id;
-
-                                                                                                    if not found then
-                                                                                                          raise exception 'Customer not found';
-                                                                                                              end if;
-
-                                                                                                                end if;
-
-                                                                                                                  -- البيع الآجل أو الجزئي يحتاج إلى عميل
-                                                                                                                    if p_payment_status in ('partial', 'unpaid')
-                                                                                                                         and p_customer_id is null then
-
-                                                                                                                             raise exception 'Customer is required for unpaid or partial sales';
-
-                                                                                                                               end if;
-
-                                                                                                                                 -- إجمالي البيع الحالي
-                                                                                                                                   v_total := v_product.price;
-
-                                                                                                                                     -- التحقق من المبلغ حسب حالة الدفع
-                                                                                                                                       if p_payment_status = 'paid' then
-
-                                                                                                                                           if p_paid_amount <> v_total then
-                                                                                                                                                 raise exception 'Paid amount must equal sale total';
-                                                                                                                                                     end if;
-
-                                                                                                                                                       elsif p_payment_status = 'partial' then
-
-                                                                                                                                                           if p_paid_amount <= 0 or p_paid_amount >= v_total then
-                                                                                                                                                                 raise exception 'Partial payment must be greater than zero and less than total';
-                                                                                                                                                                     end if;
-
-                                                                                                                                                                       elsif p_payment_status = 'unpaid' then
-
-                                                                                                                                                                           if p_paid_amount <> 0 then
-                                                                                                                                                                                 raise exception 'Unpaid sale must have zero paid amount';
-                                                                                                                                                                                     end if;
-
-                                                                                                                                                                                       end if;
-
-                                                                                                                                                                                         -- إنشاء رقم الفاتورة
-                                                                                                                                                                                           v_invoice_number :=
-                                                                                                                                                                                               'INV-' ||
-                                                                                                                                                                                                   to_char(clock_timestamp(), 'YYYYMMDDHH24MISSMS') ||
-                                                                                                                                                                                                       '-' ||
-                                                                                                                                                                                                           floor(random() * 9000 + 1000)::text;
-
-                                                                                                                                                                                                             -- إنشاء الفاتورة
-                                                                                                                                                                                                               insert into public.sales (
-                                                                                                                                                                                                                   invoice_number,
-                                                                                                                                                                                                                       customer_id,
-                                                                                                                                                                                                                           subtotal,
-                                                                                                                                                                                                                               discount,
-                                                                                                                                                                                                                                   tax,
-                                                                                                                                                                                                                                       total,
-                                                                                                                                                                                                                                           payment_status,
-                                                                                                                                                                                                                                               status,
-                                                                                                                                                                                                                                                   notes
-                                                                                                                                                                                                                                                     )
-                                                                                                                                                                                                                                                       values (
-                                                                                                                                                                                                                                                           v_invoice_number,
-                                                                                                                                                                                                                                                               p_customer_id,
-                                                                                                                                                                                                                                                                   v_total,
-                                                                                                                                                                                                                                                                       0,
-                                                                                                                                                                                                                                                                           0,
-                                                                                                                                                                                                                                                                               v_total,
-                                                                                                                                                                                                                                                                                   p_payment_status,
-                                                                                                                                                                                                                                                                                       'completed',
-                                                                                                                                                                                                                                                                                           null
-                                                                                                                                                                                                                                                                                             )
-                                                                                                                                                                                                                                                                                               returning id, total
-                                                                                                                                                                                                                                                                                                 into v_sale_id, v_total;
-
-                                                                                                                                                                                                                                                                                                   -- إضافة المنتج إلى الفاتورة
-                                                                                                                                                                                                                                                                                                     insert into public.sale_items (
-                                                                                                                                                                                                                                                                                                         sale_id,
-                                                                                                                                                                                                                                                                                                             product_id,
-                                                                                                                                                                                                                                                                                                                 product_name,
-                                                                                                                                                                                                                                                                                                                     unit_price,
-                                                                                                                                                                                                                                                                                                                         quantity,
-                                                                                                                                                                                                                                                                                                                             discount,
-                                                                                                                                                                                                                                                                                                                                 total
-                                                                                                                                                                                                                                                                                                                                   )
-                                                                                                                                                                                                                                                                                                                                     values (
-                                                                                                                                                                                                                                                                                                                                         v_sale_id,
-                                                                                                                                                                                                                                                                                                                                             v_product.id,
-                                                                                                                                                                                                                                                                                                                                                 v_product.name,
-                                                                                                                                                                                                                                                                                                                                                     v_product.price,
-                                                                                                                                                                                                                                                                                                                                                         1,
-                                                                                                                                                                                                                                                                                                                                                             0,
-                                                                                                                                                                                                                                                                                                                                                                 v_total
-                                                                                                                                                                                                                                                                                                                                                                   );
-
-                                                                                                                                                                                                                                                                                                                                                                     -- خصم الكمية من المخزون
-                                                                                                                                                                                                                                                                                                                                                                       update public.products
-                                                                                                                                                                                                                                                                                                                                                                         set quantity = quantity - 1
-                                                                                                                                                                                                                                                                                                                                                                           where id = v_product.id;
-
-                                                                                                                                                                                                                                                                                                                                                                             -- تسجيل الدفعة إذا كان هناك مبلغ مدفوع
-                                                                                                                                                                                                                                                                                                                                                                               if p_paid_amount > 0 then
-
-                                                                                                                                                                                                                                                                                                                                                                                   insert into public.payments (
-                                                                                                                                                                                                                                                                                                                                                                                         sale_id,
-                                                                                                                                                                                                                                                                                                                                                                                               amount,
-                                                                                                                                                                                                                                                                                                                                                                                                     payment_method,
-                                                                                                                                                                                                                                                                                                                                                                                                           reference,
-                                                                                                                                                                                                                                                                                                                                                                                                                 paid_at
-                                                                                                                                                                                                                                                                                                                                                                                                                     )
-                                                                                                                                                                                                                                                                                                                                                                                                                         values (
-                                                                                                                                                                                                                                                                                                                                                                                                                               v_sale_id,
-                                                                                                                                                                                                                                                                                                                                                                                                                                     p_paid_amount,
-                                                                                                                                                                                                                                                                                                                                                                                                                                           coalesce(nullif(trim(p_payment_method), ''), 'cash'),
-                                                                                                                                                                                                                                                                                                                                                                                                                                                 nullif(trim(p_reference), ''),
-                                                                                                                                                                                                                                                                                                                                                                                                                                                       now()
-                                                                                                                                                                                                                                                                                                                                                                                                                                                           );
-
-                                                                                                                                                                                                                                                                                                                                                                                                                                                             end if;
-
-                                                                                                                                                                                                                                                                                                                                                                                                                                                               -- حساب المتبقي
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                 v_paid_amount := p_paid_amount;
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                   v_remaining := v_total - v_paid_amount;
-
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                     -- إرجاع نتيجة العملية
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                       return json_build_object(
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                           'success', true,
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                               'sale_id', v_sale_id,
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   'invoice_number', v_invoice_number,
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       'customer_id', p_customer_id,
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           'product_id', v_product.id,
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               'product_name', v_product.name,
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   'price', v_product.price,
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       'quantity', v_product.quantity - 1,
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           'sold_quantity', 1,
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               'total', v_total,
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   'paid_amount', v_paid_amount,
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       'remaining_amount', v_remaining,
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           'payment_status', p_payment_status
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             );
-
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             exception
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               when others then
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   raise;
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   end;
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   $function$;
-
-
-CREATE OR REPLACE FUNCTION public.record_sale_payment(p_sale_id bigint, p_amount numeric, p_payment_method text DEFAULT 'cash'::text, p_reference text DEFAULT NULL::text)
- RETURNS json
- LANGUAGE plpgsql
- SET search_path TO 'public', 'private'
-AS $function$
-begin
-  return private.record_sale_payment(
-    p_sale_id, p_amount, p_payment_method, p_reference
-  );
-end;
-$function$;
-
-
 CREATE OR REPLACE FUNCTION private.is_org_member(p_organization_id uuid)
  RETURNS boolean
  LANGUAGE sql
@@ -1106,7 +789,6 @@ AS $function$
       and om.status = 'active'
   );
 $function$;
-
 
 CREATE OR REPLACE FUNCTION private.is_store_member(p_store_id uuid)
  RETURNS boolean
@@ -1124,7 +806,6 @@ AS $function$
       and om.status = 'active'
   );
 $function$;
-
 
 CREATE OR REPLACE FUNCTION private.is_org_store_member(p_organization_id uuid, p_store_id uuid)
  RETURNS boolean
@@ -1146,7 +827,6 @@ AS $function$
       and om.status = 'active'
   );
 $function$;
-
 
 CREATE OR REPLACE FUNCTION private.can_access_sale(p_sale_id bigint)
  RETURNS boolean
@@ -1170,7 +850,6 @@ AS $function$
     where s.id = p_sale_id
   );
 $function$;
-
 
 CREATE OR REPLACE FUNCTION private.create_sale_transaction(p_organization_id uuid, p_store_id uuid, p_invoice_number text, p_customer_id bigint DEFAULT NULL::bigint, p_items jsonb DEFAULT '[]'::jsonb, p_discount numeric DEFAULT 0, p_tax numeric DEFAULT 0, p_paid_amount numeric DEFAULT 0, p_payment_method text DEFAULT 'cash'::text, p_reference text DEFAULT NULL::text, p_notes text DEFAULT NULL::text)
  RETURNS jsonb
@@ -1373,7 +1052,6 @@ exception
 end;
 $function$;
 
-
 CREATE OR REPLACE FUNCTION private.has_org_permission(p_organization_id uuid, p_permission_code text)
  RETURNS boolean
  LANGUAGE sql
@@ -1393,7 +1071,6 @@ AS $function$
       and p.code = p_permission_code
   );
 $function$;
-
 
 CREATE OR REPLACE FUNCTION private.bootstrap_organization(p_organization_name text, p_slug text, p_store_name text, p_store_code text)
  RETURNS jsonb
@@ -1449,27 +1126,6 @@ where r.organization_id=v_org_id and r.code in ('cashier','sales_employee') on c
 return jsonb_build_object('organization_id',v_org_id,'store_id',v_store_id,'role_id',v_role_id,'member_id',v_member_id,'permissions_assigned',v_permission_count);
 end;$function$;
 
-
-CREATE OR REPLACE FUNCTION public.bootstrap_organization(p_organization_name text, p_slug text, p_store_name text, p_store_code text)
- RETURNS jsonb
- LANGUAGE sql
- SET search_path TO 'public', 'private'
-AS $function$
-  select private.bootstrap_organization($1, $2, $3, $4);
-$function$;
-
-
-CREATE OR REPLACE FUNCTION public.create_sale_transaction(p_organization_id uuid, p_store_id uuid, p_invoice_number text, p_customer_id bigint DEFAULT NULL::bigint, p_items jsonb DEFAULT '[]'::jsonb, p_discount numeric DEFAULT 0, p_tax numeric DEFAULT 0, p_paid_amount numeric DEFAULT 0, p_payment_method text DEFAULT 'cash'::text, p_reference text DEFAULT NULL::text, p_notes text DEFAULT NULL::text)
- RETURNS jsonb
- LANGUAGE sql
- SET search_path TO 'public', 'private'
-AS $function$
-  select private.create_sale_transaction(
-    $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11
-  );
-$function$;
-
-
 CREATE OR REPLACE FUNCTION private.create_product(p_organization_id uuid, p_name text, p_price numeric, p_quantity integer DEFAULT 0)
  RETURNS products
  LANGUAGE plpgsql
@@ -1488,16 +1144,6 @@ begin
   return v_product;
 end;
 $function$;
-
-
-CREATE OR REPLACE FUNCTION public.create_product(p_organization_id uuid, p_name text, p_price numeric, p_quantity integer DEFAULT 0)
- RETURNS products
- LANGUAGE sql
- SET search_path TO 'public', 'private'
-AS $function$
-  select private.create_product($1,$2,$3,$4);
-$function$;
-
 
 CREATE OR REPLACE FUNCTION private.create_customer(p_organization_id uuid, p_name text, p_phone text DEFAULT NULL::text, p_address text DEFAULT NULL::text, p_notes text DEFAULT NULL::text)
  RETURNS customers
@@ -1520,16 +1166,6 @@ begin
   return v_customer;
 end;
 $function$;
-
-
-CREATE OR REPLACE FUNCTION public.create_customer(p_organization_id uuid, p_name text, p_phone text DEFAULT NULL::text, p_address text DEFAULT NULL::text, p_notes text DEFAULT NULL::text)
- RETURNS customers
- LANGUAGE sql
- SET search_path TO 'public', 'private'
-AS $function$
-  select private.create_customer($1,$2,$3,$4,$5);
-$function$;
-
 
 CREATE OR REPLACE FUNCTION private.update_product(p_organization_id uuid, p_product_id bigint, p_name text, p_price numeric)
  RETURNS products
@@ -1595,14 +1231,6 @@ begin
 end;
 $function$;
 
-
-CREATE OR REPLACE FUNCTION public.update_product(p_organization_id uuid, p_product_id bigint, p_name text, p_price numeric)
- RETURNS products
- LANGUAGE sql
- SET search_path TO 'public', 'private'
-AS $function$ select private.update_product($1,$2,$3,$4); $function$;
-
-
 CREATE OR REPLACE FUNCTION private.update_customer(p_organization_id uuid, p_customer_id bigint, p_name text, p_phone text DEFAULT NULL::text, p_address text DEFAULT NULL::text, p_notes text DEFAULT NULL::text)
  RETURNS customers
  LANGUAGE plpgsql
@@ -1627,14 +1255,6 @@ begin
   return v_customer;
 end;
 $function$;
-
-
-CREATE OR REPLACE FUNCTION public.update_customer(p_organization_id uuid, p_customer_id bigint, p_name text, p_phone text DEFAULT NULL::text, p_address text DEFAULT NULL::text, p_notes text DEFAULT NULL::text)
- RETURNS customers
- LANGUAGE sql
- SET search_path TO 'public', 'private'
-AS $function$ select private.update_customer($1,$2,$3,$4,$5,$6); $function$;
-
 
 CREATE OR REPLACE FUNCTION private.cancel_sale(p_organization_id uuid, p_sale_id bigint, p_reason text DEFAULT NULL::text)
  RETURNS jsonb
@@ -1692,18 +1312,6 @@ begin
   );
 end;
 $function$;
-
-
-CREATE OR REPLACE FUNCTION public.cancel_sale(p_organization_id uuid, p_sale_id bigint, p_reason text DEFAULT NULL::text)
- RETURNS jsonb
- LANGUAGE plpgsql
- SET search_path TO 'public', 'private'
-AS $function$
-begin
-  return private.cancel_sale(p_organization_id, p_sale_id, p_reason);
-end;
-$function$;
-
 
 CREATE OR REPLACE FUNCTION private.refund_sale_payment(p_organization_id uuid, p_sale_id bigint, p_amount numeric, p_payment_method text DEFAULT 'cash'::text, p_reference text DEFAULT NULL::text, p_reason text DEFAULT NULL::text)
  RETURNS jsonb
@@ -1800,25 +1408,6 @@ begin
 end;
 $function$;
 
-
-CREATE OR REPLACE FUNCTION public.refund_sale_payment(p_organization_id uuid, p_sale_id bigint, p_amount numeric, p_payment_method text DEFAULT 'cash'::text, p_reference text DEFAULT NULL::text, p_reason text DEFAULT NULL::text)
- RETURNS jsonb
- LANGUAGE plpgsql
- SET search_path TO 'public', 'private'
-AS $function$
-begin
-  return private.refund_sale_payment(
-    p_organization_id,
-    p_sale_id,
-    p_amount,
-    p_payment_method,
-    p_reference,
-    p_reason
-  );
-end;
-$function$;
-
-
 CREATE OR REPLACE FUNCTION private.write_audit_log(p_organization_id uuid, p_store_id uuid, p_action text, p_entity_type text DEFAULT NULL::text, p_entity_id text DEFAULT NULL::text, p_metadata jsonb DEFAULT '{}'::jsonb)
  RETURNS bigint
  LANGUAGE plpgsql
@@ -1860,7 +1449,6 @@ begin
 end;
 $function$;
 
-
 CREATE OR REPLACE FUNCTION private.adjust_product_stock(p_organization_id uuid, p_store_id uuid, p_product_id bigint, p_quantity_change integer, p_notes text DEFAULT NULL::text)
  RETURNS jsonb
  LANGUAGE plpgsql
@@ -1899,18 +1487,6 @@ begin
   return jsonb_build_object('product_id', p_product_id, 'store_id', p_store_id, 'quantity_before', v_balance.quantity, 'quantity_change', p_quantity_change, 'quantity_after', v_after, 'audit_log_id', v_audit_id);
 end;
 $function$;
-
-
-CREATE OR REPLACE FUNCTION public.adjust_product_stock(p_organization_id uuid, p_store_id uuid, p_product_id bigint, p_quantity_change integer, p_notes text DEFAULT NULL::text)
- RETURNS jsonb
- LANGUAGE sql
- SET search_path TO 'public', 'private'
-AS $function$
-  select private.adjust_product_stock(
-    p_organization_id, p_store_id, p_product_id, p_quantity_change, p_notes
-  );
-$function$;
-
 
 CREATE OR REPLACE FUNCTION private.add_product_to_store(p_organization_id uuid, p_store_id uuid, p_product_id bigint, p_initial_quantity integer DEFAULT 0, p_reorder_level integer DEFAULT 0, p_notes text DEFAULT NULL::text)
  RETURNS store_products
@@ -1955,18 +1531,6 @@ begin
 end;
 $function$;
 
-
-CREATE OR REPLACE FUNCTION public.add_product_to_store(p_organization_id uuid, p_store_id uuid, p_product_id bigint, p_initial_quantity integer DEFAULT 0, p_reorder_level integer DEFAULT 0, p_notes text DEFAULT NULL::text)
- RETURNS store_products
- LANGUAGE plpgsql
- SET search_path TO 'public'
-AS $function$
-begin
-  return private.add_product_to_store(p_organization_id, p_store_id, p_product_id, p_initial_quantity, p_reorder_level, p_notes);
-end;
-$function$;
-
-
 CREATE OR REPLACE FUNCTION private.create_product_for_store(p_organization_id uuid, p_store_id uuid, p_name text, p_price numeric, p_initial_quantity integer DEFAULT 0, p_reorder_level integer DEFAULT 0, p_notes text DEFAULT NULL::text)
  RETURNS store_products
  LANGUAGE plpgsql
@@ -1998,18 +1562,6 @@ begin
   return v_store_product;
 end;
 $function$;
-
-
-CREATE OR REPLACE FUNCTION public.create_product_for_store(p_organization_id uuid, p_store_id uuid, p_name text, p_price numeric, p_initial_quantity integer DEFAULT 0, p_reorder_level integer DEFAULT 0, p_notes text DEFAULT NULL::text)
- RETURNS store_products
- LANGUAGE plpgsql
- SET search_path TO 'public'
-AS $function$
-begin
-  return private.create_product_for_store(p_organization_id, p_store_id, p_name, p_price, p_initial_quantity, p_reorder_level, p_notes);
-end;
-$function$;
-
 
 CREATE OR REPLACE FUNCTION private.update_store_product_settings(p_organization_id uuid, p_store_id uuid, p_product_id bigint, p_reorder_level integer)
  RETURNS store_products
@@ -2071,23 +1623,6 @@ begin
   return v_row;
 end;
 $function$;
-
-
-CREATE OR REPLACE FUNCTION public.update_store_product_settings(p_organization_id uuid, p_store_id uuid, p_product_id bigint, p_reorder_level integer)
- RETURNS store_products
- LANGUAGE plpgsql
- SET search_path TO 'public'
-AS $function$
-begin
-  return private.update_store_product_settings(
-    p_organization_id,
-    p_store_id,
-    p_product_id,
-    p_reorder_level
-  );
-end;
-$function$;
-
 
 CREATE OR REPLACE FUNCTION private.transfer_stock(p_organization_id uuid, p_from_store_id uuid, p_to_store_id uuid, p_product_id bigint, p_quantity integer, p_notes text DEFAULT NULL::text)
  RETURNS stock_transfers
@@ -2179,21 +1714,6 @@ begin
   return v_transfer;
 end;
 $function$;
-
-
-CREATE OR REPLACE FUNCTION public.transfer_stock(p_organization_id uuid, p_from_store_id uuid, p_to_store_id uuid, p_product_id bigint, p_quantity integer, p_notes text DEFAULT NULL::text)
- RETURNS stock_transfers
- LANGUAGE plpgsql
- SET search_path TO 'public'
-AS $function$
-begin
-  return private.transfer_stock(
-    p_organization_id, p_from_store_id, p_to_store_id,
-    p_product_id, p_quantity, p_notes
-  );
-end;
-$function$;
-
 
 CREATE OR REPLACE FUNCTION private.receive_purchase(p_organization_id uuid, p_store_id uuid, p_receipt_number text, p_items jsonb, p_notes text DEFAULT NULL::text)
  RETURNS purchase_receipts
@@ -2309,20 +1829,6 @@ exception
 end;
 $function$;
 
-
-CREATE OR REPLACE FUNCTION public.receive_purchase(p_organization_id uuid, p_store_id uuid, p_receipt_number text, p_items jsonb, p_notes text DEFAULT NULL::text)
- RETURNS purchase_receipts
- LANGUAGE plpgsql
- SET search_path TO 'public'
-AS $function$
-begin
-  return private.receive_purchase(
-    p_organization_id, p_store_id, p_receipt_number, p_items, p_notes
-  );
-end;
-$function$;
-
-
 CREATE OR REPLACE FUNCTION private.return_sale_items(p_organization_id uuid, p_store_id uuid, p_sale_id bigint, p_items jsonb, p_reason text DEFAULT NULL::text, p_notes text DEFAULT NULL::text, p_refund_amount numeric DEFAULT 0, p_refund_payment_method text DEFAULT 'cash'::text, p_refund_reference text DEFAULT NULL::text)
  RETURNS jsonb
  LANGUAGE plpgsql
@@ -2417,17 +1923,6 @@ begin
  return jsonb_build_object('return_id',v_return.id,'sale_id',p_sale_id,'returned_items',jsonb_array_length(p_items),'refund_amount',v_refund_total,'total_refunded_for_sale',v_total_refunded,'sale_status',v_new_status,'audit_log_id',v_audit_id);
 end;$function$;
 
-
-CREATE OR REPLACE FUNCTION public.return_sale_items(p_organization_id uuid, p_store_id uuid, p_sale_id bigint, p_items jsonb, p_reason text DEFAULT NULL::text, p_notes text DEFAULT NULL::text, p_refund_amount numeric DEFAULT 0, p_refund_payment_method text DEFAULT 'cash'::text, p_refund_reference text DEFAULT NULL::text)
- RETURNS jsonb
- LANGUAGE plpgsql
- SET search_path TO 'public', 'private'
-AS $function$
-begin
- return private.return_sale_items(p_organization_id,p_store_id,p_sale_id,p_items,p_reason,p_notes,p_refund_amount,p_refund_payment_method,p_refund_reference);
-end;$function$;
-
-
 CREATE OR REPLACE FUNCTION private.refresh_sale_return_status(p_sale_id bigint)
  RETURNS text
  LANGUAGE plpgsql
@@ -2469,73 +1964,6 @@ begin
   return v_status;
 end;
 $function$;
-
-
-CREATE OR REPLACE FUNCTION public.customer_balances(p_organization_id uuid, p_store_id uuid)
- RETURNS TABLE(customer_id bigint, customer_name text, total_sales numeric, total_paid numeric, balance_due numeric)
- LANGUAGE sql
- SET search_path TO 'public'
-AS $function$
-  select
-    c.id,
-    c.name,
-    coalesce(sum(
-      case when s.status not in ('cancelled','fully_returned')
-        then greatest(
-          s.total - coalesce(r.refunded,0),
-          0
-        )
-        else 0
-      end
-    ),0) as total_sales,
-    coalesce(sum(
-      case when s.status not in ('cancelled','fully_returned')
-        then least(
-          coalesce(p.paid,0),
-          greatest(s.total - coalesce(r.refunded,0),0)
-        )
-        else 0
-      end
-    ),0) as total_paid,
-    greatest(
-      coalesce(sum(
-        case when s.status not in ('cancelled','fully_returned')
-          then greatest(s.total - coalesce(r.refunded,0),0)
-          else 0
-        end
-      ),0)
-      -
-      coalesce(sum(
-        case when s.status not in ('cancelled','fully_returned')
-          then least(
-            coalesce(p.paid,0),
-            greatest(s.total - coalesce(r.refunded,0),0)
-          )
-          else 0
-        end
-      ),0),
-      0
-    ) as balance_due
-  from public.customers c
-  left join public.sales s
-    on s.customer_id = c.id
-   and s.organization_id = p_organization_id
-   and s.store_id = p_store_id
-  left join lateral (
-    select coalesce(sum(pay.amount),0) as paid
-    from public.payments pay
-    where pay.sale_id = s.id
-  ) p on true
-  left join lateral (
-    select coalesce(sum(ref.amount),0) as refunded
-    from public.refunds ref
-    where ref.sale_id = s.id
-  ) r on true
-  where c.organization_id = p_organization_id
-  group by c.id, c.name
-  order by c.name;
-$function$;
-
 
 CREATE OR REPLACE FUNCTION private.record_customer_payment(p_organization_id uuid, p_store_id uuid, p_customer_id bigint, p_amount numeric, p_payment_method text DEFAULT 'cash'::text, p_reference text DEFAULT NULL::text, p_notes text DEFAULT NULL::text)
  RETURNS jsonb
@@ -2669,873 +2097,6 @@ begin
 end;
 $function$;
 
-
-CREATE OR REPLACE FUNCTION public.record_customer_payment(p_organization_id uuid, p_store_id uuid, p_customer_id bigint, p_amount numeric, p_payment_method text DEFAULT 'cash'::text, p_reference text DEFAULT NULL::text, p_notes text DEFAULT NULL::text)
- RETURNS jsonb
- LANGUAGE plpgsql
- SET search_path TO 'public'
-AS $function$
-begin
-  return private.record_customer_payment(
-    p_organization_id, p_store_id, p_customer_id, p_amount,
-    p_payment_method, p_reference, p_notes
-  );
-end;
-$function$;
-
-
-CREATE OR REPLACE FUNCTION public.customer_ledger(p_organization_id uuid, p_store_id uuid, p_customer_id bigint, p_from timestamp with time zone DEFAULT NULL::timestamp with time zone, p_to timestamp with time zone DEFAULT NULL::timestamp with time zone)
- RETURNS TABLE(entry_at timestamp with time zone, entry_type text, reference_id bigint, invoice_number text, description text, debit numeric, credit numeric, running_balance numeric)
- LANGUAGE sql
- SET search_path TO 'public'
-AS $function$
-  with entries as (
-    select
-      s.created_at as entry_at,
-      'sale'::text as entry_type,
-      s.id as reference_id,
-      s.invoice_number,
-      coalesce(nullif(s.notes,''), 'Sale') as description,
-      s.total::numeric as debit,
-      0::numeric as credit
-    from public.sales s
-    where s.organization_id = p_organization_id
-      and s.store_id = p_store_id
-      and s.customer_id = p_customer_id
-      and s.status not in ('cancelled','fully_returned')
-      and (p_from is null or s.created_at >= p_from)
-      and (p_to is null or s.created_at < p_to)
-
-    union all
-
-    select
-      pay.paid_at,
-      'payment'::text,
-      pay.id,
-      s.invoice_number,
-      coalesce(nullif(pay.reference,''), 'Payment') as description,
-      0::numeric,
-      pay.amount::numeric
-    from public.payments pay
-    join public.sales s on s.id = pay.sale_id
-    where s.organization_id = p_organization_id
-      and s.store_id = p_store_id
-      and s.customer_id = p_customer_id
-      and s.status not in ('cancelled','fully_returned')
-      and (p_from is null or pay.paid_at >= p_from)
-      and (p_to is null or pay.paid_at < p_to)
-
-    union all
-
-    select
-      rf.refunded_at,
-      'refund'::text,
-      rf.id,
-      s.invoice_number,
-      coalesce(nullif(rf.reason,''), 'Refund') as description,
-      0::numeric,
-      rf.amount::numeric
-    from public.refunds rf
-    join public.sales s on s.id = rf.sale_id
-    where s.organization_id = p_organization_id
-      and s.store_id = p_store_id
-      and s.customer_id = p_customer_id
-      and s.status not in ('cancelled','fully_returned')
-      and (p_from is null or rf.refunded_at >= p_from)
-      and (p_to is null or rf.refunded_at < p_to)
-  ),
-  normalized as (
-    select
-      e.*,
-      row_number() over (
-        order by e.entry_at, e.entry_type, e.reference_id
-      ) as seq
-    from entries e
-  )
-  select
-    n.entry_at,
-    n.entry_type,
-    n.reference_id,
-    n.invoice_number,
-    n.description,
-    n.debit,
-    n.credit,
-    sum(n.debit - n.credit) over (
-      order by n.seq
-      rows between unbounded preceding and current row
-    ) as running_balance
-  from normalized n
-  order by n.seq;
-$function$;
-
-
-CREATE OR REPLACE FUNCTION public.customer_debt_aging(p_organization_id uuid, p_store_id uuid, p_as_of timestamp with time zone DEFAULT now())
- RETURNS TABLE(customer_id bigint, customer_name text, current_due numeric, due_1_30 numeric, due_31_60 numeric, due_61_90 numeric, due_over_90 numeric, total_due numeric)
- LANGUAGE sql
- SET search_path TO 'public'
-AS $function$
-  with sale_base as (
-    select
-      s.id,
-      s.customer_id,
-      s.created_at,
-      greatest(
-        s.total - coalesce((
-          select sum(rf.amount)
-          from public.refunds rf
-          where rf.sale_id = s.id
-            and rf.refunded_at <= p_as_of
-        ),0),
-        0
-      )::numeric as effective_total
-    from public.sales s
-    where s.organization_id = p_organization_id
-      and s.store_id = p_store_id
-      and s.customer_id is not null
-      and s.created_at <= p_as_of
-      and s.status not in ('cancelled','fully_returned')
-  ),
-  sale_due as (
-    select
-      sb.customer_id,
-      sb.created_at,
-      greatest(
-        sb.effective_total -
-        coalesce((
-          select sum(pay.amount)
-          from public.payments pay
-          where pay.sale_id = sb.id
-            and pay.paid_at <= p_as_of
-        ),0),
-        0
-      )::numeric as due
-    from sale_base sb
-  ),
-  buckets as (
-    select
-      sd.customer_id,
-      case when p_as_of::date - sd.created_at::date <= 30 then sd.due else 0 end as current_due,
-      case when p_as_of::date - sd.created_at::date between 31 and 60 then sd.due else 0 end as due_1_30,
-      case when p_as_of::date - sd.created_at::date between 61 and 90 then sd.due else 0 end as due_31_60,
-      case when p_as_of::date - sd.created_at::date between 91 and 120 then sd.due else 0 end as due_61_90,
-      case when p_as_of::date - sd.created_at::date > 120 then sd.due else 0 end as due_over_90
-    from sale_due sd
-  )
-  select
-    c.id,
-    c.name,
-    coalesce(sum(b.current_due),0)::numeric,
-    coalesce(sum(b.due_1_30),0)::numeric,
-    coalesce(sum(b.due_31_60),0)::numeric,
-    coalesce(sum(b.due_61_90),0)::numeric,
-    coalesce(sum(b.due_over_90),0)::numeric,
-    coalesce(sum(
-      b.current_due + b.due_1_30 + b.due_31_60 + b.due_61_90 + b.due_over_90
-    ),0)::numeric
-  from public.customers c
-  join buckets b on b.customer_id = c.id
-  where c.organization_id = p_organization_id
-  group by c.id, c.name
-  order by sum(b.current_due + b.due_1_30 + b.due_31_60 + b.due_61_90 + b.due_over_90) desc, c.name;
-$function$;
-
-
-CREATE OR REPLACE FUNCTION public.customer_debt_aging_summary(p_organization_id uuid, p_store_id uuid, p_as_of timestamp with time zone DEFAULT now())
- RETURNS TABLE(current_due numeric, due_1_30 numeric, due_31_60 numeric, due_61_90 numeric, due_over_90 numeric, total_due numeric)
- LANGUAGE sql
- SET search_path TO 'public'
-AS $function$
-  select
-    coalesce(sum(a.current_due),0)::numeric,
-    coalesce(sum(a.due_1_30),0)::numeric,
-    coalesce(sum(a.due_31_60),0)::numeric,
-    coalesce(sum(a.due_61_90),0)::numeric,
-    coalesce(sum(a.due_over_90),0)::numeric,
-    coalesce(sum(a.total_due),0)::numeric
-  from public.customer_debt_aging(p_organization_id, p_store_id, p_as_of) a;
-$function$;
-
-
-CREATE OR REPLACE FUNCTION public.customer_reports(p_organization_id uuid, p_store_id uuid, p_customer_id bigint DEFAULT NULL::bigint, p_from timestamp with time zone DEFAULT NULL::timestamp with time zone, p_to timestamp with time zone DEFAULT NULL::timestamp with time zone, p_as_of timestamp with time zone DEFAULT now())
- RETURNS jsonb
- LANGUAGE plpgsql
- SET search_path TO 'public'
-AS $function$
-declare
-  v_ledger jsonb;
-  v_aging jsonb;
-  v_summary jsonb;
-begin
-  select coalesce(jsonb_agg(to_jsonb(x) order by x.entry_at, x.entry_type, x.reference_id),'[]'::jsonb)
-    into v_ledger
-  from public.customer_ledger(
-    p_organization_id, p_store_id, p_customer_id, p_from, p_to
-  ) x;
-
-  select coalesce(jsonb_agg(to_jsonb(x) order by x.total_due desc, x.customer_name),'[]'::jsonb)
-    into v_aging
-  from public.customer_debt_aging(
-    p_organization_id, p_store_id, p_as_of
-  ) x
-  where p_customer_id is null or x.customer_id = p_customer_id;
-
-  select to_jsonb(x)
-    into v_summary
-  from public.customer_debt_aging_summary(
-    p_organization_id, p_store_id, p_as_of
-  ) x;
-
-  return jsonb_build_object(
-    'as_of', p_as_of,
-    'period', jsonb_build_object('from', p_from, 'to', p_to),
-    'customer_id', p_customer_id,
-    'ledger', v_ledger,
-    'aging', v_aging,
-    'aging_summary', coalesce(v_summary, '{}'::jsonb)
-  );
-end;
-$function$;
-
-
-CREATE OR REPLACE FUNCTION public.customer_financial_dashboard(p_organization_id uuid, p_store_id uuid, p_as_of timestamp with time zone DEFAULT now())
- RETURNS jsonb
- LANGUAGE plpgsql
- SET search_path TO 'public'
-AS $function$
-declare
-  v_aging jsonb;
-  v_summary jsonb;
-  v_total_customers_with_due bigint;
-  v_overdue_customer_count bigint;
-  v_top_debtors jsonb;
-  v_aging_distribution jsonb;
-begin
-  select coalesce(jsonb_agg(to_jsonb(a) order by a.total_due desc), '[]'::jsonb)
-    into v_aging
-  from public.customer_debt_aging(
-    p_organization_id,
-    p_store_id,
-    p_as_of
-  ) a
-  where a.total_due > 0;
-
-  select to_jsonb(s)
-    into v_summary
-  from public.customer_debt_aging_summary(
-    p_organization_id,
-    p_store_id,
-    p_as_of
-  ) s;
-
-  select count(*)
-    into v_total_customers_with_due
-  from public.customer_debt_aging(
-    p_organization_id,
-    p_store_id,
-    p_as_of
-  ) a
-  where a.total_due > 0;
-
-  select count(*)
-    into v_overdue_customer_count
-  from public.customer_debt_aging(
-    p_organization_id,
-    p_store_id,
-    p_as_of
-  ) a
-  where (a.due_1_30 + a.due_31_60 + a.due_61_90 + a.due_over_90) > 0;
-
-  select coalesce(
-    jsonb_agg(
-      jsonb_build_object(
-        'customer_id', x.customer_id,
-        'customer_name', x.customer_name,
-        'total_due', x.total_due
-      )
-      order by x.total_due desc
-    ),
-    '[]'::jsonb
-  )
-  into v_top_debtors
-  from (
-    select a.customer_id, a.customer_name, a.total_due
-    from public.customer_debt_aging(
-      p_organization_id,
-      p_store_id,
-      p_as_of
-    ) a
-    where a.total_due > 0
-    order by a.total_due desc, a.customer_id
-    limit 10
-  ) x;
-
-  v_aging_distribution := jsonb_build_object(
-    'current_due', coalesce((v_summary->>'current_due')::numeric, 0),
-    'due_1_30', coalesce((v_summary->>'due_1_30')::numeric, 0),
-    'due_31_60', coalesce((v_summary->>'due_31_60')::numeric, 0),
-    'due_61_90', coalesce((v_summary->>'due_61_90')::numeric, 0),
-    'due_over_90', coalesce((v_summary->>'due_over_90')::numeric, 0)
-  );
-
-  return jsonb_build_object(
-    'as_of', p_as_of,
-    'total_customers_with_due', v_total_customers_with_due,
-    'total_receivables', coalesce((v_summary->>'total_due')::numeric, 0),
-    'current_due', coalesce((v_summary->>'current_due')::numeric, 0),
-    'overdue_total',
-      coalesce((v_summary->>'due_1_30')::numeric, 0)
-      + coalesce((v_summary->>'due_31_60')::numeric, 0)
-      + coalesce((v_summary->>'due_61_90')::numeric, 0)
-      + coalesce((v_summary->>'due_over_90')::numeric, 0),
-    'overdue_customer_count', v_overdue_customer_count,
-    'aging_distribution', v_aging_distribution,
-    'top_debtors', v_top_debtors
-  );
-end;
-$function$;
-
-
-CREATE OR REPLACE FUNCTION public.sales_inventory_reports(p_organization_id uuid, p_store_id uuid, p_from timestamp with time zone DEFAULT NULL::timestamp with time zone, p_to timestamp with time zone DEFAULT NULL::timestamp with time zone, p_as_of timestamp with time zone DEFAULT now())
- RETURNS jsonb
- LANGUAGE plpgsql
- SET search_path TO 'public'
-AS $function$
-declare
-  v_sales_summary jsonb;
-  v_inventory_summary jsonb;
-  v_movements_summary jsonb;
-  v_top_products jsonb;
-  v_returns_summary jsonb;
-begin
-  select jsonb_build_object(
-    'sales_count', count(*),
-    'gross_sales', coalesce(sum(s.total), 0),
-    'subtotal', coalesce(sum(s.subtotal), 0),
-    'discount', coalesce(sum(s.discount), 0),
-    'tax', coalesce(sum(s.tax), 0),
-    'paid_amount', coalesce(sum(coalesce(p.paid_amount, 0)), 0),
-    'outstanding_amount',
-      coalesce(sum(greatest(s.total - coalesce(p.paid_amount, 0), 0)), 0)
-  )
-  into v_sales_summary
-  from public.sales s
-  left join lateral (
-    select sum(pay.amount) as paid_amount
-    from public.payments pay
-    where pay.sale_id = s.id
-  ) p on true
-  where s.organization_id = p_organization_id
-    and s.store_id = p_store_id
-    and s.status in ('completed', 'partially_returned')
-    and (p_from is null or s.created_at >= p_from)
-    and (p_to is null or s.created_at < p_to);
-
-  select jsonb_build_object(
-    'assigned_products', count(*),
-    'total_stock_units', coalesce(sum(sp.quantity), 0),
-    'low_stock_products',
-      count(*) filter (
-        where sp.reorder_level > 0
-          and sp.quantity <= sp.reorder_level
-      ),
-    'out_of_stock_products',
-      count(*) filter (where sp.quantity = 0)
-  )
-  into v_inventory_summary
-  from public.store_products sp
-  where sp.store_id = p_store_id
-    and exists (
-      select 1
-      from public.products pr
-      where pr.id = sp.product_id
-        and pr.organization_id = p_organization_id
-    );
-
-  select jsonb_build_object(
-    'opening', coalesce(sum(im.quantity_change) filter (where im.movement_type = 'opening'), 0),
-    'purchase', coalesce(sum(im.quantity_change) filter (where im.movement_type = 'purchase'), 0),
-    'sale', coalesce(sum(im.quantity_change) filter (where im.movement_type = 'sale'), 0),
-    'return', coalesce(sum(im.quantity_change) filter (where im.movement_type = 'return'), 0),
-    'adjustment', coalesce(sum(im.quantity_change) filter (where im.movement_type = 'adjustment'), 0)
-  )
-  into v_movements_summary
-  from public.inventory_movements im
-  where im.organization_id = p_organization_id
-    and im.store_id = p_store_id
-    and (p_from is null or im.created_at >= p_from)
-    and (p_to is null or im.created_at < p_to);
-
-  select coalesce(jsonb_agg(
-    jsonb_build_object(
-      'product_id', x.product_id,
-      'product_name', x.product_name,
-      'quantity_sold', x.quantity_sold,
-      'sales_amount', x.sales_amount
-    )
-    order by x.quantity_sold desc, x.product_id
-  ), '[]'::jsonb)
-  into v_top_products
-  from (
-    select
-      si.product_id,
-      max(si.product_name) as product_name,
-      sum(si.quantity) as quantity_sold,
-      sum(si.total) as sales_amount
-    from public.sale_items si
-    join public.sales s on s.id = si.sale_id
-    where s.organization_id = p_organization_id
-      and s.store_id = p_store_id
-      and s.status in ('completed', 'partially_returned')
-      and si.product_id is not null
-      and (p_from is null or s.created_at >= p_from)
-      and (p_to is null or s.created_at < p_to)
-    group by si.product_id
-    order by quantity_sold desc, si.product_id
-    limit 10
-  ) x;
-
-  select jsonb_build_object(
-    'return_count', count(distinct sr.id),
-    'returned_quantity', coalesce(sum(sri.quantity), 0),
-    'refund_amount', coalesce(sum(sri.refund_amount), 0)
-  )
-  into v_returns_summary
-  from public.sale_returns sr
-  left join public.sale_return_items sri on sri.return_id = sr.id
-  where sr.organization_id = p_organization_id
-    and sr.store_id = p_store_id
-    and (p_from is null or sr.created_at >= p_from)
-    and (p_to is null or sr.created_at < p_to);
-
-  return jsonb_build_object(
-    'as_of', p_as_of,
-    'period', jsonb_build_object('from', p_from, 'to', p_to),
-    'sales', v_sales_summary,
-    'inventory', v_inventory_summary,
-    'inventory_movements', v_movements_summary,
-    'returns', v_returns_summary,
-    'top_products', v_top_products
-  );
-end;
-$function$;
-
-
-CREATE OR REPLACE FUNCTION public.management_dashboard(p_organization_id uuid, p_store_id uuid, p_from timestamp with time zone DEFAULT NULL::timestamp with time zone, p_to timestamp with time zone DEFAULT NULL::timestamp with time zone, p_as_of timestamp with time zone DEFAULT now())
- RETURNS jsonb
- LANGUAGE plpgsql
- SET search_path TO 'public'
-AS $function$
-declare
-  v_sales_inventory jsonb;
-  v_customer_financial jsonb;
-begin
-  v_sales_inventory := public.sales_inventory_reports(
-    p_organization_id,
-    p_store_id,
-    p_from,
-    p_to,
-    p_as_of
-  );
-
-  v_customer_financial := public.customer_financial_dashboard(
-    p_organization_id,
-    p_store_id,
-    p_as_of
-  );
-
-  return jsonb_build_object(
-    'as_of', p_as_of,
-    'period', jsonb_build_object('from', p_from, 'to', p_to),
-    'sales', coalesce(v_sales_inventory->'sales', '{}'::jsonb),
-    'inventory', coalesce(v_sales_inventory->'inventory', '{}'::jsonb),
-    'inventory_movements', coalesce(v_sales_inventory->'inventory_movements', '{}'::jsonb),
-    'returns', coalesce(v_sales_inventory->'returns', '{}'::jsonb),
-    'top_products', coalesce(v_sales_inventory->'top_products', '[]'::jsonb),
-    'customers', jsonb_build_object(
-      'total_customers_with_due',
-      coalesce((v_customer_financial->>'total_customers_with_due')::bigint, 0),
-      'total_receivables',
-      coalesce((v_customer_financial->>'total_receivables')::numeric, 0),
-      'current_due',
-      coalesce((v_customer_financial->>'current_due')::numeric, 0),
-      'overdue_total',
-      coalesce((v_customer_financial->>'overdue_total')::numeric, 0),
-      'overdue_customer_count',
-      coalesce((v_customer_financial->>'overdue_customer_count')::bigint, 0)
-    ),
-    'aging_distribution',
-      coalesce(v_customer_financial->'aging_distribution', '{}'::jsonb),
-    'top_debtors',
-      coalesce(v_customer_financial->'top_debtors', '[]'::jsonb)
-  );
-end;
-$function$;
-
-
-CREATE OR REPLACE FUNCTION public.operational_reports(p_organization_id uuid, p_store_id uuid, p_product_id bigint DEFAULT NULL::bigint, p_from timestamp with time zone DEFAULT NULL::timestamp with time zone, p_to timestamp with time zone DEFAULT NULL::timestamp with time zone, p_limit integer DEFAULT 100)
- RETURNS jsonb
- LANGUAGE plpgsql
- SET search_path TO 'public'
-AS $function$
-declare
-  v_sales_by_period jsonb;
-  v_stock_movements jsonb;
-  v_product_stock jsonb;
-begin
-  p_limit := greatest(1, least(coalesce(p_limit, 100), 500));
-
-  select coalesce(jsonb_agg(to_jsonb(x) order by x.period_start), '[]'::jsonb)
-  into v_sales_by_period
-  from (
-    select
-      date_trunc('day', s.created_at) as period_start,
-      count(*) as invoice_count,
-      coalesce(sum(s.total), 0) as sales_total,
-      coalesce(sum(s.discount), 0) as discount_total,
-      coalesce(sum(s.tax), 0) as tax_total
-    from public.sales s
-    where s.organization_id = p_organization_id
-      and s.store_id = p_store_id
-      and s.status in ('completed', 'partially_returned')
-      and (p_from is null or s.created_at >= p_from)
-      and (p_to is null or s.created_at < p_to)
-    group by date_trunc('day', s.created_at)
-    order by period_start
-  ) x;
-
-  select coalesce(jsonb_agg(to_jsonb(x) order by x.created_at desc, x.id desc), '[]'::jsonb)
-  into v_stock_movements
-  from (
-    select
-      im.id,
-      im.created_at,
-      im.product_id,
-      coalesce(pr.name, 'Deleted product') as product_name,
-      im.movement_type,
-      im.quantity_change,
-      im.reference_type,
-      im.reference_id,
-      im.notes
-    from public.inventory_movements im
-    left join public.products pr on pr.id = im.product_id
-    where im.organization_id = p_organization_id
-      and im.store_id = p_store_id
-      and (p_product_id is null or im.product_id = p_product_id)
-      and (p_from is null or im.created_at >= p_from)
-      and (p_to is null or im.created_at < p_to)
-    order by im.created_at desc, im.id desc
-    limit p_limit
-  ) x;
-
-  select coalesce(jsonb_agg(to_jsonb(x) order by x.product_name), '[]'::jsonb)
-  into v_product_stock
-  from (
-    select
-      sp.product_id,
-      pr.name as product_name,
-      sp.quantity,
-      sp.reorder_level,
-      case
-        when sp.quantity = 0 then 'out_of_stock'
-        when sp.reorder_level > 0 and sp.quantity <= sp.reorder_level then 'low_stock'
-        else 'in_stock'
-      end as stock_status
-    from public.store_products sp
-    join public.products pr on pr.id = sp.product_id
-    where sp.store_id = p_store_id
-      and pr.organization_id = p_organization_id
-      and (p_product_id is null or sp.product_id = p_product_id)
-    order by pr.name
-    limit p_limit
-  ) x;
-
-  return jsonb_build_object(
-    'period', jsonb_build_object('from', p_from, 'to', p_to),
-    'sales_by_day', v_sales_by_period,
-    'stock_movements', v_stock_movements,
-    'product_stock', v_product_stock
-  );
-end;
-$function$;
-
-
-CREATE OR REPLACE FUNCTION public.profitability_report(p_organization_id uuid, p_store_id uuid, p_from timestamp with time zone DEFAULT NULL::timestamp with time zone, p_to timestamp with time zone DEFAULT NULL::timestamp with time zone)
- RETURNS jsonb
- LANGUAGE plpgsql
- SET search_path TO 'public'
-AS $function$
-declare
-  v_summary jsonb;
-  v_products jsonb;
-begin
-  select jsonb_build_object(
-    'net_sales', coalesce(sum(x.net_sales), 0),
-    'cost_of_goods_sold', coalesce(sum(x.cogs), 0),
-    'gross_profit', coalesce(sum(x.net_sales - x.cogs), 0),
-    'gross_margin_percent',
-      case when coalesce(sum(x.net_sales), 0) = 0 then 0
-           else round((sum(x.net_sales - x.cogs) / sum(x.net_sales)) * 100, 2)
-      end,
-    'uncosted_sales_amount', coalesce(sum(x.uncosted_sales), 0),
-    'uncosted_item_quantity', coalesce(sum(x.uncosted_qty), 0)
-  )
-  into v_summary
-  from (
-    select
-      si.id,
-      (si.total - coalesce(r.refund_amount, 0)) as net_sales,
-      coalesce((si.quantity - coalesce(r.returned_qty, 0)) * si.unit_cost, 0) as cogs,
-      case when si.unit_cost is null then si.total - coalesce(r.refund_amount, 0) else 0 end as uncosted_sales,
-      case when si.unit_cost is null then si.quantity - coalesce(r.returned_qty, 0) else 0 end as uncosted_qty
-    from public.sale_items si
-    join public.sales s on s.id = si.sale_id
-    left join lateral (
-      select
-        coalesce(sum(sri.quantity), 0) as returned_qty,
-        coalesce(sum(sri.refund_amount), 0) as refund_amount
-      from public.sale_return_items sri
-      join public.sale_returns sr on sr.id = sri.return_id
-      where sri.sale_item_id = si.id
-    ) r on true
-    where s.organization_id = p_organization_id
-      and s.store_id = p_store_id
-      and s.status in ('completed', 'partially_returned', 'fully_returned')
-      and (p_from is null or s.created_at >= p_from)
-      and (p_to is null or s.created_at < p_to)
-  ) x;
-
-  select coalesce(jsonb_agg(to_jsonb(x) order by x.gross_profit desc, x.product_id), '[]'::jsonb)
-  into v_products
-  from (
-    select
-      si.product_id,
-      max(si.product_name) as product_name,
-      sum(si.quantity - coalesce(r.returned_qty, 0)) as net_quantity,
-      sum(si.total - coalesce(r.refund_amount, 0)) as net_sales,
-      sum(
-        case when si.unit_cost is null then 0
-             else (si.quantity - coalesce(r.returned_qty, 0)) * si.unit_cost
-        end
-      ) as cogs,
-      sum(
-        (si.total - coalesce(r.refund_amount, 0))
-        - case when si.unit_cost is null then 0
-               else (si.quantity - coalesce(r.returned_qty, 0)) * si.unit_cost
-          end
-      ) as gross_profit,
-      count(*) filter (where si.unit_cost is null) as uncosted_lines
-    from public.sale_items si
-    join public.sales s on s.id = si.sale_id
-    left join lateral (
-      select
-        coalesce(sum(sri.quantity), 0) as returned_qty,
-        coalesce(sum(sri.refund_amount), 0) as refund_amount
-      from public.sale_return_items sri
-      join public.sale_returns sr on sr.id = sri.return_id
-      where sri.sale_item_id = si.id
-    ) r on true
-    where s.organization_id = p_organization_id
-      and s.store_id = p_store_id
-      and s.status in ('completed', 'partially_returned', 'fully_returned')
-      and (p_from is null or s.created_at >= p_from)
-      and (p_to is null or s.created_at < p_to)
-    group by si.product_id
-    order by gross_profit desc, si.product_id
-    limit 100
-  ) x;
-
-  return jsonb_build_object(
-    'period', jsonb_build_object('from', p_from, 'to', p_to),
-    'summary', coalesce(v_summary, '{}'::jsonb),
-    'products', v_products
-  );
-end;
-$function$;
-
-
-CREATE OR REPLACE FUNCTION public.inventory_valuation_report(p_organization_id uuid, p_store_id uuid, p_from timestamp with time zone DEFAULT NULL::timestamp with time zone, p_to timestamp with time zone DEFAULT NULL::timestamp with time zone)
- RETURNS jsonb
- LANGUAGE plpgsql
- SET search_path TO 'public'
-AS $function$
-declare v_current jsonb; v_flow jsonb; v_products jsonb;
-begin
-select jsonb_build_object('inventory_units',coalesce(sum(sp.quantity),0),'inventory_value',coalesce(sum(case when sp.cost_known then sp.quantity*sp.average_cost else 0 end),0),'products_with_stock',count(*) filter(where sp.quantity>0),'products_without_cost',count(*) filter(where sp.quantity>0 and not sp.cost_known))
-into v_current from public.store_products sp join public.products pr on pr.id=sp.product_id where sp.store_id=p_store_id and pr.organization_id=p_organization_id;
-select jsonb_build_object('purchase_units',coalesce(sum(pri.quantity),0),'purchase_value',coalesce(sum(pri.quantity*pri.unit_cost),0),'sold_units',coalesce((select sum(si.quantity) from public.sale_items si join public.sales s on s.id=si.sale_id where s.organization_id=p_organization_id and s.store_id=p_store_id and s.status in('completed','partially_returned','fully_returned') and si.unit_cost is not null and(p_from is null or s.created_at>=p_from)and(p_to is null or s.created_at<p_to)),0),'cogs',coalesce((select sum(si.cost_total) from public.sale_items si join public.sales s on s.id=si.sale_id where s.organization_id=p_organization_id and s.store_id=p_store_id and s.status in('completed','partially_returned','fully_returned') and si.unit_cost is not null and(p_from is null or s.created_at>=p_from)and(p_to is null or s.created_at<p_to)),0),'returned_units',coalesce((select sum(sri.quantity) from public.sale_return_items sri join public.sale_returns sr on sr.id=sri.return_id where sr.organization_id=p_organization_id and sr.store_id=p_store_id and(p_from is null or sr.created_at>=p_from)and(p_to is null or sr.created_at<p_to)),0),'returned_cost_value',coalesce((select sum(sri.quantity*si.unit_cost) from public.sale_return_items sri join public.sale_returns sr on sr.id=sri.return_id join public.sale_items si on si.id=sri.sale_item_id where sr.organization_id=p_organization_id and sr.store_id=p_store_id and si.unit_cost is not null and(p_from is null or sr.created_at>=p_from)and(p_to is null or sr.created_at<p_to)),0)) into v_flow from public.purchase_receipt_items pri join public.purchase_receipts prc on prc.id=pri.receipt_id where prc.organization_id=p_organization_id and prc.store_id=p_store_id and prc.status <> 'cancelled' and(p_from is null or prc.created_at>=p_from)and(p_to is null or prc.created_at<p_to);
-select coalesce(jsonb_agg(to_jsonb(x) order by x.inventory_value desc nulls last,x.product_id),'[]'::jsonb) into v_products from(select sp.product_id,pr.name product_name,sp.quantity,sp.average_cost,sp.cost_known,case when sp.cost_known then sp.quantity*sp.average_cost else null end inventory_value from public.store_products sp join public.products pr on pr.id=sp.product_id where sp.store_id=p_store_id and pr.organization_id=p_organization_id limit 100)x;
-return jsonb_build_object('period',jsonb_build_object('from',p_from,'to',p_to),'current_inventory',v_current,'period_flow',v_flow,'products',v_products);
-end;$function$;
-
-
-CREATE OR REPLACE FUNCTION public.financial_operations_report(p_organization_id uuid, p_store_id uuid, p_from timestamp with time zone DEFAULT NULL::timestamp with time zone, p_to timestamp with time zone DEFAULT NULL::timestamp with time zone, p_as_of timestamp with time zone DEFAULT now())
- RETURNS jsonb
- LANGUAGE plpgsql
- SET search_path TO 'public'
-AS $function$
-declare
-  v_sales jsonb;
-  v_profitability jsonb;
-  v_inventory jsonb;
-  v_customers jsonb;
-  v_purchases jsonb;
-  v_cash jsonb;
-  v_from timestamptz := p_from;
-  v_to timestamptz := p_to;
-  v_as_of timestamptz := coalesce(p_as_of, now());
-  v_purchase_count integer := 0;
-  v_purchase_units numeric := 0;
-  v_purchase_value numeric := 0;
-  v_payment_count integer := 0;
-  v_payments_received numeric := 0;
-  v_refund_count integer := 0;
-  v_refunds_paid numeric := 0;
-begin
-  if auth.uid() is null then
-    raise exception 'authentication required';
-  end if;
-
-  if p_organization_id is null or p_store_id is null then
-    raise exception 'organization and store are required';
-  end if;
-
-  if not private.is_org_store_member(p_organization_id, p_store_id) then
-    raise exception 'organization/store access denied';
-  end if;
-
-  if v_from is not null and v_to is not null and v_from > v_to then
-    raise exception 'from must be before or equal to to';
-  end if;
-
-  select coalesce(jsonb_agg(
-    jsonb_build_object(
-      'receipt_id', pr.id,
-      'receipt_number', pr.receipt_number,
-      'created_at', pr.created_at,
-      'total_units', x.total_units,
-      'total_value', x.total_value
-    ) order by pr.created_at, pr.id
-  ), '[]'::jsonb)
-  into v_purchases
-  from public.purchase_receipts pr
-  join lateral (
-    select
-      coalesce(sum(pri.quantity), 0)::numeric as total_units,
-      coalesce(sum(pri.quantity * pri.unit_cost), 0)::numeric as total_value
-    from public.purchase_receipt_items pri
-    where pri.receipt_id = pr.id
-  ) x on true
-  where pr.organization_id = p_organization_id
-    and pr.store_id = p_store_id
-    and (v_from is null or pr.created_at >= v_from)
-    and (v_to is null or pr.created_at <= v_to);
-
-  select
-    count(*)::integer,
-    coalesce(sum(x.total_units),0),
-    coalesce(sum(x.total_value),0)
-  into v_purchase_count, v_purchase_units, v_purchase_value
-  from public.purchase_receipts pr
-  join lateral (
-    select
-      coalesce(sum(pri.quantity),0)::numeric as total_units,
-      coalesce(sum(pri.quantity * pri.unit_cost),0)::numeric as total_value
-    from public.purchase_receipt_items pri
-    where pri.receipt_id = pr.id
-  ) x on true
-  where pr.organization_id = p_organization_id
-    and pr.store_id = p_store_id
-    and (v_from is null or pr.created_at >= v_from)
-    and (v_to is null or pr.created_at <= v_to);
-
-  select coalesce(sum(p.amount),0), count(*)
-  into v_payments_received, v_payment_count
-  from public.payments p
-  join public.sales s on s.id = p.sale_id
-  where s.organization_id = p_organization_id
-    and s.store_id = p_store_id
-    and s.status <> 'cancelled'
-    and (v_from is null or p.paid_at >= v_from)
-    and (v_to is null or p.paid_at <= v_to);
-
-  select coalesce(sum(r.amount),0), count(*)
-  into v_refunds_paid, v_refund_count
-  from public.refunds r
-  where r.organization_id = p_organization_id
-    and r.store_id = p_store_id
-    and (v_from is null or r.refunded_at >= v_from)
-    and (v_to is null or r.refunded_at <= v_to);
-
-  v_sales := public.sales_inventory_reports(
-    p_organization_id, p_store_id, v_from, v_to, v_as_of
-  );
-
-  v_profitability := public.profitability_report(
-    p_organization_id, p_store_id, v_from, v_to
-  );
-
-  v_inventory := public.inventory_valuation_report(
-    p_organization_id, p_store_id, v_from, v_to
-  );
-
-  v_customers := public.customer_financial_dashboard(
-    p_organization_id, p_store_id, v_as_of
-  );
-
-  v_cash := jsonb_build_object(
-    'payments_received', v_payments_received,
-    'refunds_paid', v_refunds_paid,
-    'net_cash_from_sales', v_payments_received - v_refunds_paid,
-    'payment_count', v_payment_count,
-    'refund_count', v_refund_count,
-    'note', 'Payments received are cash collections, not revenue; refunds reduce cash.'
-  );
-
-  return jsonb_build_object(
-    'as_of', v_as_of,
-    'period', jsonb_build_object('from', v_from, 'to', v_to),
-    'sales', v_sales->'sales',
-    'returns', v_sales->'returns',
-    'purchases', jsonb_build_object(
-      'receipt_count', v_purchase_count,
-      'units', v_purchase_units,
-      'value', v_purchase_value,
-      'receipts', v_purchases
-    ),
-    'profitability', v_profitability->'summary',
-    'inventory', jsonb_build_object(
-      'current', v_inventory->'current_inventory',
-      'period_flow', v_inventory->'period_flow'
-    ),
-    'cash', v_cash,
-    'receivables', jsonb_build_object(
-      'total_customers_with_due', v_customers->'total_customers_with_due',
-      'total_receivables', v_customers->'total_receivables',
-      'current_due', v_customers->'current_due',
-      'overdue_total', v_customers->'overdue_total',
-      'overdue_customer_count', v_customers->'overdue_customer_count',
-      'as_of', v_customers->'as_of'
-    ),
-    'reconciliation', jsonb_build_object(
-      'gross_profit', coalesce((v_profitability->'summary'->>'gross_profit')::numeric,0),
-      'payments_received', v_payments_received,
-      'refunds_paid', v_refunds_paid,
-      'purchase_value', v_purchase_value,
-      'inventory_value', coalesce((v_inventory->'current_inventory'->>'inventory_value')::numeric,0),
-      'note', 'Operational financial summary; this is not a double-entry general ledger.'
-    )
-  );
-end;
-$function$;
-
-
-CREATE OR REPLACE FUNCTION public.update_product_for_store(p_product_id bigint, p_name text, p_price numeric, p_quantity integer, p_organization_id uuid, p_store_id uuid)
- RETURNS jsonb
- LANGUAGE sql
- SET search_path TO 'public', 'private'
-AS $function$ select private.update_product_for_store(p_product_id,p_name,p_price,p_quantity,p_organization_id,p_store_id); $function$;
-
-
 CREATE OR REPLACE FUNCTION private.create_supplier(p_organization_id uuid, p_name text, p_phone text DEFAULT NULL::text, p_address text DEFAULT NULL::text, p_tax_number text DEFAULT NULL::text, p_notes text DEFAULT NULL::text)
  RETURNS suppliers
  LANGUAGE plpgsql
@@ -3570,7 +2131,6 @@ exception
     raise exception 'supplier name already exists in this organization';
 end;
 $function$;
-
 
 CREATE OR REPLACE FUNCTION private.update_supplier(p_organization_id uuid, p_supplier_id bigint, p_name text, p_phone text DEFAULT NULL::text, p_address text DEFAULT NULL::text, p_tax_number text DEFAULT NULL::text, p_notes text DEFAULT NULL::text, p_status text DEFAULT 'active'::text)
  RETURNS suppliers
@@ -3609,7 +2169,6 @@ exception
     raise exception 'supplier name already exists in this organization';
 end;
 $function$;
-
 
 CREATE OR REPLACE FUNCTION private.create_purchase(p_organization_id uuid, p_store_id uuid, p_supplier_id bigint, p_receipt_number text, p_items jsonb, p_discount numeric DEFAULT 0, p_tax numeric DEFAULT 0, p_paid_amount numeric DEFAULT 0, p_payment_method text DEFAULT 'cash'::text, p_reference text DEFAULT NULL::text, p_due_date date DEFAULT NULL::date, p_notes text DEFAULT NULL::text)
  RETURNS jsonb
@@ -3805,7 +2364,6 @@ exception
 end;
 $function$;
 
-
 CREATE OR REPLACE FUNCTION private.record_supplier_payment(p_organization_id uuid, p_store_id uuid, p_supplier_id bigint, p_amount numeric, p_payment_method text DEFAULT 'cash'::text, p_reference text DEFAULT NULL::text, p_notes text DEFAULT NULL::text, p_allocations jsonb DEFAULT '[]'::jsonb)
  RETURNS jsonb
  LANGUAGE plpgsql
@@ -3867,7 +2425,6 @@ exception when unique_violation then raise exception 'duplicate supplier payment
 end;
 $function$;
 
-
 CREATE OR REPLACE FUNCTION private.list_suppliers(p_organization_id uuid)
  RETURNS SETOF suppliers
  LANGUAGE plpgsql
@@ -3884,7 +2441,6 @@ begin
     order by id;
 end;
 $function$;
-
 
 CREATE OR REPLACE FUNCTION private.cancel_purchase(p_organization_id uuid, p_store_id uuid, p_purchase_receipt_id bigint, p_reason text DEFAULT NULL::text)
  RETURNS jsonb
@@ -4038,61 +2594,6 @@ begin
 end;
 $function$;
 
-
-CREATE OR REPLACE FUNCTION public.cancel_purchase(p_organization_id uuid, p_store_id uuid, p_purchase_receipt_id bigint, p_reason text DEFAULT NULL::text)
- RETURNS jsonb
- LANGUAGE sql
- SET search_path TO ''
-AS $function$
-  select private.cancel_purchase(
-    p_organization_id,
-    p_store_id,
-    p_purchase_receipt_id,
-    p_reason
-  );
-$function$;
-
-
-CREATE OR REPLACE FUNCTION public.create_supplier(p_organization_id uuid, p_name text, p_phone text, p_address text, p_tax_number text, p_notes text)
- RETURNS suppliers
- LANGUAGE sql
- SET search_path TO ''
-AS $function$ select private.create_supplier(p_organization_id,p_name,p_phone,p_address,p_tax_number,p_notes); $function$;
-
-
-CREATE OR REPLACE FUNCTION public.update_supplier(p_organization_id uuid, p_supplier_id bigint, p_name text, p_phone text, p_address text, p_tax_number text, p_notes text, p_status text)
- RETURNS suppliers
- LANGUAGE sql
- SET search_path TO ''
-AS $function$ select private.update_supplier(p_organization_id,p_supplier_id,p_name,p_phone,p_address,p_tax_number,p_notes,p_status); $function$;
-
-
-CREATE OR REPLACE FUNCTION public.create_purchase(p_organization_id uuid, p_store_id uuid, p_supplier_id bigint, p_receipt_number text, p_items jsonb, p_discount numeric, p_tax numeric, p_paid_amount numeric, p_payment_method text, p_reference text, p_due_date date, p_notes text)
- RETURNS jsonb
- LANGUAGE sql
- SET search_path TO ''
-AS $function$
-  select private.create_purchase(
-    p_organization_id,p_store_id,p_supplier_id,p_receipt_number,p_items,
-    p_discount,p_tax,p_paid_amount,p_payment_method,p_reference,p_due_date,p_notes
-  );
-$function$;
-
-
-CREATE OR REPLACE FUNCTION public.list_suppliers(p_organization_id uuid)
- RETURNS SETOF suppliers
- LANGUAGE sql
- SET search_path TO ''
-AS $function$ select * from private.list_suppliers(p_organization_id); $function$;
-
-
-CREATE OR REPLACE FUNCTION public.record_supplier_payment(p_organization_id uuid, p_store_id uuid, p_supplier_id bigint, p_amount numeric, p_payment_method text, p_reference text, p_notes text, p_allocations jsonb)
- RETURNS jsonb
- LANGUAGE sql
- SET search_path TO ''
-AS $function$ select private.record_supplier_payment(p_organization_id,p_store_id,p_supplier_id,p_amount,p_payment_method,p_reference,p_notes,p_allocations); $function$;
-
-
 CREATE OR REPLACE FUNCTION private.list_purchase_receipts(p_organization_id uuid, p_store_id uuid)
  RETURNS TABLE(id bigint, supplier_id bigint, supplier_name text, receipt_number text, supplier_invoice_number text, subtotal numeric, discount numeric, tax numeric, total numeric, paid_amount numeric, remaining_amount numeric, payment_status text, due_date date, status text, notes text, created_at timestamp with time zone)
  LANGUAGE plpgsql
@@ -4120,16 +2621,6 @@ begin
     order by pr.created_at desc,pr.id desc;
 end;
 $function$;
-
-
-CREATE OR REPLACE FUNCTION public.list_purchase_receipts(p_organization_id uuid, p_store_id uuid)
- RETURNS TABLE(id bigint, supplier_id bigint, supplier_name text, receipt_number text, supplier_invoice_number text, subtotal numeric, discount numeric, tax numeric, total numeric, paid_amount numeric, remaining_amount numeric, payment_status text, due_date date, status text, notes text, created_at timestamp with time zone)
- LANGUAGE sql
- SET search_path TO ''
-AS $function$
-  select * from private.list_purchase_receipts(p_organization_id,p_store_id);
-$function$;
-
 
 CREATE OR REPLACE FUNCTION private.next_document_number(p_organization_id uuid, p_document_type text, p_prefix text DEFAULT 'DOC'::text)
  RETURNS text
@@ -4172,7 +2663,6 @@ begin
   return upper(trim(p_prefix)) || '-' || lpad(v_number::text, 6, '0');
 end;
 $function$;
-
 
 CREATE OR REPLACE FUNCTION private.record_sale_payment(p_sale_id bigint, p_amount numeric, p_payment_method text DEFAULT 'cash'::text, p_reference text DEFAULT NULL::text)
  RETURNS json
@@ -4299,7 +2789,6 @@ begin
   );
 end;
 $function$;
-
 
 CREATE OR REPLACE FUNCTION private.cancel_sale(p_organization_id uuid, p_sale_id bigint, p_reason text DEFAULT NULL::text, p_refund_payment_method text DEFAULT 'cash'::text, p_refund_reference text DEFAULT NULL::text)
  RETURNS jsonb
@@ -4464,20 +2953,6 @@ begin
 end;
 $function$;
 
-
-CREATE OR REPLACE FUNCTION public.cancel_sale(p_organization_id uuid, p_sale_id bigint, p_reason text DEFAULT NULL::text, p_refund_payment_method text DEFAULT 'cash'::text, p_refund_reference text DEFAULT NULL::text)
- RETURNS jsonb
- LANGUAGE plpgsql
- SET search_path TO 'public', 'private'
-AS $function$
-begin
-  return private.cancel_sale(
-    p_organization_id,p_sale_id,p_reason,p_refund_payment_method,p_refund_reference
-  );
-end;
-$function$;
-
-
 CREATE OR REPLACE FUNCTION private.next_purchase_return_number(p_organization_id uuid)
  RETURNS text
  LANGUAGE plpgsql
@@ -4499,7 +2974,6 @@ begin
   return 'PR-' || lpad(v_next::text,6,'0');
 end;
 $function$;
-
 
 CREATE OR REPLACE FUNCTION private.return_purchase_items(p_organization_id uuid, p_store_id uuid, p_purchase_receipt_id bigint, p_items jsonb, p_reason text, p_refund_amount numeric DEFAULT 0, p_refund_payment_method text DEFAULT 'cash'::text, p_refund_reference text DEFAULT NULL::text, p_notes text DEFAULT NULL::text)
  RETURNS jsonb
@@ -4672,19 +3146,6 @@ begin
 end;
 $function$;
 
-
-CREATE OR REPLACE FUNCTION public.return_purchase_items(p_organization_id uuid, p_store_id uuid, p_purchase_receipt_id bigint, p_items jsonb, p_reason text, p_refund_amount numeric DEFAULT 0, p_refund_payment_method text DEFAULT 'cash'::text, p_refund_reference text DEFAULT NULL::text, p_notes text DEFAULT NULL::text)
- RETURNS jsonb
- LANGUAGE plpgsql
- SET search_path TO 'public', 'private'
-AS $function$
-begin
- return private.return_purchase_items(p_organization_id,p_store_id,p_purchase_receipt_id,p_items,p_reason,
-   p_refund_amount,p_refund_payment_method,p_refund_reference,p_notes);
-end;
-$function$;
-
-
 CREATE OR REPLACE FUNCTION private.purchase_return_details(p_organization_id uuid, p_store_id uuid, p_purchase_receipt_id bigint)
  RETURNS jsonb
  LANGUAGE plpgsql
@@ -4711,14 +3172,6 @@ begin
  );
 end; $function$;
 
-
-CREATE OR REPLACE FUNCTION public.purchase_return_details(p_organization_id uuid, p_store_id uuid, p_purchase_receipt_id bigint)
- RETURNS jsonb
- LANGUAGE plpgsql
- SET search_path TO 'public', 'private'
-AS $function$ begin return private.purchase_return_details(p_organization_id,p_store_id,p_purchase_receipt_id); end; $function$;
-
-
 CREATE OR REPLACE FUNCTION private.customer_account_summary(p_organization_id uuid, p_store_id uuid DEFAULT NULL::uuid)
  RETURNS TABLE(customer_id bigint, customer_name text, sales_total numeric, invoice_payments numeric, account_payments numeric, sales_refunds numeric, balance numeric)
  LANGUAGE sql
@@ -4741,7 +3194,6 @@ AS $function$
       or (p_store_id is not null and private.is_org_store_member(p_organization_id,p_store_id)));
 $function$;
 
-
 CREATE OR REPLACE FUNCTION private.supplier_account_summary(p_organization_id uuid, p_store_id uuid DEFAULT NULL::uuid)
  RETURNS TABLE(supplier_id bigint, supplier_name text, purchases_total numeric, supplier_payments numeric, supplier_refunds numeric, balance numeric)
  LANGUAGE sql
@@ -4762,7 +3214,6 @@ AS $function$
       or (p_store_id is not null and private.is_org_store_member(p_organization_id,p_store_id)));
 $function$;
 
-
 CREATE OR REPLACE FUNCTION private.customer_statement(p_organization_id uuid, p_customer_id bigint, p_store_id uuid DEFAULT NULL::uuid, p_from date DEFAULT NULL::date, p_to date DEFAULT NULL::date)
  RETURNS TABLE(occurred_at timestamp with time zone, entry_type text, reference_id bigint, reference_number text, description text, debit numeric, credit numeric, balance numeric)
  LANGUAGE sql
@@ -4779,7 +3230,6 @@ AS $function$
   from entries e where auth.uid() is not null and ((p_store_id is null and exists(select 1 from public.organization_members om where om.organization_id=p_organization_id and om.user_id=auth.uid() and om.status='active')) or (p_store_id is not null and private.is_org_store_member(p_organization_id,p_store_id)))
   order by e.occurred_at,e.entry_type,e.reference_id;
 $function$;
-
 
 CREATE OR REPLACE FUNCTION private.supplier_statement(p_organization_id uuid, p_supplier_id bigint, p_store_id uuid DEFAULT NULL::uuid, p_from date DEFAULT NULL::date, p_to date DEFAULT NULL::date)
  RETURNS TABLE(occurred_at timestamp with time zone, entry_type text, reference_id bigint, reference_number text, description text, debit numeric, credit numeric, balance numeric)
@@ -4798,35 +3248,6 @@ AS $function$
   order by e.occurred_at,e.entry_type,e.reference_id;
 $function$;
 
-
-CREATE OR REPLACE FUNCTION public.customer_account_summary(p_organization_id uuid, p_store_id uuid DEFAULT NULL::uuid)
- RETURNS TABLE(customer_id bigint, customer_name text, sales_total numeric, invoice_payments numeric, account_payments numeric, sales_refunds numeric, balance numeric)
- LANGUAGE sql
- SET search_path TO 'public', 'private'
-AS $function$ select * from private.customer_account_summary(p_organization_id,p_store_id); $function$;
-
-
-CREATE OR REPLACE FUNCTION public.supplier_account_summary(p_organization_id uuid, p_store_id uuid DEFAULT NULL::uuid)
- RETURNS TABLE(supplier_id bigint, supplier_name text, purchases_total numeric, supplier_payments numeric, supplier_refunds numeric, balance numeric)
- LANGUAGE sql
- SET search_path TO 'public', 'private'
-AS $function$ select * from private.supplier_account_summary(p_organization_id,p_store_id); $function$;
-
-
-CREATE OR REPLACE FUNCTION public.customer_statement(p_organization_id uuid, p_customer_id bigint, p_store_id uuid DEFAULT NULL::uuid, p_from date DEFAULT NULL::date, p_to date DEFAULT NULL::date)
- RETURNS TABLE(occurred_at timestamp with time zone, entry_type text, reference_id bigint, reference_number text, description text, debit numeric, credit numeric, balance numeric)
- LANGUAGE sql
- SET search_path TO 'public', 'private'
-AS $function$ select * from private.customer_statement(p_organization_id,p_customer_id,p_store_id,p_from,p_to); $function$;
-
-
-CREATE OR REPLACE FUNCTION public.supplier_statement(p_organization_id uuid, p_supplier_id bigint, p_store_id uuid DEFAULT NULL::uuid, p_from date DEFAULT NULL::date, p_to date DEFAULT NULL::date)
- RETURNS TABLE(occurred_at timestamp with time zone, entry_type text, reference_id bigint, reference_number text, description text, debit numeric, credit numeric, balance numeric)
- LANGUAGE sql
- SET search_path TO 'public', 'private'
-AS $function$ select * from private.supplier_statement(p_organization_id,p_supplier_id,p_store_id,p_from,p_to); $function$;
-
-
 CREATE OR REPLACE FUNCTION private.next_expense_number(p_organization_id uuid)
  RETURNS text
  LANGUAGE plpgsql
@@ -4844,7 +3265,6 @@ begin
   returning next_number-1 into n;
   return 'EXP-'||lpad(n::text,6,'0');
 end $function$;
-
 
 CREATE OR REPLACE FUNCTION private.create_expense(p_organization_id uuid, p_store_id uuid, p_category text, p_amount numeric, p_expense_date date DEFAULT CURRENT_DATE, p_payment_method text DEFAULT 'cash'::text, p_reference text DEFAULT NULL::text, p_notes text DEFAULT NULL::text)
  RETURNS expenses
@@ -4884,14 +3304,6 @@ begin
 end
 $function$;
 
-
-CREATE OR REPLACE FUNCTION public.create_expense(p_organization_id uuid, p_store_id uuid, p_category text, p_amount numeric, p_expense_date date DEFAULT CURRENT_DATE, p_payment_method text DEFAULT 'cash'::text, p_reference text DEFAULT NULL::text, p_notes text DEFAULT NULL::text)
- RETURNS expenses
- LANGUAGE sql
- SET search_path TO 'public', 'private'
-AS $function$ select private.create_expense(p_organization_id,p_store_id,p_category,p_amount,p_expense_date,p_payment_method,p_reference,p_notes); $function$;
-
-
 CREATE OR REPLACE FUNCTION private.cancel_expense(p_organization_id uuid, p_expense_id bigint, p_reason text)
  RETURNS expenses
  LANGUAGE plpgsql
@@ -4913,14 +3325,6 @@ begin
  values(p_organization_id,v.store_id,auth.uid(),'expense.cancelled','expense',v.id::text,jsonb_build_object('reason',v.cancel_reason,'amount',v.amount));
  return v;
 end $function$;
-
-
-CREATE OR REPLACE FUNCTION public.cancel_expense(p_organization_id uuid, p_expense_id bigint, p_reason text)
- RETURNS expenses
- LANGUAGE sql
- SET search_path TO 'public', 'private'
-AS $function$ select private.cancel_expense(p_organization_id,p_expense_id,p_reason); $function$;
-
 
 CREATE OR REPLACE FUNCTION private.profitability_summary(p_organization_id uuid, p_store_id uuid DEFAULT NULL::uuid, p_from_date date DEFAULT NULL::date, p_to_date date DEFAULT NULL::date)
  RETURNS jsonb
@@ -5041,30 +3445,6 @@ begin
  );
 end;
 $function$;
-
-
-CREATE OR REPLACE FUNCTION public.profitability_summary(p_organization_id uuid, p_store_id uuid DEFAULT NULL::uuid, p_from_date date DEFAULT NULL::date, p_to_date date DEFAULT NULL::date)
- RETURNS jsonb
- LANGUAGE sql
- SET search_path TO 'public', 'private'
-AS $function$
-  select private.profitability_summary(p_organization_id, p_store_id, p_from_date, p_to_date);
-$function$;
-
-
-CREATE OR REPLACE FUNCTION public.commercial_reports_summary(p_organization_id uuid, p_store_id uuid DEFAULT NULL::uuid, p_from_date date DEFAULT NULL::date, p_to_date date DEFAULT NULL::date)
- RETURNS jsonb
- LANGUAGE sql
- SET search_path TO 'public', 'private'
-AS $function$
-  select private.commercial_reports_summary(
-    p_organization_id,
-    p_store_id,
-    p_from_date,
-    p_to_date
-  );
-$function$;
-
 
 CREATE OR REPLACE FUNCTION private.commercial_reports(p_organization_id uuid, p_store_id uuid DEFAULT NULL::uuid, p_from_date date DEFAULT NULL::date, p_to_date date DEFAULT NULL::date)
  RETURNS jsonb
@@ -5258,28 +3638,12 @@ begin
 end;
 $function$;
 
-
-CREATE OR REPLACE FUNCTION public.commercial_reports(p_organization_id uuid, p_store_id uuid DEFAULT NULL::uuid, p_from_date date DEFAULT NULL::date, p_to_date date DEFAULT NULL::date)
- RETURNS jsonb
- LANGUAGE sql
- SET search_path TO ''
-AS $function$
-  select private.commercial_reports(
-    p_organization_id,
-    p_store_id,
-    p_from_date,
-    p_to_date
-  );
-$function$;
-
-
 CREATE OR REPLACE FUNCTION private.update_product_for_store(p_product_id bigint, p_name text, p_price numeric, p_quantity integer, p_organization_id uuid, p_store_id uuid)
  RETURNS jsonb
  LANGUAGE plpgsql
  SECURITY DEFINER
  SET search_path TO 'public'
 AS $function$ declare v_user_id uuid:=auth.uid(); v_member_id uuid; v_current_quantity integer; v_delta integer; v_product products%rowtype; begin if v_user_id is null then raise exception 'Authentication required'; end if; if p_product_id is null or p_product_id<=0 then raise exception 'Invalid product id'; end if; if p_organization_id is null or p_store_id is null then raise exception 'Organization and store are required'; end if; if p_name is null or btrim(p_name)='' then raise exception 'Product name is required'; end if; if p_price is null or p_price<0 then raise exception 'Product price must be non-negative'; end if; if p_quantity is null or p_quantity<0 then raise exception 'Product quantity must be non-negative'; end if; select om.id into v_member_id from organization_members om join member_stores ms on ms.member_id=om.id where om.user_id=v_user_id and om.organization_id=p_organization_id and om.status='active' and ms.store_id=p_store_id limit 1; if v_member_id is null then raise exception 'Organization and store access denied'; end if; if not exists(select 1 from organization_members om join roles r on r.id=om.role_id join role_permissions rp on rp.role_id=r.id join permissions p on p.id=rp.permission_id where om.id=v_member_id and p.code='products.update') then raise exception 'Permission denied: products.update'; end if; select * into v_product from products where id=p_product_id and organization_id=p_organization_id for update; if not found then raise exception 'Product not found'; end if; select quantity into v_current_quantity from store_products where product_id=p_product_id and store_id=p_store_id for update; if not found then raise exception 'Product is not assigned to this store'; end if; v_delta:=p_quantity-v_current_quantity; if v_delta<>0 and not exists(select 1 from organization_members om join roles r on r.id=om.role_id join role_permissions rp on rp.role_id=r.id join permissions p on p.id=rp.permission_id where om.id=v_member_id and p.code='inventory.adjust') then raise exception 'Permission denied: inventory.adjust'; end if; update products set name=btrim(p_name),price=p_price where id=p_product_id and organization_id=p_organization_id; update store_products set quantity=p_quantity,updated_at=now() where product_id=p_product_id and store_id=p_store_id; if v_delta<>0 then insert into inventory_movements(product_id,movement_type,quantity_change,reference_type,reference_id,notes,created_at,organization_id,store_id) values(p_product_id,'adjustment',v_delta,'product_update',p_product_id,'Manual stock adjustment during product edit',now(),p_organization_id,p_store_id); end if; insert into audit_logs(organization_id,store_id,actor_user_id,action,entity_type,entity_id,metadata) values(p_organization_id,p_store_id,v_user_id,'update','product',p_product_id::text,jsonb_build_object('old_name',v_product.name,'new_name',btrim(p_name),'old_price',v_product.price,'new_price',p_price,'old_quantity',v_current_quantity,'new_quantity',p_quantity,'quantity_delta',v_delta)); return jsonb_build_object('id',p_product_id,'name',btrim(p_name),'price',p_price,'quantity',p_quantity); end; $function$;
-
 
 CREATE OR REPLACE FUNCTION private.commercial_reports_summary(p_organization_id uuid, p_store_id uuid DEFAULT NULL::uuid, p_from_date date DEFAULT NULL::date, p_to_date date DEFAULT NULL::date)
  RETURNS jsonb
@@ -5388,14 +3752,6 @@ begin
 end;
 $function$;
 
-
-CREATE OR REPLACE FUNCTION public.profitability_report_v2(p_organization_id uuid, p_store_id uuid DEFAULT NULL::uuid, p_from_date date DEFAULT NULL::date, p_to_date date DEFAULT NULL::date)
- RETURNS jsonb
- LANGUAGE sql
- SET search_path TO 'public', 'private'
-AS $function$ select private.profitability_summary(p_organization_id,p_store_id,p_from_date,p_to_date); $function$;
-
-
 CREATE OR REPLACE FUNCTION private.create_product_for_store_with_cost(p_organization_id uuid, p_store_id uuid, p_name text, p_price numeric, p_initial_quantity integer DEFAULT 0, p_reorder_level integer DEFAULT 0, p_notes text DEFAULT NULL::text, p_initial_unit_cost numeric DEFAULT NULL::numeric)
  RETURNS store_products
  LANGUAGE plpgsql
@@ -5421,14 +3777,6 @@ end if;
 perform private.write_audit_log(p_organization_id,p_store_id,'inventory.product_added_to_store','store_product',v_store_product.id::text,jsonb_build_object('product_id',v_product.id,'initial_quantity',p_initial_quantity,'initial_unit_cost',p_initial_unit_cost,'reorder_level',p_reorder_level));
 return v_store_product;
 end;$function$;
-
-
-CREATE OR REPLACE FUNCTION public.create_product_for_store_with_cost(p_organization_id uuid, p_store_id uuid, p_name text, p_price numeric, p_initial_quantity integer DEFAULT 0, p_reorder_level integer DEFAULT 0, p_notes text DEFAULT NULL::text, p_initial_unit_cost numeric DEFAULT NULL::numeric)
- RETURNS store_products
- LANGUAGE sql
- SET search_path TO 'public'
-AS $function$ select private.create_product_for_store_with_cost(p_organization_id,p_store_id,p_name,p_price,p_initial_quantity,p_reorder_level,p_notes,p_initial_unit_cost); $function$;
-
 
 CREATE OR REPLACE FUNCTION private.list_organization_members(p_organization_id uuid)
  RETURNS TABLE(member_id uuid, user_id uuid, status text, role_id uuid, role_name text, role_code text, store_ids uuid[], store_names text[])
@@ -5458,7 +3806,6 @@ begin
   order by om.created_at;
 end;$function$;
 
-
 CREATE OR REPLACE FUNCTION private.assign_member_role(p_organization_id uuid, p_member_id uuid, p_role_id uuid)
  RETURNS void
  LANGUAGE plpgsql
@@ -5487,7 +3834,6 @@ begin
   update public.organization_members set role_id=p_role_id where id=p_member_id and organization_id=p_organization_id;
 end;$function$;
 
-
 CREATE OR REPLACE FUNCTION private.set_member_stores(p_organization_id uuid, p_member_id uuid, p_store_ids uuid[])
  RETURNS void
  LANGUAGE plpgsql
@@ -5506,7 +3852,6 @@ begin
   select p_member_id,x.id from unnest(coalesce(p_store_ids,'{}'::uuid[])) x(id)
   on conflict do nothing;
 end;$function$;
-
 
 CREATE OR REPLACE FUNCTION private.set_member_status(p_organization_id uuid, p_member_id uuid, p_status text)
  RETURNS void
@@ -5532,35 +3877,6 @@ begin
   update public.organization_members set status=p_status where id=p_member_id and organization_id=p_organization_id;
 end;$function$;
 
-
-CREATE OR REPLACE FUNCTION public.list_organization_members(p_organization_id uuid)
- RETURNS TABLE(member_id uuid, user_id uuid, status text, role_id uuid, role_name text, role_code text, store_ids uuid[], store_names text[])
- LANGUAGE sql
- SET search_path TO 'public'
-AS $function$ select * from private.list_organization_members(p_organization_id); $function$;
-
-
-CREATE OR REPLACE FUNCTION public.assign_member_role(p_organization_id uuid, p_member_id uuid, p_role_id uuid)
- RETURNS void
- LANGUAGE sql
- SET search_path TO 'public'
-AS $function$ select private.assign_member_role(p_organization_id,p_member_id,p_role_id); $function$;
-
-
-CREATE OR REPLACE FUNCTION public.set_member_stores(p_organization_id uuid, p_member_id uuid, p_store_ids uuid[])
- RETURNS void
- LANGUAGE sql
- SET search_path TO 'public'
-AS $function$ select private.set_member_stores(p_organization_id,p_member_id,p_store_ids); $function$;
-
-
-CREATE OR REPLACE FUNCTION public.set_member_status(p_organization_id uuid, p_member_id uuid, p_status text)
- RETURNS void
- LANGUAGE sql
- SET search_path TO 'public'
-AS $function$ select private.set_member_status(p_organization_id,p_member_id,p_status); $function$;
-
-
 CREATE OR REPLACE FUNCTION private.prevent_supplier_purchase_financial_hard_delete()
  RETURNS trigger
  LANGUAGE plpgsql
@@ -5572,6 +3888,1580 @@ begin
 end;
 $function$;
 
+CREATE OR REPLACE FUNCTION public.record_product_sale(p_product_id bigint, p_customer_id bigint DEFAULT NULL::bigint)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+    DECLARE
+      v_product products%ROWTYPE;
+        v_customer customers%ROWTYPE;
+          v_sale_id bigint;
+            v_invoice_number text;
+              v_total numeric;
+              BEGIN
+                SELECT *
+                  INTO v_product
+                    FROM products
+                      WHERE id = p_product_id
+                        FOR UPDATE;
+
+                          IF NOT FOUND THEN
+                              RAISE EXCEPTION 'Product not found';
+                                END IF;
+
+                                  IF v_product.quantity <= 0 THEN
+                                      RAISE EXCEPTION 'Product is out of stock';
+                                        END IF;
+
+                                          IF p_customer_id IS NOT NULL THEN
+
+                                              SELECT *
+                                                  INTO v_customer
+                                                      FROM customers
+                                                          WHERE id = p_customer_id;
+
+                                                              IF NOT FOUND THEN
+                                                                    RAISE EXCEPTION 'Customer not found';
+                                                                        END IF;
+
+                                                                          END IF;
+
+                                                                            v_total := v_product.price;
+
+                                                                              v_invoice_number :=
+                                                                                  'INV-' ||
+                                                                                      to_char(clock_timestamp(), 'YYYYMMDDHH24MISSMS') ||
+                                                                                          '-' ||
+                                                                                              floor(random() * 10000)::int;
+
+                                                                                                INSERT INTO sales (
+                                                                                                    invoice_number,
+                                                                                                        customer_id,
+                                                                                                            subtotal,
+                                                                                                                discount,
+                                                                                                                    tax,
+                                                                                                                        total,
+                                                                                                                            payment_status,
+                                                                                                                                status,
+                                                                                                                                    notes
+                                                                                                                                      )
+                                                                                                                                        VALUES (
+                                                                                                                                            v_invoice_number,
+                                                                                                                                                p_customer_id,
+                                                                                                                                                    v_total,
+                                                                                                                                                        0,
+                                                                                                                                                            0,
+                                                                                                                                                                v_total,
+                                                                                                                                                                    'paid',
+                                                                                                                                                                        'completed',
+                                                                                                                                                                            NULL
+                                                                                                                                                                              )
+                                                                                                                                                                                RETURNING id INTO v_sale_id;
+
+                                                                                                                                                                                  INSERT INTO sale_items (
+                                                                                                                                                                                      sale_id,
+                                                                                                                                                                                          product_id,
+                                                                                                                                                                                              product_name,
+                                                                                                                                                                                                  unit_price,
+                                                                                                                                                                                                      quantity,
+                                                                                                                                                                                                          discount,
+                                                                                                                                                                                                              total
+                                                                                                                                                                                                                )
+                                                                                                                                                                                                                  VALUES (
+                                                                                                                                                                                                                      v_sale_id,
+                                                                                                                                                                                                                          v_product.id,
+                                                                                                                                                                                                                              v_product.name,
+                                                                                                                                                                                                                                  v_product.price,
+                                                                                                                                                                                                                                      1,
+                                                                                                                                                                                                                                          0,
+                                                                                                                                                                                                                                              v_total
+                                                                                                                                                                                                                                                );
+
+                                                                                                                                                                                                                                                  UPDATE products
+                                                                                                                                                                                                                                                    SET quantity = quantity - 1
+                                                                                                                                                                                                                                                      WHERE id = p_product_id;
+
+                                                                                                                                                                                                                                                        RETURN jsonb_build_object(
+                                                                                                                                                                                                                                                            'success', true,
+                                                                                                                                                                                                                                                                'sale_id', v_sale_id,
+                                                                                                                                                                                                                                                                    'invoice_number', v_invoice_number,
+                                                                                                                                                                                                                                                                        'product_id', v_product.id,
+                                                                                                                                                                                                                                                                            'product_name', v_product.name,
+                                                                                                                                                                                                                                                                                'price', v_product.price,
+                                                                                                                                                                                                                                                                                    'quantity', v_product.quantity - 1,
+                                                                                                                                                                                                                                                                                        'total', v_total,
+                                                                                                                                                                                                                                                                                            'customer_id', p_customer_id
+                                                                                                                                                                                                                                                                                              );
+                                                                                                                                                                                                                                                                                              END;
+                                                                                                                                                                                                                                                                                              $function$;
+
+CREATE OR REPLACE FUNCTION public.record_product_sale_with_payment(p_product_id bigint, p_customer_id bigint, p_payment_status text, p_paid_amount numeric, p_payment_method text DEFAULT NULL::text, p_reference text DEFAULT NULL::text)
+ RETURNS json
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+            declare
+              v_product public.products%rowtype;
+                v_customer public.customers%rowtype;
+                  v_sale_id bigint;
+                    v_invoice_number text;
+                      v_total numeric;
+                        v_paid_amount numeric;
+                          v_remaining numeric;
+                          begin
+
+                            -- التحقق من حالة الدفع
+                              if p_payment_status not in ('paid', 'partial', 'unpaid') then
+                                  raise exception 'Invalid payment status';
+                                    end if;
+
+                                      -- التحقق من المبلغ المدفوع
+                                        if p_paid_amount is null or p_paid_amount < 0 then
+                                            raise exception 'Invalid paid amount';
+                                              end if;
+
+                                                -- الحصول على المنتج مع قفل الصف
+                                                  select *
+                                                    into v_product
+                                                      from public.products
+                                                        where id = p_product_id
+                                                          for update;
+
+                                                            if not found then
+                                                                raise exception 'Product not found';
+                                                                  end if;
+
+                                                                    -- التحقق من المخزون
+                                                                      if v_product.quantity <= 0 then
+                                                                          raise exception 'Product is out of stock';
+                                                                            end if;
+
+                                                                              -- التحقق من العميل
+                                                                                if p_customer_id is not null then
+
+                                                                                    select *
+                                                                                        into v_customer
+                                                                                            from public.customers
+                                                                                                where id = p_customer_id;
+
+                                                                                                    if not found then
+                                                                                                          raise exception 'Customer not found';
+                                                                                                              end if;
+
+                                                                                                                end if;
+
+                                                                                                                  -- البيع الآجل أو الجزئي يحتاج إلى عميل
+                                                                                                                    if p_payment_status in ('partial', 'unpaid')
+                                                                                                                         and p_customer_id is null then
+
+                                                                                                                             raise exception 'Customer is required for unpaid or partial sales';
+
+                                                                                                                               end if;
+
+                                                                                                                                 -- إجمالي البيع الحالي
+                                                                                                                                   v_total := v_product.price;
+
+                                                                                                                                     -- التحقق من المبلغ حسب حالة الدفع
+                                                                                                                                       if p_payment_status = 'paid' then
+
+                                                                                                                                           if p_paid_amount <> v_total then
+                                                                                                                                                 raise exception 'Paid amount must equal sale total';
+                                                                                                                                                     end if;
+
+                                                                                                                                                       elsif p_payment_status = 'partial' then
+
+                                                                                                                                                           if p_paid_amount <= 0 or p_paid_amount >= v_total then
+                                                                                                                                                                 raise exception 'Partial payment must be greater than zero and less than total';
+                                                                                                                                                                     end if;
+
+                                                                                                                                                                       elsif p_payment_status = 'unpaid' then
+
+                                                                                                                                                                           if p_paid_amount <> 0 then
+                                                                                                                                                                                 raise exception 'Unpaid sale must have zero paid amount';
+                                                                                                                                                                                     end if;
+
+                                                                                                                                                                                       end if;
+
+                                                                                                                                                                                         -- إنشاء رقم الفاتورة
+                                                                                                                                                                                           v_invoice_number :=
+                                                                                                                                                                                               'INV-' ||
+                                                                                                                                                                                                   to_char(clock_timestamp(), 'YYYYMMDDHH24MISSMS') ||
+                                                                                                                                                                                                       '-' ||
+                                                                                                                                                                                                           floor(random() * 9000 + 1000)::text;
+
+                                                                                                                                                                                                             -- إنشاء الفاتورة
+                                                                                                                                                                                                               insert into public.sales (
+                                                                                                                                                                                                                   invoice_number,
+                                                                                                                                                                                                                       customer_id,
+                                                                                                                                                                                                                           subtotal,
+                                                                                                                                                                                                                               discount,
+                                                                                                                                                                                                                                   tax,
+                                                                                                                                                                                                                                       total,
+                                                                                                                                                                                                                                           payment_status,
+                                                                                                                                                                                                                                               status,
+                                                                                                                                                                                                                                                   notes
+                                                                                                                                                                                                                                                     )
+                                                                                                                                                                                                                                                       values (
+                                                                                                                                                                                                                                                           v_invoice_number,
+                                                                                                                                                                                                                                                               p_customer_id,
+                                                                                                                                                                                                                                                                   v_total,
+                                                                                                                                                                                                                                                                       0,
+                                                                                                                                                                                                                                                                           0,
+                                                                                                                                                                                                                                                                               v_total,
+                                                                                                                                                                                                                                                                                   p_payment_status,
+                                                                                                                                                                                                                                                                                       'completed',
+                                                                                                                                                                                                                                                                                           null
+                                                                                                                                                                                                                                                                                             )
+                                                                                                                                                                                                                                                                                               returning id, total
+                                                                                                                                                                                                                                                                                                 into v_sale_id, v_total;
+
+                                                                                                                                                                                                                                                                                                   -- إضافة المنتج إلى الفاتورة
+                                                                                                                                                                                                                                                                                                     insert into public.sale_items (
+                                                                                                                                                                                                                                                                                                         sale_id,
+                                                                                                                                                                                                                                                                                                             product_id,
+                                                                                                                                                                                                                                                                                                                 product_name,
+                                                                                                                                                                                                                                                                                                                     unit_price,
+                                                                                                                                                                                                                                                                                                                         quantity,
+                                                                                                                                                                                                                                                                                                                             discount,
+                                                                                                                                                                                                                                                                                                                                 total
+                                                                                                                                                                                                                                                                                                                                   )
+                                                                                                                                                                                                                                                                                                                                     values (
+                                                                                                                                                                                                                                                                                                                                         v_sale_id,
+                                                                                                                                                                                                                                                                                                                                             v_product.id,
+                                                                                                                                                                                                                                                                                                                                                 v_product.name,
+                                                                                                                                                                                                                                                                                                                                                     v_product.price,
+                                                                                                                                                                                                                                                                                                                                                         1,
+                                                                                                                                                                                                                                                                                                                                                             0,
+                                                                                                                                                                                                                                                                                                                                                                 v_total
+                                                                                                                                                                                                                                                                                                                                                                   );
+
+                                                                                                                                                                                                                                                                                                                                                                     -- خصم الكمية من المخزون
+                                                                                                                                                                                                                                                                                                                                                                       update public.products
+                                                                                                                                                                                                                                                                                                                                                                         set quantity = quantity - 1
+                                                                                                                                                                                                                                                                                                                                                                           where id = v_product.id;
+
+                                                                                                                                                                                                                                                                                                                                                                             -- تسجيل الدفعة إذا كان هناك مبلغ مدفوع
+                                                                                                                                                                                                                                                                                                                                                                               if p_paid_amount > 0 then
+
+                                                                                                                                                                                                                                                                                                                                                                                   insert into public.payments (
+                                                                                                                                                                                                                                                                                                                                                                                         sale_id,
+                                                                                                                                                                                                                                                                                                                                                                                               amount,
+                                                                                                                                                                                                                                                                                                                                                                                                     payment_method,
+                                                                                                                                                                                                                                                                                                                                                                                                           reference,
+                                                                                                                                                                                                                                                                                                                                                                                                                 paid_at
+                                                                                                                                                                                                                                                                                                                                                                                                                     )
+                                                                                                                                                                                                                                                                                                                                                                                                                         values (
+                                                                                                                                                                                                                                                                                                                                                                                                                               v_sale_id,
+                                                                                                                                                                                                                                                                                                                                                                                                                                     p_paid_amount,
+                                                                                                                                                                                                                                                                                                                                                                                                                                           coalesce(nullif(trim(p_payment_method), ''), 'cash'),
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 nullif(trim(p_reference), ''),
+                                                                                                                                                                                                                                                                                                                                                                                                                                                       now()
+                                                                                                                                                                                                                                                                                                                                                                                                                                                           );
+
+                                                                                                                                                                                                                                                                                                                                                                                                                                                             end if;
+
+                                                                                                                                                                                                                                                                                                                                                                                                                                                               -- حساب المتبقي
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                 v_paid_amount := p_paid_amount;
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                   v_remaining := v_total - v_paid_amount;
+
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                     -- إرجاع نتيجة العملية
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                       return json_build_object(
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                           'success', true,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                               'sale_id', v_sale_id,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   'invoice_number', v_invoice_number,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       'customer_id', p_customer_id,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           'product_id', v_product.id,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               'product_name', v_product.name,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   'price', v_product.price,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       'quantity', v_product.quantity - 1,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           'sold_quantity', 1,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               'total', v_total,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   'paid_amount', v_paid_amount,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       'remaining_amount', v_remaining,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           'payment_status', p_payment_status
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             );
+
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             exception
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               when others then
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   raise;
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   end;
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   $function$;
+
+CREATE OR REPLACE FUNCTION public.record_sale_payment(p_sale_id bigint, p_amount numeric, p_payment_method text DEFAULT 'cash'::text, p_reference text DEFAULT NULL::text)
+ RETURNS json
+ LANGUAGE plpgsql
+ SET search_path TO 'public', 'private'
+AS $function$
+begin
+  return private.record_sale_payment(
+    p_sale_id, p_amount, p_payment_method, p_reference
+  );
+end;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.bootstrap_organization(p_organization_name text, p_slug text, p_store_name text, p_store_code text)
+ RETURNS jsonb
+ LANGUAGE sql
+ SET search_path TO 'public', 'private'
+AS $function$
+  select private.bootstrap_organization($1, $2, $3, $4);
+$function$;
+
+CREATE OR REPLACE FUNCTION public.create_sale_transaction(p_organization_id uuid, p_store_id uuid, p_invoice_number text, p_customer_id bigint DEFAULT NULL::bigint, p_items jsonb DEFAULT '[]'::jsonb, p_discount numeric DEFAULT 0, p_tax numeric DEFAULT 0, p_paid_amount numeric DEFAULT 0, p_payment_method text DEFAULT 'cash'::text, p_reference text DEFAULT NULL::text, p_notes text DEFAULT NULL::text)
+ RETURNS jsonb
+ LANGUAGE sql
+ SET search_path TO 'public', 'private'
+AS $function$
+  select private.create_sale_transaction(
+    $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11
+  );
+$function$;
+
+CREATE OR REPLACE FUNCTION public.create_product(p_organization_id uuid, p_name text, p_price numeric, p_quantity integer DEFAULT 0)
+ RETURNS products
+ LANGUAGE sql
+ SET search_path TO 'public', 'private'
+AS $function$
+  select private.create_product($1,$2,$3,$4);
+$function$;
+
+CREATE OR REPLACE FUNCTION public.create_customer(p_organization_id uuid, p_name text, p_phone text DEFAULT NULL::text, p_address text DEFAULT NULL::text, p_notes text DEFAULT NULL::text)
+ RETURNS customers
+ LANGUAGE sql
+ SET search_path TO 'public', 'private'
+AS $function$
+  select private.create_customer($1,$2,$3,$4,$5);
+$function$;
+
+CREATE OR REPLACE FUNCTION public.update_product(p_organization_id uuid, p_product_id bigint, p_name text, p_price numeric)
+ RETURNS products
+ LANGUAGE sql
+ SET search_path TO 'public', 'private'
+AS $function$ select private.update_product($1,$2,$3,$4); $function$;
+
+CREATE OR REPLACE FUNCTION public.update_customer(p_organization_id uuid, p_customer_id bigint, p_name text, p_phone text DEFAULT NULL::text, p_address text DEFAULT NULL::text, p_notes text DEFAULT NULL::text)
+ RETURNS customers
+ LANGUAGE sql
+ SET search_path TO 'public', 'private'
+AS $function$ select private.update_customer($1,$2,$3,$4,$5,$6); $function$;
+
+CREATE OR REPLACE FUNCTION public.cancel_sale(p_organization_id uuid, p_sale_id bigint, p_reason text DEFAULT NULL::text)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SET search_path TO 'public', 'private'
+AS $function$
+begin
+  return private.cancel_sale(p_organization_id, p_sale_id, p_reason);
+end;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.refund_sale_payment(p_organization_id uuid, p_sale_id bigint, p_amount numeric, p_payment_method text DEFAULT 'cash'::text, p_reference text DEFAULT NULL::text, p_reason text DEFAULT NULL::text)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SET search_path TO 'public', 'private'
+AS $function$
+begin
+  return private.refund_sale_payment(
+    p_organization_id,
+    p_sale_id,
+    p_amount,
+    p_payment_method,
+    p_reference,
+    p_reason
+  );
+end;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.adjust_product_stock(p_organization_id uuid, p_store_id uuid, p_product_id bigint, p_quantity_change integer, p_notes text DEFAULT NULL::text)
+ RETURNS jsonb
+ LANGUAGE sql
+ SET search_path TO 'public', 'private'
+AS $function$
+  select private.adjust_product_stock(
+    p_organization_id, p_store_id, p_product_id, p_quantity_change, p_notes
+  );
+$function$;
+
+CREATE OR REPLACE FUNCTION public.add_product_to_store(p_organization_id uuid, p_store_id uuid, p_product_id bigint, p_initial_quantity integer DEFAULT 0, p_reorder_level integer DEFAULT 0, p_notes text DEFAULT NULL::text)
+ RETURNS store_products
+ LANGUAGE plpgsql
+ SET search_path TO 'public'
+AS $function$
+begin
+  return private.add_product_to_store(p_organization_id, p_store_id, p_product_id, p_initial_quantity, p_reorder_level, p_notes);
+end;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.create_product_for_store(p_organization_id uuid, p_store_id uuid, p_name text, p_price numeric, p_initial_quantity integer DEFAULT 0, p_reorder_level integer DEFAULT 0, p_notes text DEFAULT NULL::text)
+ RETURNS store_products
+ LANGUAGE plpgsql
+ SET search_path TO 'public'
+AS $function$
+begin
+  return private.create_product_for_store(p_organization_id, p_store_id, p_name, p_price, p_initial_quantity, p_reorder_level, p_notes);
+end;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.update_store_product_settings(p_organization_id uuid, p_store_id uuid, p_product_id bigint, p_reorder_level integer)
+ RETURNS store_products
+ LANGUAGE plpgsql
+ SET search_path TO 'public'
+AS $function$
+begin
+  return private.update_store_product_settings(
+    p_organization_id,
+    p_store_id,
+    p_product_id,
+    p_reorder_level
+  );
+end;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.transfer_stock(p_organization_id uuid, p_from_store_id uuid, p_to_store_id uuid, p_product_id bigint, p_quantity integer, p_notes text DEFAULT NULL::text)
+ RETURNS stock_transfers
+ LANGUAGE plpgsql
+ SET search_path TO 'public'
+AS $function$
+begin
+  return private.transfer_stock(
+    p_organization_id, p_from_store_id, p_to_store_id,
+    p_product_id, p_quantity, p_notes
+  );
+end;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.receive_purchase(p_organization_id uuid, p_store_id uuid, p_receipt_number text, p_items jsonb, p_notes text DEFAULT NULL::text)
+ RETURNS purchase_receipts
+ LANGUAGE plpgsql
+ SET search_path TO 'public'
+AS $function$
+begin
+  return private.receive_purchase(
+    p_organization_id, p_store_id, p_receipt_number, p_items, p_notes
+  );
+end;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.return_sale_items(p_organization_id uuid, p_store_id uuid, p_sale_id bigint, p_items jsonb, p_reason text DEFAULT NULL::text, p_notes text DEFAULT NULL::text, p_refund_amount numeric DEFAULT 0, p_refund_payment_method text DEFAULT 'cash'::text, p_refund_reference text DEFAULT NULL::text)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SET search_path TO 'public', 'private'
+AS $function$
+begin
+ return private.return_sale_items(p_organization_id,p_store_id,p_sale_id,p_items,p_reason,p_notes,p_refund_amount,p_refund_payment_method,p_refund_reference);
+end;$function$;
+
+CREATE OR REPLACE FUNCTION public.customer_balances(p_organization_id uuid, p_store_id uuid)
+ RETURNS TABLE(customer_id bigint, customer_name text, total_sales numeric, total_paid numeric, balance_due numeric)
+ LANGUAGE sql
+ SET search_path TO 'public'
+AS $function$
+  select
+    c.id,
+    c.name,
+    coalesce(sum(
+      case when s.status not in ('cancelled','fully_returned')
+        then greatest(
+          s.total - coalesce(r.refunded,0),
+          0
+        )
+        else 0
+      end
+    ),0) as total_sales,
+    coalesce(sum(
+      case when s.status not in ('cancelled','fully_returned')
+        then least(
+          coalesce(p.paid,0),
+          greatest(s.total - coalesce(r.refunded,0),0)
+        )
+        else 0
+      end
+    ),0) as total_paid,
+    greatest(
+      coalesce(sum(
+        case when s.status not in ('cancelled','fully_returned')
+          then greatest(s.total - coalesce(r.refunded,0),0)
+          else 0
+        end
+      ),0)
+      -
+      coalesce(sum(
+        case when s.status not in ('cancelled','fully_returned')
+          then least(
+            coalesce(p.paid,0),
+            greatest(s.total - coalesce(r.refunded,0),0)
+          )
+          else 0
+        end
+      ),0),
+      0
+    ) as balance_due
+  from public.customers c
+  left join public.sales s
+    on s.customer_id = c.id
+   and s.organization_id = p_organization_id
+   and s.store_id = p_store_id
+  left join lateral (
+    select coalesce(sum(pay.amount),0) as paid
+    from public.payments pay
+    where pay.sale_id = s.id
+  ) p on true
+  left join lateral (
+    select coalesce(sum(ref.amount),0) as refunded
+    from public.refunds ref
+    where ref.sale_id = s.id
+  ) r on true
+  where c.organization_id = p_organization_id
+  group by c.id, c.name
+  order by c.name;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.record_customer_payment(p_organization_id uuid, p_store_id uuid, p_customer_id bigint, p_amount numeric, p_payment_method text DEFAULT 'cash'::text, p_reference text DEFAULT NULL::text, p_notes text DEFAULT NULL::text)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SET search_path TO 'public'
+AS $function$
+begin
+  return private.record_customer_payment(
+    p_organization_id, p_store_id, p_customer_id, p_amount,
+    p_payment_method, p_reference, p_notes
+  );
+end;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.customer_ledger(p_organization_id uuid, p_store_id uuid, p_customer_id bigint, p_from timestamp with time zone DEFAULT NULL::timestamp with time zone, p_to timestamp with time zone DEFAULT NULL::timestamp with time zone)
+ RETURNS TABLE(entry_at timestamp with time zone, entry_type text, reference_id bigint, invoice_number text, description text, debit numeric, credit numeric, running_balance numeric)
+ LANGUAGE sql
+ SET search_path TO 'public'
+AS $function$
+  with entries as (
+    select
+      s.created_at as entry_at,
+      'sale'::text as entry_type,
+      s.id as reference_id,
+      s.invoice_number,
+      coalesce(nullif(s.notes,''), 'Sale') as description,
+      s.total::numeric as debit,
+      0::numeric as credit
+    from public.sales s
+    where s.organization_id = p_organization_id
+      and s.store_id = p_store_id
+      and s.customer_id = p_customer_id
+      and s.status not in ('cancelled','fully_returned')
+      and (p_from is null or s.created_at >= p_from)
+      and (p_to is null or s.created_at < p_to)
+
+    union all
+
+    select
+      pay.paid_at,
+      'payment'::text,
+      pay.id,
+      s.invoice_number,
+      coalesce(nullif(pay.reference,''), 'Payment') as description,
+      0::numeric,
+      pay.amount::numeric
+    from public.payments pay
+    join public.sales s on s.id = pay.sale_id
+    where s.organization_id = p_organization_id
+      and s.store_id = p_store_id
+      and s.customer_id = p_customer_id
+      and s.status not in ('cancelled','fully_returned')
+      and (p_from is null or pay.paid_at >= p_from)
+      and (p_to is null or pay.paid_at < p_to)
+
+    union all
+
+    select
+      rf.refunded_at,
+      'refund'::text,
+      rf.id,
+      s.invoice_number,
+      coalesce(nullif(rf.reason,''), 'Refund') as description,
+      0::numeric,
+      rf.amount::numeric
+    from public.refunds rf
+    join public.sales s on s.id = rf.sale_id
+    where s.organization_id = p_organization_id
+      and s.store_id = p_store_id
+      and s.customer_id = p_customer_id
+      and s.status not in ('cancelled','fully_returned')
+      and (p_from is null or rf.refunded_at >= p_from)
+      and (p_to is null or rf.refunded_at < p_to)
+  ),
+  normalized as (
+    select
+      e.*,
+      row_number() over (
+        order by e.entry_at, e.entry_type, e.reference_id
+      ) as seq
+    from entries e
+  )
+  select
+    n.entry_at,
+    n.entry_type,
+    n.reference_id,
+    n.invoice_number,
+    n.description,
+    n.debit,
+    n.credit,
+    sum(n.debit - n.credit) over (
+      order by n.seq
+      rows between unbounded preceding and current row
+    ) as running_balance
+  from normalized n
+  order by n.seq;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.customer_debt_aging(p_organization_id uuid, p_store_id uuid, p_as_of timestamp with time zone DEFAULT now())
+ RETURNS TABLE(customer_id bigint, customer_name text, current_due numeric, due_1_30 numeric, due_31_60 numeric, due_61_90 numeric, due_over_90 numeric, total_due numeric)
+ LANGUAGE sql
+ SET search_path TO 'public'
+AS $function$
+  with sale_base as (
+    select
+      s.id,
+      s.customer_id,
+      s.created_at,
+      greatest(
+        s.total - coalesce((
+          select sum(rf.amount)
+          from public.refunds rf
+          where rf.sale_id = s.id
+            and rf.refunded_at <= p_as_of
+        ),0),
+        0
+      )::numeric as effective_total
+    from public.sales s
+    where s.organization_id = p_organization_id
+      and s.store_id = p_store_id
+      and s.customer_id is not null
+      and s.created_at <= p_as_of
+      and s.status not in ('cancelled','fully_returned')
+  ),
+  sale_due as (
+    select
+      sb.customer_id,
+      sb.created_at,
+      greatest(
+        sb.effective_total -
+        coalesce((
+          select sum(pay.amount)
+          from public.payments pay
+          where pay.sale_id = sb.id
+            and pay.paid_at <= p_as_of
+        ),0),
+        0
+      )::numeric as due
+    from sale_base sb
+  ),
+  buckets as (
+    select
+      sd.customer_id,
+      case when p_as_of::date - sd.created_at::date <= 30 then sd.due else 0 end as current_due,
+      case when p_as_of::date - sd.created_at::date between 31 and 60 then sd.due else 0 end as due_1_30,
+      case when p_as_of::date - sd.created_at::date between 61 and 90 then sd.due else 0 end as due_31_60,
+      case when p_as_of::date - sd.created_at::date between 91 and 120 then sd.due else 0 end as due_61_90,
+      case when p_as_of::date - sd.created_at::date > 120 then sd.due else 0 end as due_over_90
+    from sale_due sd
+  )
+  select
+    c.id,
+    c.name,
+    coalesce(sum(b.current_due),0)::numeric,
+    coalesce(sum(b.due_1_30),0)::numeric,
+    coalesce(sum(b.due_31_60),0)::numeric,
+    coalesce(sum(b.due_61_90),0)::numeric,
+    coalesce(sum(b.due_over_90),0)::numeric,
+    coalesce(sum(
+      b.current_due + b.due_1_30 + b.due_31_60 + b.due_61_90 + b.due_over_90
+    ),0)::numeric
+  from public.customers c
+  join buckets b on b.customer_id = c.id
+  where c.organization_id = p_organization_id
+  group by c.id, c.name
+  order by sum(b.current_due + b.due_1_30 + b.due_31_60 + b.due_61_90 + b.due_over_90) desc, c.name;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.customer_debt_aging_summary(p_organization_id uuid, p_store_id uuid, p_as_of timestamp with time zone DEFAULT now())
+ RETURNS TABLE(current_due numeric, due_1_30 numeric, due_31_60 numeric, due_61_90 numeric, due_over_90 numeric, total_due numeric)
+ LANGUAGE sql
+ SET search_path TO 'public'
+AS $function$
+  select
+    coalesce(sum(a.current_due),0)::numeric,
+    coalesce(sum(a.due_1_30),0)::numeric,
+    coalesce(sum(a.due_31_60),0)::numeric,
+    coalesce(sum(a.due_61_90),0)::numeric,
+    coalesce(sum(a.due_over_90),0)::numeric,
+    coalesce(sum(a.total_due),0)::numeric
+  from public.customer_debt_aging(p_organization_id, p_store_id, p_as_of) a;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.customer_reports(p_organization_id uuid, p_store_id uuid, p_customer_id bigint DEFAULT NULL::bigint, p_from timestamp with time zone DEFAULT NULL::timestamp with time zone, p_to timestamp with time zone DEFAULT NULL::timestamp with time zone, p_as_of timestamp with time zone DEFAULT now())
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SET search_path TO 'public'
+AS $function$
+declare
+  v_ledger jsonb;
+  v_aging jsonb;
+  v_summary jsonb;
+begin
+  select coalesce(jsonb_agg(to_jsonb(x) order by x.entry_at, x.entry_type, x.reference_id),'[]'::jsonb)
+    into v_ledger
+  from public.customer_ledger(
+    p_organization_id, p_store_id, p_customer_id, p_from, p_to
+  ) x;
+
+  select coalesce(jsonb_agg(to_jsonb(x) order by x.total_due desc, x.customer_name),'[]'::jsonb)
+    into v_aging
+  from public.customer_debt_aging(
+    p_organization_id, p_store_id, p_as_of
+  ) x
+  where p_customer_id is null or x.customer_id = p_customer_id;
+
+  select to_jsonb(x)
+    into v_summary
+  from public.customer_debt_aging_summary(
+    p_organization_id, p_store_id, p_as_of
+  ) x;
+
+  return jsonb_build_object(
+    'as_of', p_as_of,
+    'period', jsonb_build_object('from', p_from, 'to', p_to),
+    'customer_id', p_customer_id,
+    'ledger', v_ledger,
+    'aging', v_aging,
+    'aging_summary', coalesce(v_summary, '{}'::jsonb)
+  );
+end;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.customer_financial_dashboard(p_organization_id uuid, p_store_id uuid, p_as_of timestamp with time zone DEFAULT now())
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SET search_path TO 'public'
+AS $function$
+declare
+  v_aging jsonb;
+  v_summary jsonb;
+  v_total_customers_with_due bigint;
+  v_overdue_customer_count bigint;
+  v_top_debtors jsonb;
+  v_aging_distribution jsonb;
+begin
+  select coalesce(jsonb_agg(to_jsonb(a) order by a.total_due desc), '[]'::jsonb)
+    into v_aging
+  from public.customer_debt_aging(
+    p_organization_id,
+    p_store_id,
+    p_as_of
+  ) a
+  where a.total_due > 0;
+
+  select to_jsonb(s)
+    into v_summary
+  from public.customer_debt_aging_summary(
+    p_organization_id,
+    p_store_id,
+    p_as_of
+  ) s;
+
+  select count(*)
+    into v_total_customers_with_due
+  from public.customer_debt_aging(
+    p_organization_id,
+    p_store_id,
+    p_as_of
+  ) a
+  where a.total_due > 0;
+
+  select count(*)
+    into v_overdue_customer_count
+  from public.customer_debt_aging(
+    p_organization_id,
+    p_store_id,
+    p_as_of
+  ) a
+  where (a.due_1_30 + a.due_31_60 + a.due_61_90 + a.due_over_90) > 0;
+
+  select coalesce(
+    jsonb_agg(
+      jsonb_build_object(
+        'customer_id', x.customer_id,
+        'customer_name', x.customer_name,
+        'total_due', x.total_due
+      )
+      order by x.total_due desc
+    ),
+    '[]'::jsonb
+  )
+  into v_top_debtors
+  from (
+    select a.customer_id, a.customer_name, a.total_due
+    from public.customer_debt_aging(
+      p_organization_id,
+      p_store_id,
+      p_as_of
+    ) a
+    where a.total_due > 0
+    order by a.total_due desc, a.customer_id
+    limit 10
+  ) x;
+
+  v_aging_distribution := jsonb_build_object(
+    'current_due', coalesce((v_summary->>'current_due')::numeric, 0),
+    'due_1_30', coalesce((v_summary->>'due_1_30')::numeric, 0),
+    'due_31_60', coalesce((v_summary->>'due_31_60')::numeric, 0),
+    'due_61_90', coalesce((v_summary->>'due_61_90')::numeric, 0),
+    'due_over_90', coalesce((v_summary->>'due_over_90')::numeric, 0)
+  );
+
+  return jsonb_build_object(
+    'as_of', p_as_of,
+    'total_customers_with_due', v_total_customers_with_due,
+    'total_receivables', coalesce((v_summary->>'total_due')::numeric, 0),
+    'current_due', coalesce((v_summary->>'current_due')::numeric, 0),
+    'overdue_total',
+      coalesce((v_summary->>'due_1_30')::numeric, 0)
+      + coalesce((v_summary->>'due_31_60')::numeric, 0)
+      + coalesce((v_summary->>'due_61_90')::numeric, 0)
+      + coalesce((v_summary->>'due_over_90')::numeric, 0),
+    'overdue_customer_count', v_overdue_customer_count,
+    'aging_distribution', v_aging_distribution,
+    'top_debtors', v_top_debtors
+  );
+end;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.sales_inventory_reports(p_organization_id uuid, p_store_id uuid, p_from timestamp with time zone DEFAULT NULL::timestamp with time zone, p_to timestamp with time zone DEFAULT NULL::timestamp with time zone, p_as_of timestamp with time zone DEFAULT now())
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SET search_path TO 'public'
+AS $function$
+declare
+  v_sales_summary jsonb;
+  v_inventory_summary jsonb;
+  v_movements_summary jsonb;
+  v_top_products jsonb;
+  v_returns_summary jsonb;
+begin
+  select jsonb_build_object(
+    'sales_count', count(*),
+    'gross_sales', coalesce(sum(s.total), 0),
+    'subtotal', coalesce(sum(s.subtotal), 0),
+    'discount', coalesce(sum(s.discount), 0),
+    'tax', coalesce(sum(s.tax), 0),
+    'paid_amount', coalesce(sum(coalesce(p.paid_amount, 0)), 0),
+    'outstanding_amount',
+      coalesce(sum(greatest(s.total - coalesce(p.paid_amount, 0), 0)), 0)
+  )
+  into v_sales_summary
+  from public.sales s
+  left join lateral (
+    select sum(pay.amount) as paid_amount
+    from public.payments pay
+    where pay.sale_id = s.id
+  ) p on true
+  where s.organization_id = p_organization_id
+    and s.store_id = p_store_id
+    and s.status in ('completed', 'partially_returned')
+    and (p_from is null or s.created_at >= p_from)
+    and (p_to is null or s.created_at < p_to);
+
+  select jsonb_build_object(
+    'assigned_products', count(*),
+    'total_stock_units', coalesce(sum(sp.quantity), 0),
+    'low_stock_products',
+      count(*) filter (
+        where sp.reorder_level > 0
+          and sp.quantity <= sp.reorder_level
+      ),
+    'out_of_stock_products',
+      count(*) filter (where sp.quantity = 0)
+  )
+  into v_inventory_summary
+  from public.store_products sp
+  where sp.store_id = p_store_id
+    and exists (
+      select 1
+      from public.products pr
+      where pr.id = sp.product_id
+        and pr.organization_id = p_organization_id
+    );
+
+  select jsonb_build_object(
+    'opening', coalesce(sum(im.quantity_change) filter (where im.movement_type = 'opening'), 0),
+    'purchase', coalesce(sum(im.quantity_change) filter (where im.movement_type = 'purchase'), 0),
+    'sale', coalesce(sum(im.quantity_change) filter (where im.movement_type = 'sale'), 0),
+    'return', coalesce(sum(im.quantity_change) filter (where im.movement_type = 'return'), 0),
+    'adjustment', coalesce(sum(im.quantity_change) filter (where im.movement_type = 'adjustment'), 0)
+  )
+  into v_movements_summary
+  from public.inventory_movements im
+  where im.organization_id = p_organization_id
+    and im.store_id = p_store_id
+    and (p_from is null or im.created_at >= p_from)
+    and (p_to is null or im.created_at < p_to);
+
+  select coalesce(jsonb_agg(
+    jsonb_build_object(
+      'product_id', x.product_id,
+      'product_name', x.product_name,
+      'quantity_sold', x.quantity_sold,
+      'sales_amount', x.sales_amount
+    )
+    order by x.quantity_sold desc, x.product_id
+  ), '[]'::jsonb)
+  into v_top_products
+  from (
+    select
+      si.product_id,
+      max(si.product_name) as product_name,
+      sum(si.quantity) as quantity_sold,
+      sum(si.total) as sales_amount
+    from public.sale_items si
+    join public.sales s on s.id = si.sale_id
+    where s.organization_id = p_organization_id
+      and s.store_id = p_store_id
+      and s.status in ('completed', 'partially_returned')
+      and si.product_id is not null
+      and (p_from is null or s.created_at >= p_from)
+      and (p_to is null or s.created_at < p_to)
+    group by si.product_id
+    order by quantity_sold desc, si.product_id
+    limit 10
+  ) x;
+
+  select jsonb_build_object(
+    'return_count', count(distinct sr.id),
+    'returned_quantity', coalesce(sum(sri.quantity), 0),
+    'refund_amount', coalesce(sum(sri.refund_amount), 0)
+  )
+  into v_returns_summary
+  from public.sale_returns sr
+  left join public.sale_return_items sri on sri.return_id = sr.id
+  where sr.organization_id = p_organization_id
+    and sr.store_id = p_store_id
+    and (p_from is null or sr.created_at >= p_from)
+    and (p_to is null or sr.created_at < p_to);
+
+  return jsonb_build_object(
+    'as_of', p_as_of,
+    'period', jsonb_build_object('from', p_from, 'to', p_to),
+    'sales', v_sales_summary,
+    'inventory', v_inventory_summary,
+    'inventory_movements', v_movements_summary,
+    'returns', v_returns_summary,
+    'top_products', v_top_products
+  );
+end;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.management_dashboard(p_organization_id uuid, p_store_id uuid, p_from timestamp with time zone DEFAULT NULL::timestamp with time zone, p_to timestamp with time zone DEFAULT NULL::timestamp with time zone, p_as_of timestamp with time zone DEFAULT now())
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SET search_path TO 'public'
+AS $function$
+declare
+  v_sales_inventory jsonb;
+  v_customer_financial jsonb;
+begin
+  v_sales_inventory := public.sales_inventory_reports(
+    p_organization_id,
+    p_store_id,
+    p_from,
+    p_to,
+    p_as_of
+  );
+
+  v_customer_financial := public.customer_financial_dashboard(
+    p_organization_id,
+    p_store_id,
+    p_as_of
+  );
+
+  return jsonb_build_object(
+    'as_of', p_as_of,
+    'period', jsonb_build_object('from', p_from, 'to', p_to),
+    'sales', coalesce(v_sales_inventory->'sales', '{}'::jsonb),
+    'inventory', coalesce(v_sales_inventory->'inventory', '{}'::jsonb),
+    'inventory_movements', coalesce(v_sales_inventory->'inventory_movements', '{}'::jsonb),
+    'returns', coalesce(v_sales_inventory->'returns', '{}'::jsonb),
+    'top_products', coalesce(v_sales_inventory->'top_products', '[]'::jsonb),
+    'customers', jsonb_build_object(
+      'total_customers_with_due',
+      coalesce((v_customer_financial->>'total_customers_with_due')::bigint, 0),
+      'total_receivables',
+      coalesce((v_customer_financial->>'total_receivables')::numeric, 0),
+      'current_due',
+      coalesce((v_customer_financial->>'current_due')::numeric, 0),
+      'overdue_total',
+      coalesce((v_customer_financial->>'overdue_total')::numeric, 0),
+      'overdue_customer_count',
+      coalesce((v_customer_financial->>'overdue_customer_count')::bigint, 0)
+    ),
+    'aging_distribution',
+      coalesce(v_customer_financial->'aging_distribution', '{}'::jsonb),
+    'top_debtors',
+      coalesce(v_customer_financial->'top_debtors', '[]'::jsonb)
+  );
+end;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.operational_reports(p_organization_id uuid, p_store_id uuid, p_product_id bigint DEFAULT NULL::bigint, p_from timestamp with time zone DEFAULT NULL::timestamp with time zone, p_to timestamp with time zone DEFAULT NULL::timestamp with time zone, p_limit integer DEFAULT 100)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SET search_path TO 'public'
+AS $function$
+declare
+  v_sales_by_period jsonb;
+  v_stock_movements jsonb;
+  v_product_stock jsonb;
+begin
+  p_limit := greatest(1, least(coalesce(p_limit, 100), 500));
+
+  select coalesce(jsonb_agg(to_jsonb(x) order by x.period_start), '[]'::jsonb)
+  into v_sales_by_period
+  from (
+    select
+      date_trunc('day', s.created_at) as period_start,
+      count(*) as invoice_count,
+      coalesce(sum(s.total), 0) as sales_total,
+      coalesce(sum(s.discount), 0) as discount_total,
+      coalesce(sum(s.tax), 0) as tax_total
+    from public.sales s
+    where s.organization_id = p_organization_id
+      and s.store_id = p_store_id
+      and s.status in ('completed', 'partially_returned')
+      and (p_from is null or s.created_at >= p_from)
+      and (p_to is null or s.created_at < p_to)
+    group by date_trunc('day', s.created_at)
+    order by period_start
+  ) x;
+
+  select coalesce(jsonb_agg(to_jsonb(x) order by x.created_at desc, x.id desc), '[]'::jsonb)
+  into v_stock_movements
+  from (
+    select
+      im.id,
+      im.created_at,
+      im.product_id,
+      coalesce(pr.name, 'Deleted product') as product_name,
+      im.movement_type,
+      im.quantity_change,
+      im.reference_type,
+      im.reference_id,
+      im.notes
+    from public.inventory_movements im
+    left join public.products pr on pr.id = im.product_id
+    where im.organization_id = p_organization_id
+      and im.store_id = p_store_id
+      and (p_product_id is null or im.product_id = p_product_id)
+      and (p_from is null or im.created_at >= p_from)
+      and (p_to is null or im.created_at < p_to)
+    order by im.created_at desc, im.id desc
+    limit p_limit
+  ) x;
+
+  select coalesce(jsonb_agg(to_jsonb(x) order by x.product_name), '[]'::jsonb)
+  into v_product_stock
+  from (
+    select
+      sp.product_id,
+      pr.name as product_name,
+      sp.quantity,
+      sp.reorder_level,
+      case
+        when sp.quantity = 0 then 'out_of_stock'
+        when sp.reorder_level > 0 and sp.quantity <= sp.reorder_level then 'low_stock'
+        else 'in_stock'
+      end as stock_status
+    from public.store_products sp
+    join public.products pr on pr.id = sp.product_id
+    where sp.store_id = p_store_id
+      and pr.organization_id = p_organization_id
+      and (p_product_id is null or sp.product_id = p_product_id)
+    order by pr.name
+    limit p_limit
+  ) x;
+
+  return jsonb_build_object(
+    'period', jsonb_build_object('from', p_from, 'to', p_to),
+    'sales_by_day', v_sales_by_period,
+    'stock_movements', v_stock_movements,
+    'product_stock', v_product_stock
+  );
+end;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.profitability_report(p_organization_id uuid, p_store_id uuid, p_from timestamp with time zone DEFAULT NULL::timestamp with time zone, p_to timestamp with time zone DEFAULT NULL::timestamp with time zone)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SET search_path TO 'public'
+AS $function$
+declare
+  v_summary jsonb;
+  v_products jsonb;
+begin
+  select jsonb_build_object(
+    'net_sales', coalesce(sum(x.net_sales), 0),
+    'cost_of_goods_sold', coalesce(sum(x.cogs), 0),
+    'gross_profit', coalesce(sum(x.net_sales - x.cogs), 0),
+    'gross_margin_percent',
+      case when coalesce(sum(x.net_sales), 0) = 0 then 0
+           else round((sum(x.net_sales - x.cogs) / sum(x.net_sales)) * 100, 2)
+      end,
+    'uncosted_sales_amount', coalesce(sum(x.uncosted_sales), 0),
+    'uncosted_item_quantity', coalesce(sum(x.uncosted_qty), 0)
+  )
+  into v_summary
+  from (
+    select
+      si.id,
+      (si.total - coalesce(r.refund_amount, 0)) as net_sales,
+      coalesce((si.quantity - coalesce(r.returned_qty, 0)) * si.unit_cost, 0) as cogs,
+      case when si.unit_cost is null then si.total - coalesce(r.refund_amount, 0) else 0 end as uncosted_sales,
+      case when si.unit_cost is null then si.quantity - coalesce(r.returned_qty, 0) else 0 end as uncosted_qty
+    from public.sale_items si
+    join public.sales s on s.id = si.sale_id
+    left join lateral (
+      select
+        coalesce(sum(sri.quantity), 0) as returned_qty,
+        coalesce(sum(sri.refund_amount), 0) as refund_amount
+      from public.sale_return_items sri
+      join public.sale_returns sr on sr.id = sri.return_id
+      where sri.sale_item_id = si.id
+    ) r on true
+    where s.organization_id = p_organization_id
+      and s.store_id = p_store_id
+      and s.status in ('completed', 'partially_returned', 'fully_returned')
+      and (p_from is null or s.created_at >= p_from)
+      and (p_to is null or s.created_at < p_to)
+  ) x;
+
+  select coalesce(jsonb_agg(to_jsonb(x) order by x.gross_profit desc, x.product_id), '[]'::jsonb)
+  into v_products
+  from (
+    select
+      si.product_id,
+      max(si.product_name) as product_name,
+      sum(si.quantity - coalesce(r.returned_qty, 0)) as net_quantity,
+      sum(si.total - coalesce(r.refund_amount, 0)) as net_sales,
+      sum(
+        case when si.unit_cost is null then 0
+             else (si.quantity - coalesce(r.returned_qty, 0)) * si.unit_cost
+        end
+      ) as cogs,
+      sum(
+        (si.total - coalesce(r.refund_amount, 0))
+        - case when si.unit_cost is null then 0
+               else (si.quantity - coalesce(r.returned_qty, 0)) * si.unit_cost
+          end
+      ) as gross_profit,
+      count(*) filter (where si.unit_cost is null) as uncosted_lines
+    from public.sale_items si
+    join public.sales s on s.id = si.sale_id
+    left join lateral (
+      select
+        coalesce(sum(sri.quantity), 0) as returned_qty,
+        coalesce(sum(sri.refund_amount), 0) as refund_amount
+      from public.sale_return_items sri
+      join public.sale_returns sr on sr.id = sri.return_id
+      where sri.sale_item_id = si.id
+    ) r on true
+    where s.organization_id = p_organization_id
+      and s.store_id = p_store_id
+      and s.status in ('completed', 'partially_returned', 'fully_returned')
+      and (p_from is null or s.created_at >= p_from)
+      and (p_to is null or s.created_at < p_to)
+    group by si.product_id
+    order by gross_profit desc, si.product_id
+    limit 100
+  ) x;
+
+  return jsonb_build_object(
+    'period', jsonb_build_object('from', p_from, 'to', p_to),
+    'summary', coalesce(v_summary, '{}'::jsonb),
+    'products', v_products
+  );
+end;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.inventory_valuation_report(p_organization_id uuid, p_store_id uuid, p_from timestamp with time zone DEFAULT NULL::timestamp with time zone, p_to timestamp with time zone DEFAULT NULL::timestamp with time zone)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SET search_path TO 'public'
+AS $function$
+declare v_current jsonb; v_flow jsonb; v_products jsonb;
+begin
+select jsonb_build_object('inventory_units',coalesce(sum(sp.quantity),0),'inventory_value',coalesce(sum(case when sp.cost_known then sp.quantity*sp.average_cost else 0 end),0),'products_with_stock',count(*) filter(where sp.quantity>0),'products_without_cost',count(*) filter(where sp.quantity>0 and not sp.cost_known))
+into v_current from public.store_products sp join public.products pr on pr.id=sp.product_id where sp.store_id=p_store_id and pr.organization_id=p_organization_id;
+select jsonb_build_object('purchase_units',coalesce(sum(pri.quantity),0),'purchase_value',coalesce(sum(pri.quantity*pri.unit_cost),0),'sold_units',coalesce((select sum(si.quantity) from public.sale_items si join public.sales s on s.id=si.sale_id where s.organization_id=p_organization_id and s.store_id=p_store_id and s.status in('completed','partially_returned','fully_returned') and si.unit_cost is not null and(p_from is null or s.created_at>=p_from)and(p_to is null or s.created_at<p_to)),0),'cogs',coalesce((select sum(si.cost_total) from public.sale_items si join public.sales s on s.id=si.sale_id where s.organization_id=p_organization_id and s.store_id=p_store_id and s.status in('completed','partially_returned','fully_returned') and si.unit_cost is not null and(p_from is null or s.created_at>=p_from)and(p_to is null or s.created_at<p_to)),0),'returned_units',coalesce((select sum(sri.quantity) from public.sale_return_items sri join public.sale_returns sr on sr.id=sri.return_id where sr.organization_id=p_organization_id and sr.store_id=p_store_id and(p_from is null or sr.created_at>=p_from)and(p_to is null or sr.created_at<p_to)),0),'returned_cost_value',coalesce((select sum(sri.quantity*si.unit_cost) from public.sale_return_items sri join public.sale_returns sr on sr.id=sri.return_id join public.sale_items si on si.id=sri.sale_item_id where sr.organization_id=p_organization_id and sr.store_id=p_store_id and si.unit_cost is not null and(p_from is null or sr.created_at>=p_from)and(p_to is null or sr.created_at<p_to)),0)) into v_flow from public.purchase_receipt_items pri join public.purchase_receipts prc on prc.id=pri.receipt_id where prc.organization_id=p_organization_id and prc.store_id=p_store_id and prc.status <> 'cancelled' and(p_from is null or prc.created_at>=p_from)and(p_to is null or prc.created_at<p_to);
+select coalesce(jsonb_agg(to_jsonb(x) order by x.inventory_value desc nulls last,x.product_id),'[]'::jsonb) into v_products from(select sp.product_id,pr.name product_name,sp.quantity,sp.average_cost,sp.cost_known,case when sp.cost_known then sp.quantity*sp.average_cost else null end inventory_value from public.store_products sp join public.products pr on pr.id=sp.product_id where sp.store_id=p_store_id and pr.organization_id=p_organization_id limit 100)x;
+return jsonb_build_object('period',jsonb_build_object('from',p_from,'to',p_to),'current_inventory',v_current,'period_flow',v_flow,'products',v_products);
+end;$function$;
+
+CREATE OR REPLACE FUNCTION public.financial_operations_report(p_organization_id uuid, p_store_id uuid, p_from timestamp with time zone DEFAULT NULL::timestamp with time zone, p_to timestamp with time zone DEFAULT NULL::timestamp with time zone, p_as_of timestamp with time zone DEFAULT now())
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SET search_path TO 'public'
+AS $function$
+declare
+  v_sales jsonb;
+  v_profitability jsonb;
+  v_inventory jsonb;
+  v_customers jsonb;
+  v_purchases jsonb;
+  v_cash jsonb;
+  v_from timestamptz := p_from;
+  v_to timestamptz := p_to;
+  v_as_of timestamptz := coalesce(p_as_of, now());
+  v_purchase_count integer := 0;
+  v_purchase_units numeric := 0;
+  v_purchase_value numeric := 0;
+  v_payment_count integer := 0;
+  v_payments_received numeric := 0;
+  v_refund_count integer := 0;
+  v_refunds_paid numeric := 0;
+begin
+  if auth.uid() is null then
+    raise exception 'authentication required';
+  end if;
+
+  if p_organization_id is null or p_store_id is null then
+    raise exception 'organization and store are required';
+  end if;
+
+  if not private.is_org_store_member(p_organization_id, p_store_id) then
+    raise exception 'organization/store access denied';
+  end if;
+
+  if v_from is not null and v_to is not null and v_from > v_to then
+    raise exception 'from must be before or equal to to';
+  end if;
+
+  select coalesce(jsonb_agg(
+    jsonb_build_object(
+      'receipt_id', pr.id,
+      'receipt_number', pr.receipt_number,
+      'created_at', pr.created_at,
+      'total_units', x.total_units,
+      'total_value', x.total_value
+    ) order by pr.created_at, pr.id
+  ), '[]'::jsonb)
+  into v_purchases
+  from public.purchase_receipts pr
+  join lateral (
+    select
+      coalesce(sum(pri.quantity), 0)::numeric as total_units,
+      coalesce(sum(pri.quantity * pri.unit_cost), 0)::numeric as total_value
+    from public.purchase_receipt_items pri
+    where pri.receipt_id = pr.id
+  ) x on true
+  where pr.organization_id = p_organization_id
+    and pr.store_id = p_store_id
+    and (v_from is null or pr.created_at >= v_from)
+    and (v_to is null or pr.created_at <= v_to);
+
+  select
+    count(*)::integer,
+    coalesce(sum(x.total_units),0),
+    coalesce(sum(x.total_value),0)
+  into v_purchase_count, v_purchase_units, v_purchase_value
+  from public.purchase_receipts pr
+  join lateral (
+    select
+      coalesce(sum(pri.quantity),0)::numeric as total_units,
+      coalesce(sum(pri.quantity * pri.unit_cost),0)::numeric as total_value
+    from public.purchase_receipt_items pri
+    where pri.receipt_id = pr.id
+  ) x on true
+  where pr.organization_id = p_organization_id
+    and pr.store_id = p_store_id
+    and (v_from is null or pr.created_at >= v_from)
+    and (v_to is null or pr.created_at <= v_to);
+
+  select coalesce(sum(p.amount),0), count(*)
+  into v_payments_received, v_payment_count
+  from public.payments p
+  join public.sales s on s.id = p.sale_id
+  where s.organization_id = p_organization_id
+    and s.store_id = p_store_id
+    and s.status <> 'cancelled'
+    and (v_from is null or p.paid_at >= v_from)
+    and (v_to is null or p.paid_at <= v_to);
+
+  select coalesce(sum(r.amount),0), count(*)
+  into v_refunds_paid, v_refund_count
+  from public.refunds r
+  where r.organization_id = p_organization_id
+    and r.store_id = p_store_id
+    and (v_from is null or r.refunded_at >= v_from)
+    and (v_to is null or r.refunded_at <= v_to);
+
+  v_sales := public.sales_inventory_reports(
+    p_organization_id, p_store_id, v_from, v_to, v_as_of
+  );
+
+  v_profitability := public.profitability_report(
+    p_organization_id, p_store_id, v_from, v_to
+  );
+
+  v_inventory := public.inventory_valuation_report(
+    p_organization_id, p_store_id, v_from, v_to
+  );
+
+  v_customers := public.customer_financial_dashboard(
+    p_organization_id, p_store_id, v_as_of
+  );
+
+  v_cash := jsonb_build_object(
+    'payments_received', v_payments_received,
+    'refunds_paid', v_refunds_paid,
+    'net_cash_from_sales', v_payments_received - v_refunds_paid,
+    'payment_count', v_payment_count,
+    'refund_count', v_refund_count,
+    'note', 'Payments received are cash collections, not revenue; refunds reduce cash.'
+  );
+
+  return jsonb_build_object(
+    'as_of', v_as_of,
+    'period', jsonb_build_object('from', v_from, 'to', v_to),
+    'sales', v_sales->'sales',
+    'returns', v_sales->'returns',
+    'purchases', jsonb_build_object(
+      'receipt_count', v_purchase_count,
+      'units', v_purchase_units,
+      'value', v_purchase_value,
+      'receipts', v_purchases
+    ),
+    'profitability', v_profitability->'summary',
+    'inventory', jsonb_build_object(
+      'current', v_inventory->'current_inventory',
+      'period_flow', v_inventory->'period_flow'
+    ),
+    'cash', v_cash,
+    'receivables', jsonb_build_object(
+      'total_customers_with_due', v_customers->'total_customers_with_due',
+      'total_receivables', v_customers->'total_receivables',
+      'current_due', v_customers->'current_due',
+      'overdue_total', v_customers->'overdue_total',
+      'overdue_customer_count', v_customers->'overdue_customer_count',
+      'as_of', v_customers->'as_of'
+    ),
+    'reconciliation', jsonb_build_object(
+      'gross_profit', coalesce((v_profitability->'summary'->>'gross_profit')::numeric,0),
+      'payments_received', v_payments_received,
+      'refunds_paid', v_refunds_paid,
+      'purchase_value', v_purchase_value,
+      'inventory_value', coalesce((v_inventory->'current_inventory'->>'inventory_value')::numeric,0),
+      'note', 'Operational financial summary; this is not a double-entry general ledger.'
+    )
+  );
+end;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.update_product_for_store(p_product_id bigint, p_name text, p_price numeric, p_quantity integer, p_organization_id uuid, p_store_id uuid)
+ RETURNS jsonb
+ LANGUAGE sql
+ SET search_path TO 'public', 'private'
+AS $function$ select private.update_product_for_store(p_product_id,p_name,p_price,p_quantity,p_organization_id,p_store_id); $function$;
+
+CREATE OR REPLACE FUNCTION public.cancel_purchase(p_organization_id uuid, p_store_id uuid, p_purchase_receipt_id bigint, p_reason text DEFAULT NULL::text)
+ RETURNS jsonb
+ LANGUAGE sql
+ SET search_path TO ''
+AS $function$
+  select private.cancel_purchase(
+    p_organization_id,
+    p_store_id,
+    p_purchase_receipt_id,
+    p_reason
+  );
+$function$;
+
+CREATE OR REPLACE FUNCTION public.create_supplier(p_organization_id uuid, p_name text, p_phone text, p_address text, p_tax_number text, p_notes text)
+ RETURNS suppliers
+ LANGUAGE sql
+ SET search_path TO ''
+AS $function$ select private.create_supplier(p_organization_id,p_name,p_phone,p_address,p_tax_number,p_notes); $function$;
+
+CREATE OR REPLACE FUNCTION public.update_supplier(p_organization_id uuid, p_supplier_id bigint, p_name text, p_phone text, p_address text, p_tax_number text, p_notes text, p_status text)
+ RETURNS suppliers
+ LANGUAGE sql
+ SET search_path TO ''
+AS $function$ select private.update_supplier(p_organization_id,p_supplier_id,p_name,p_phone,p_address,p_tax_number,p_notes,p_status); $function$;
+
+CREATE OR REPLACE FUNCTION public.create_purchase(p_organization_id uuid, p_store_id uuid, p_supplier_id bigint, p_receipt_number text, p_items jsonb, p_discount numeric, p_tax numeric, p_paid_amount numeric, p_payment_method text, p_reference text, p_due_date date, p_notes text)
+ RETURNS jsonb
+ LANGUAGE sql
+ SET search_path TO ''
+AS $function$
+  select private.create_purchase(
+    p_organization_id,p_store_id,p_supplier_id,p_receipt_number,p_items,
+    p_discount,p_tax,p_paid_amount,p_payment_method,p_reference,p_due_date,p_notes
+  );
+$function$;
+
+CREATE OR REPLACE FUNCTION public.list_suppliers(p_organization_id uuid)
+ RETURNS SETOF suppliers
+ LANGUAGE sql
+ SET search_path TO ''
+AS $function$ select * from private.list_suppliers(p_organization_id); $function$;
+
+CREATE OR REPLACE FUNCTION public.record_supplier_payment(p_organization_id uuid, p_store_id uuid, p_supplier_id bigint, p_amount numeric, p_payment_method text, p_reference text, p_notes text, p_allocations jsonb)
+ RETURNS jsonb
+ LANGUAGE sql
+ SET search_path TO ''
+AS $function$ select private.record_supplier_payment(p_organization_id,p_store_id,p_supplier_id,p_amount,p_payment_method,p_reference,p_notes,p_allocations); $function$;
+
+CREATE OR REPLACE FUNCTION public.list_purchase_receipts(p_organization_id uuid, p_store_id uuid)
+ RETURNS TABLE(id bigint, supplier_id bigint, supplier_name text, receipt_number text, supplier_invoice_number text, subtotal numeric, discount numeric, tax numeric, total numeric, paid_amount numeric, remaining_amount numeric, payment_status text, due_date date, status text, notes text, created_at timestamp with time zone)
+ LANGUAGE sql
+ SET search_path TO ''
+AS $function$
+  select * from private.list_purchase_receipts(p_organization_id,p_store_id);
+$function$;
+
+CREATE OR REPLACE FUNCTION public.cancel_sale(p_organization_id uuid, p_sale_id bigint, p_reason text DEFAULT NULL::text, p_refund_payment_method text DEFAULT 'cash'::text, p_refund_reference text DEFAULT NULL::text)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SET search_path TO 'public', 'private'
+AS $function$
+begin
+  return private.cancel_sale(
+    p_organization_id,p_sale_id,p_reason,p_refund_payment_method,p_refund_reference
+  );
+end;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.return_purchase_items(p_organization_id uuid, p_store_id uuid, p_purchase_receipt_id bigint, p_items jsonb, p_reason text, p_refund_amount numeric DEFAULT 0, p_refund_payment_method text DEFAULT 'cash'::text, p_refund_reference text DEFAULT NULL::text, p_notes text DEFAULT NULL::text)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SET search_path TO 'public', 'private'
+AS $function$
+begin
+ return private.return_purchase_items(p_organization_id,p_store_id,p_purchase_receipt_id,p_items,p_reason,
+   p_refund_amount,p_refund_payment_method,p_refund_reference,p_notes);
+end;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.purchase_return_details(p_organization_id uuid, p_store_id uuid, p_purchase_receipt_id bigint)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SET search_path TO 'public', 'private'
+AS $function$ begin return private.purchase_return_details(p_organization_id,p_store_id,p_purchase_receipt_id); end; $function$;
+
+CREATE OR REPLACE FUNCTION public.customer_account_summary(p_organization_id uuid, p_store_id uuid DEFAULT NULL::uuid)
+ RETURNS TABLE(customer_id bigint, customer_name text, sales_total numeric, invoice_payments numeric, account_payments numeric, sales_refunds numeric, balance numeric)
+ LANGUAGE sql
+ SET search_path TO 'public', 'private'
+AS $function$ select * from private.customer_account_summary(p_organization_id,p_store_id); $function$;
+
+CREATE OR REPLACE FUNCTION public.supplier_account_summary(p_organization_id uuid, p_store_id uuid DEFAULT NULL::uuid)
+ RETURNS TABLE(supplier_id bigint, supplier_name text, purchases_total numeric, supplier_payments numeric, supplier_refunds numeric, balance numeric)
+ LANGUAGE sql
+ SET search_path TO 'public', 'private'
+AS $function$ select * from private.supplier_account_summary(p_organization_id,p_store_id); $function$;
+
+CREATE OR REPLACE FUNCTION public.customer_statement(p_organization_id uuid, p_customer_id bigint, p_store_id uuid DEFAULT NULL::uuid, p_from date DEFAULT NULL::date, p_to date DEFAULT NULL::date)
+ RETURNS TABLE(occurred_at timestamp with time zone, entry_type text, reference_id bigint, reference_number text, description text, debit numeric, credit numeric, balance numeric)
+ LANGUAGE sql
+ SET search_path TO 'public', 'private'
+AS $function$ select * from private.customer_statement(p_organization_id,p_customer_id,p_store_id,p_from,p_to); $function$;
+
+CREATE OR REPLACE FUNCTION public.supplier_statement(p_organization_id uuid, p_supplier_id bigint, p_store_id uuid DEFAULT NULL::uuid, p_from date DEFAULT NULL::date, p_to date DEFAULT NULL::date)
+ RETURNS TABLE(occurred_at timestamp with time zone, entry_type text, reference_id bigint, reference_number text, description text, debit numeric, credit numeric, balance numeric)
+ LANGUAGE sql
+ SET search_path TO 'public', 'private'
+AS $function$ select * from private.supplier_statement(p_organization_id,p_supplier_id,p_store_id,p_from,p_to); $function$;
+
+CREATE OR REPLACE FUNCTION public.create_expense(p_organization_id uuid, p_store_id uuid, p_category text, p_amount numeric, p_expense_date date DEFAULT CURRENT_DATE, p_payment_method text DEFAULT 'cash'::text, p_reference text DEFAULT NULL::text, p_notes text DEFAULT NULL::text)
+ RETURNS expenses
+ LANGUAGE sql
+ SET search_path TO 'public', 'private'
+AS $function$ select private.create_expense(p_organization_id,p_store_id,p_category,p_amount,p_expense_date,p_payment_method,p_reference,p_notes); $function$;
+
+CREATE OR REPLACE FUNCTION public.cancel_expense(p_organization_id uuid, p_expense_id bigint, p_reason text)
+ RETURNS expenses
+ LANGUAGE sql
+ SET search_path TO 'public', 'private'
+AS $function$ select private.cancel_expense(p_organization_id,p_expense_id,p_reason); $function$;
+
+CREATE OR REPLACE FUNCTION public.profitability_summary(p_organization_id uuid, p_store_id uuid DEFAULT NULL::uuid, p_from_date date DEFAULT NULL::date, p_to_date date DEFAULT NULL::date)
+ RETURNS jsonb
+ LANGUAGE sql
+ SET search_path TO 'public', 'private'
+AS $function$
+  select private.profitability_summary(p_organization_id, p_store_id, p_from_date, p_to_date);
+$function$;
+
+CREATE OR REPLACE FUNCTION public.commercial_reports_summary(p_organization_id uuid, p_store_id uuid DEFAULT NULL::uuid, p_from_date date DEFAULT NULL::date, p_to_date date DEFAULT NULL::date)
+ RETURNS jsonb
+ LANGUAGE sql
+ SET search_path TO 'public', 'private'
+AS $function$
+  select private.commercial_reports_summary(
+    p_organization_id,
+    p_store_id,
+    p_from_date,
+    p_to_date
+  );
+$function$;
+
+CREATE OR REPLACE FUNCTION public.commercial_reports(p_organization_id uuid, p_store_id uuid DEFAULT NULL::uuid, p_from_date date DEFAULT NULL::date, p_to_date date DEFAULT NULL::date)
+ RETURNS jsonb
+ LANGUAGE sql
+ SET search_path TO ''
+AS $function$
+  select private.commercial_reports(
+    p_organization_id,
+    p_store_id,
+    p_from_date,
+    p_to_date
+  );
+$function$;
+
+CREATE OR REPLACE FUNCTION public.profitability_report_v2(p_organization_id uuid, p_store_id uuid DEFAULT NULL::uuid, p_from_date date DEFAULT NULL::date, p_to_date date DEFAULT NULL::date)
+ RETURNS jsonb
+ LANGUAGE sql
+ SET search_path TO 'public', 'private'
+AS $function$ select private.profitability_summary(p_organization_id,p_store_id,p_from_date,p_to_date); $function$;
+
+CREATE OR REPLACE FUNCTION public.create_product_for_store_with_cost(p_organization_id uuid, p_store_id uuid, p_name text, p_price numeric, p_initial_quantity integer DEFAULT 0, p_reorder_level integer DEFAULT 0, p_notes text DEFAULT NULL::text, p_initial_unit_cost numeric DEFAULT NULL::numeric)
+ RETURNS store_products
+ LANGUAGE sql
+ SET search_path TO 'public'
+AS $function$ select private.create_product_for_store_with_cost(p_organization_id,p_store_id,p_name,p_price,p_initial_quantity,p_reorder_level,p_notes,p_initial_unit_cost); $function$;
+
+CREATE OR REPLACE FUNCTION public.list_organization_members(p_organization_id uuid)
+ RETURNS TABLE(member_id uuid, user_id uuid, status text, role_id uuid, role_name text, role_code text, store_ids uuid[], store_names text[])
+ LANGUAGE sql
+ SET search_path TO 'public'
+AS $function$ select * from private.list_organization_members(p_organization_id); $function$;
+
+CREATE OR REPLACE FUNCTION public.assign_member_role(p_organization_id uuid, p_member_id uuid, p_role_id uuid)
+ RETURNS void
+ LANGUAGE sql
+ SET search_path TO 'public'
+AS $function$ select private.assign_member_role(p_organization_id,p_member_id,p_role_id); $function$;
+
+CREATE OR REPLACE FUNCTION public.set_member_stores(p_organization_id uuid, p_member_id uuid, p_store_ids uuid[])
+ RETURNS void
+ LANGUAGE sql
+ SET search_path TO 'public'
+AS $function$ select private.set_member_stores(p_organization_id,p_member_id,p_store_ids); $function$;
+
+CREATE OR REPLACE FUNCTION public.set_member_status(p_organization_id uuid, p_member_id uuid, p_status text)
+ RETURNS void
+ LANGUAGE sql
+ SET search_path TO 'public'
+AS $function$ select private.set_member_status(p_organization_id,p_member_id,p_status); $function$;
 
 CREATE TRIGGER prevent_purchase_receipt_item_hard_delete BEFORE DELETE ON purchase_receipt_items FOR EACH ROW EXECUTE FUNCTION private.prevent_supplier_purchase_financial_hard_delete();
 
