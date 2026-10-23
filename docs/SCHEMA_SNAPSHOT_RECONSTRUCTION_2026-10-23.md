@@ -2,7 +2,7 @@
 
 ## Purpose
 
-The repository's historical migration sources are incomplete: production records 57 migration-history entries while the repository currently contains 39 SQL migration files. The missing history must not be replaced with a guessed baseline or by running the available files in sequence against an empty database.
+The repository's historical migration sources are incomplete: production records 57 migration-history entries while the repository currently contains 42 SQL migration files. The missing history must not be replaced with a guessed baseline or by running the available files in sequence against an empty database.
 
 To unblock safe testing, this artifact captures the **current structure** directly from PostgreSQL catalogs in production. It is not a reconstruction of the original migration-by-migration history.
 
@@ -47,8 +47,8 @@ Synthetic fixtures were run inside transactions that ended with `ROLLBACK`; no f
 ## Still unresolved
 
 1. The individual historical SQL sources for the missing migration-history entries have not been recovered. The current snapshot gives us a trustworthy rebuild of the present schema, not proof of each historical migration's provenance.
-2. Historical supplier-payment allocation discrepancies remain unresolved. The sale-return line/header mismatch was already reconciled by the latest read-only production check (line allocation total 120 equals refund header 120); audit log ID 94 records the correction, with a null actor ID. This session did not perform that production update.
+2. Historical supplier-payment allocation discrepancies remain unresolved. The sale-return line/header mismatch was corrected under a guarded production transaction as part of this repair session (line allocation total 120 equals refund header 120); audit log ID 94 records the old value 0, new value 120, and the evidence, with a null human actor ID because the administrative SQL session had no authenticated user identity.
 3. The `supabase_admin` default ACL path in `public` remains a separate platform-permission issue; this work deliberately did not alter it.
 4. Full application acceptance still needs coverage for cancellation, customer payments, purchasing and inventory edge cases, reporting, and browser-level flows.
 
-No production migration, financial-data repair, merge, or production deployment was performed.
+One narrowly guarded production financial-detail correction was performed: sale_return_items.id=1 refund_amount 0 → 120, with audit log ID 94. No production schema migration, merge, or production deployment was performed.
