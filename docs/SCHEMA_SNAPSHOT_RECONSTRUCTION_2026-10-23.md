@@ -2,7 +2,7 @@
 
 ## Purpose
 
-The repository's historical migration sources are incomplete: production records 57 migration-history entries while the repository currently contains 42 SQL migration files. The missing history must not be replaced with a guessed baseline or by running the available files in sequence against an empty database.
+The repository's historical migration sources are incomplete: production records 57 migration-history entries while the repository currently contains 43 SQL migration files. The missing history must not be replaced with a guessed baseline or by running the available files in sequence against an empty database.
 
 To unblock safe testing, this artifact captures the **current structure** directly from PostgreSQL catalogs in production. It is not a reconstruction of the original migration-by-migration history.
 
@@ -29,7 +29,7 @@ Before the candidate migrations were applied, the snapshot matched production on
 - 31 RLS policies, with the exact policy definitions compared after correcting the export's command mapping.
 - 4 non-internal triggers and 110 application functions.
 
-The staging database now includes the additional idempotency table and functions plus the return-allocation guard. Current staging counts are 33 tables, 267 columns, 154 constraints, 122 indexes, 31 policies, 4 triggers, and 112 functions.
+The staging database now includes the additional idempotency table and functions plus the return-allocation guard. Current staging counts are 33 tables, 267 columns, 154 constraints, 122 indexes, 31 policies, 7 triggers, and 112 functions.
 
 ## Acceptance evidence on staging
 
@@ -43,6 +43,7 @@ Synthetic fixtures were run inside transactions that ended with `ROLLBACK`; no f
 - a complete supplier payment allocation succeeds, while an incomplete allocation is rolled back atomically;
 - a paid sale can be cancelled once, restoring stock and recording one refund; a second cancellation is rejected;
 - a customer payment is allocated to an outstanding sale, while overpayment is rejected atomically;
+- hard deletion is blocked on purchase receipts/lines, supplier payments/allocations, purchase returns/return lines, and supplier refunds;
 - an authenticated member cannot read another organization's product through RLS;
 - client roles cannot TRUNCATE existing public tables in staging, and the `postgres` default-privilege path was tested with a temporary table inside a rolled-back transaction.
 
