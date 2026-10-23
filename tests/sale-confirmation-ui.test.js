@@ -192,3 +192,16 @@ test("sale cancellation does not report a committed cancellation as failed when 
   assert.ok(rpc >= 0 && success > rpc && refresh > success, "Cancellation success must be acknowledged before UI refresh");
   assert.match(confirmation, /Sale cancellation was saved, but its invoice could not be opened/);
 });
+
+
+test("debt payment success is acknowledged before invoice refresh and refresh errors stay non-transactional", () => {
+  const start = html.indexOf("    async function confirmDebtPayment()");
+  const end = html.indexOf("    function ", start + 10);
+  assert.ok(start >= 0 && end > start, "Expected confirmDebtPayment() body");
+  const confirmation = html.slice(start, end);
+  const rpc = confirmation.indexOf("await SmartSalesAPI.payment");
+  const success = confirmation.indexOf("showMessage(t.paymentSuccess)");
+  const refresh = confirmation.indexOf("Promise.allSettled([", rpc);
+  assert.ok(rpc >= 0 && success > rpc && refresh > success, "Payment success must be acknowledged before UI refresh");
+  assert.match(confirmation, /Customer debt payment was saved, but its invoice could not be opened/);
+});
