@@ -1,5 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { getInviteMembershipAction, getAcceptanceAction, isInvitationExpired } from "./invitation-state.mjs";
+import { getInviteMembershipAction, getAcceptanceAction, isInvitationExpired, getInvitationDisplayStatus } from "./invitation-state.mjs";
 
 type InvitePayload = {
   action?: "invite" | "list" | "revoke" | "accept";
