@@ -518,223 +518,114 @@ ALTER TABLE public.supplier_refunds ADD CONSTRAINT supplier_refunds_purchase_ret
 
 ALTER TABLE public.suppliers ADD CONSTRAINT suppliers_organization_id_fkey FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE RESTRICT;
 
-ALTER SEQUENCE public.idx_audit_logs_action OWNED BY public.audit_logs.action;
 
-ALTER SEQUENCE public.idx_audit_logs_actor_user_id OWNED BY public.audit_logs.actor_user_id;
 
-ALTER SEQUENCE public.idx_audit_logs_created_at OWNED BY public.audit_logs.created_at;
 
-ALTER SEQUENCE public.idx_audit_logs_entity OWNED BY public.audit_logs.entity_type;
 
-ALTER SEQUENCE public.idx_audit_logs_entity OWNED BY public.audit_logs.entity_id;
 
-ALTER SEQUENCE public.idx_audit_logs_organization_id OWNED BY public.audit_logs.organization_id;
 
-ALTER SEQUENCE public.idx_audit_logs_store_id OWNED BY public.audit_logs.store_id;
 
-ALTER SEQUENCE public.idx_customer_payment_allocations_payment OWNED BY public.customer_payment_allocations.customer_payment_id;
 
-ALTER SEQUENCE public.idx_customer_payment_allocations_sale OWNED BY public.customer_payment_allocations.sale_id;
 
-ALTER SEQUENCE public.idx_customer_payments_customer_id OWNED BY public.customer_payments.customer_id;
 
-ALTER SEQUENCE public.idx_customer_payments_org_store_customer OWNED BY public.customer_payments.paid_at;
 
-ALTER SEQUENCE public.idx_customer_payments_org_store_customer OWNED BY public.customer_payments.customer_id;
 
-ALTER SEQUENCE public.idx_customer_payments_org_store_customer OWNED BY public.customer_payments.store_id;
 
-ALTER SEQUENCE public.idx_customer_payments_org_store_customer OWNED BY public.customer_payments.organization_id;
 
-ALTER SEQUENCE public.idx_customer_payments_store_id OWNED BY public.customer_payments.store_id;
 
-ALTER SEQUENCE public.idx_customers_organization_id OWNED BY public.customers.organization_id;
 
-ALTER SEQUENCE public.idx_expenses_store_id OWNED BY public.expenses.store_id;
 
-ALTER SEQUENCE public.idx_inventory_movements_created_at OWNED BY public.inventory_movements.created_at;
 
-ALTER SEQUENCE public.idx_inventory_movements_organization_id OWNED BY public.inventory_movements.organization_id;
 
-ALTER SEQUENCE public.idx_inventory_movements_product_id OWNED BY public.inventory_movements.product_id;
 
-ALTER SEQUENCE public.idx_inventory_movements_store_id OWNED BY public.inventory_movements.store_id;
 
-ALTER SEQUENCE public.idx_member_stores_store_id OWNED BY public.member_stores.store_id;
 
-ALTER SEQUENCE public.idx_org_invitations_email OWNED BY public.organization_invitations.email;
 
-ALTER SEQUENCE public.idx_org_invitations_org_status OWNED BY public.organization_invitations.status;
 
-ALTER SEQUENCE public.idx_org_invitations_org_status OWNED BY public.organization_invitations.organization_id;
 
-ALTER SEQUENCE public.idx_org_invitations_role_id OWNED BY public.organization_invitations.role_id;
 
-ALTER SEQUENCE public.idx_organization_members_organization_id OWNED BY public.organization_members.organization_id;
 
-ALTER SEQUENCE public.idx_organization_members_role_id OWNED BY public.organization_members.role_id;
 
-ALTER SEQUENCE public.idx_organization_members_user_id OWNED BY public.organization_members.user_id;
 
-ALTER SEQUENCE public.idx_payments_sale_id OWNED BY public.payments.sale_id;
 
-ALTER SEQUENCE public.idx_products_organization_id OWNED BY public.products.organization_id;
 
-ALTER SEQUENCE public.idx_purchase_receipt_items_product OWNED BY public.purchase_receipt_items.product_id;
 
-ALTER SEQUENCE public.idx_purchase_receipt_items_receipt OWNED BY public.purchase_receipt_items.receipt_id;
 
-ALTER SEQUENCE public.idx_purchase_receipts_org_store_created OWNED BY public.purchase_receipts.store_id;
 
-ALTER SEQUENCE public.idx_purchase_receipts_org_store_created OWNED BY public.purchase_receipts.organization_id;
 
-ALTER SEQUENCE public.idx_purchase_receipts_org_store_created OWNED BY public.purchase_receipts.created_at;
 
-ALTER SEQUENCE public.idx_purchase_receipts_store_id OWNED BY public.purchase_receipts.store_id;
 
-ALTER SEQUENCE public.idx_refunds_organization_id OWNED BY public.refunds.organization_id;
 
-ALTER SEQUENCE public.idx_refunds_refunded_at OWNED BY public.refunds.refunded_at;
 
-ALTER SEQUENCE public.idx_refunds_sale_id OWNED BY public.refunds.sale_id;
 
-ALTER SEQUENCE public.idx_refunds_store_id OWNED BY public.refunds.store_id;
 
-ALTER SEQUENCE public.idx_role_permissions_permission_id OWNED BY public.role_permissions.permission_id;
 
-ALTER SEQUENCE public.idx_roles_organization_id OWNED BY public.roles.organization_id;
 
-ALTER SEQUENCE public.idx_sale_items_product_id OWNED BY public.sale_items.product_id;
 
-ALTER SEQUENCE public.idx_sale_items_sale_id OWNED BY public.sale_items.sale_id;
 
-ALTER SEQUENCE public.idx_sale_return_items_product_id OWNED BY public.sale_return_items.product_id;
 
-ALTER SEQUENCE public.idx_sale_return_items_return OWNED BY public.sale_return_items.return_id;
 
-ALTER SEQUENCE public.idx_sale_return_items_sale_item OWNED BY public.sale_return_items.sale_item_id;
 
-ALTER SEQUENCE public.idx_sale_returns_org_store_created OWNED BY public.sale_returns.organization_id;
 
-ALTER SEQUENCE public.idx_sale_returns_org_store_created OWNED BY public.sale_returns.created_at;
 
-ALTER SEQUENCE public.idx_sale_returns_org_store_created OWNED BY public.sale_returns.store_id;
 
-ALTER SEQUENCE public.idx_sale_returns_sale OWNED BY public.sale_returns.sale_id;
 
-ALTER SEQUENCE public.idx_sale_returns_store_id OWNED BY public.sale_returns.store_id;
 
-ALTER SEQUENCE public.idx_sales_created_at OWNED BY public.sales.created_at;
 
-ALTER SEQUENCE public.idx_sales_customer_id OWNED BY public.sales.customer_id;
 
-ALTER SEQUENCE public.idx_sales_organization_id OWNED BY public.sales.organization_id;
 
-ALTER SEQUENCE public.idx_sales_store_id OWNED BY public.sales.store_id;
 
-ALTER SEQUENCE public.idx_sales_tenant_invoice_number OWNED BY public.sales.organization_id;
 
-ALTER SEQUENCE public.idx_sales_tenant_invoice_number OWNED BY public.sales.invoice_number;
 
-ALTER SEQUENCE public.idx_sales_tenant_invoice_number OWNED BY public.sales.store_id;
 
-ALTER SEQUENCE public.idx_sales_tenant_invoice_number OWNED BY public.sales.organization_id;
 
-ALTER SEQUENCE public.idx_sales_tenant_invoice_number OWNED BY public.sales.store_id;
 
-ALTER SEQUENCE public.idx_stock_transfers_from_store OWNED BY public.stock_transfers.created_at;
 
-ALTER SEQUENCE public.idx_stock_transfers_from_store OWNED BY public.stock_transfers.from_store_id;
 
-ALTER SEQUENCE public.idx_stock_transfers_org_created OWNED BY public.stock_transfers.created_at;
 
-ALTER SEQUENCE public.idx_stock_transfers_org_created OWNED BY public.stock_transfers.organization_id;
 
-ALTER SEQUENCE public.idx_stock_transfers_product OWNED BY public.stock_transfers.product_id;
 
-ALTER SEQUENCE public.idx_stock_transfers_product OWNED BY public.stock_transfers.created_at;
 
-ALTER SEQUENCE public.idx_stock_transfers_to_store OWNED BY public.stock_transfers.to_store_id;
 
-ALTER SEQUENCE public.idx_stock_transfers_to_store OWNED BY public.stock_transfers.created_at;
 
-ALTER SEQUENCE public.idx_store_products_product_id OWNED BY public.store_products.product_id;
 
-ALTER SEQUENCE public.idx_store_products_store_id OWNED BY public.store_products.store_id;
 
-ALTER SEQUENCE public.idx_stores_organization_id OWNED BY public.stores.organization_id;
 
-ALTER SEQUENCE public.idx_supplier_payment_allocations_purchase_receipt_org OWNED BY public.supplier_payment_allocations.organization_id;
 
-ALTER SEQUENCE public.idx_supplier_payment_allocations_purchase_receipt_org OWNED BY public.supplier_payment_allocations.purchase_receipt_id;
 
-ALTER SEQUENCE public.idx_supplier_payment_allocations_supplier_payment_org OWNED BY public.supplier_payment_allocations.organization_id;
 
-ALTER SEQUENCE public.idx_supplier_payment_allocations_supplier_payment_org OWNED BY public.supplier_payment_allocations.supplier_payment_id;
 
-ALTER SEQUENCE public.idx_supplier_payments_store_id OWNED BY public.supplier_payments.store_id;
 
-ALTER SEQUENCE public.idx_supplier_payments_supplier_id OWNED BY public.supplier_payments.supplier_id;
 
-ALTER SEQUENCE public.idx_supplier_refunds_purchase_return_id OWNED BY public.supplier_refunds.purchase_return_id;
 
-ALTER SEQUENCE public.purchase_receipts_org_number_unique OWNED BY public.purchase_receipts.organization_id;
 
-ALTER SEQUENCE public.purchase_receipts_org_number_unique OWNED BY public.purchase_receipts.receipt_number;
 
-ALTER SEQUENCE public.purchase_receipts_supplier_idx OWNED BY public.purchase_receipts.organization_id;
 
-ALTER SEQUENCE public.purchase_receipts_supplier_idx OWNED BY public.purchase_receipts.supplier_id;
 
-ALTER SEQUENCE public.purchase_receipts_supplier_invoice_unique_idx OWNED BY public.purchase_receipts.organization_id;
 
-ALTER SEQUENCE public.purchase_receipts_supplier_invoice_unique_idx OWNED BY public.purchase_receipts.supplier_id;
 
-ALTER SEQUENCE public.purchase_receipts_supplier_invoice_unique_idx OWNED BY public.purchase_receipts.supplier_invoice_number;
 
-ALTER SEQUENCE public.purchase_receipts_supplier_invoice_unique_idx OWNED BY public.purchase_receipts.supplier_invoice_number;
 
-ALTER SEQUENCE public.purchase_return_items_return_idx OWNED BY public.purchase_return_items.purchase_return_id;
 
-ALTER SEQUENCE public.purchase_returns_org_number_uq OWNED BY public.purchase_returns.return_number;
 
-ALTER SEQUENCE public.purchase_returns_org_number_uq OWNED BY public.purchase_returns.organization_id;
 
-ALTER SEQUENCE public.purchase_returns_receipt_idx OWNED BY public.purchase_returns.organization_id;
 
-ALTER SEQUENCE public.purchase_returns_receipt_idx OWNED BY public.purchase_returns.purchase_receipt_id;
 
-ALTER SEQUENCE public.supplier_payment_allocations_receipt_idx OWNED BY public.supplier_payment_allocations.organization_id;
 
-ALTER SEQUENCE public.supplier_payment_allocations_receipt_idx OWNED BY public.supplier_payment_allocations.purchase_receipt_id;
 
-ALTER SEQUENCE public.supplier_payments_store_idx OWNED BY public.supplier_payments.store_id;
 
-ALTER SEQUENCE public.supplier_payments_store_idx OWNED BY public.supplier_payments.paid_at;
 
-ALTER SEQUENCE public.supplier_payments_store_idx OWNED BY public.supplier_payments.organization_id;
 
-ALTER SEQUENCE public.supplier_payments_supplier_idx OWNED BY public.supplier_payments.organization_id;
 
-ALTER SEQUENCE public.supplier_payments_supplier_idx OWNED BY public.supplier_payments.paid_at;
 
-ALTER SEQUENCE public.supplier_payments_supplier_idx OWNED BY public.supplier_payments.supplier_id;
 
-ALTER SEQUENCE public.supplier_refunds_return_idx OWNED BY public.supplier_refunds.purchase_return_id;
 
-ALTER SEQUENCE public.supplier_refunds_return_idx OWNED BY public.supplier_refunds.organization_id;
 
-ALTER SEQUENCE public.suppliers_org_name_unique OWNED BY public.suppliers.name;
 
-ALTER SEQUENCE public.suppliers_org_name_unique OWNED BY public.suppliers.organization_id;
 
-ALTER SEQUENCE public.suppliers_organization_id_idx OWNED BY public.suppliers.organization_id;
 
-ALTER SEQUENCE public.uq_org_invitations_pending_email OWNED BY public.organization_invitations.status;
 
-ALTER SEQUENCE public.uq_org_invitations_pending_email OWNED BY public.organization_invitations.email;
 
-ALTER SEQUENCE public.uq_org_invitations_pending_email OWNED BY public.organization_invitations.organization_id;
 
 CREATE INDEX idx_audit_logs_action ON public.audit_logs USING btree (action);
 
