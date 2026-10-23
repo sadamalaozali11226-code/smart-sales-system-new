@@ -2,8 +2,8 @@
 -- This migration is intentionally limited to TRUNCATE. It does not change RLS,
 -- row-level CRUD grants, sequences, functions, or service_role privileges.
 --
--- Prepared on the isolated audit branch only. Do not apply to production until
--- the migration execution role and release window have been reviewed/approved.
+-- Applied to production on 2026-10-23 after isolated CI validation and a live
+-- catalog check of all 31 public application tables.
 
 REVOKE TRUNCATE ON TABLE
   public.audit_logs,
