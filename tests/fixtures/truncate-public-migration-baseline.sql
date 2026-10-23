@@ -17,7 +17,7 @@ $roles$;
 DO $tables$
 DECLARE
   v_table text;
-  v_tables text[] := ARRAY['audit_logs', 'customers', 'expenses', 'inventory_movements', 'member_stores', 'organization_members', 'organizations', 'payments', 'permissions', 'products', 'purchase_return_items', 'purchase_returns', 'refunds', 'role_permissions', 'roles', 'sale_items', 'sales', 'stores', 'supplier_refunds', 'customer_payment_allocations', 'customer_payments', 'purchase_receipt_items', 'purchase_receipts', 'sale_return_items', 'sale_returns', 'stock_transfers', 'store_products'];
+  v_tables text[] := ARRAY['audit_logs', 'customers', 'expenses', 'inventory_movements', 'member_stores', 'organization_invitations', 'organization_members', 'organizations', 'payments', 'permissions', 'products', 'purchase_return_items', 'purchase_returns', 'refunds', 'role_permissions', 'roles', 'sale_items', 'sales', 'stores', 'supplier_refunds', 'supplier_payment_allocations', 'supplier_payments', 'suppliers', 'customer_payment_allocations', 'customer_payments', 'purchase_receipt_items', 'purchase_receipts', 'sale_return_items', 'sale_returns', 'stock_transfers', 'store_products'];
 BEGIN
   FOREACH v_table IN ARRAY v_tables LOOP
     EXECUTE format('CREATE TABLE IF NOT EXISTS public.%I (id bigint PRIMARY KEY)', v_table);
