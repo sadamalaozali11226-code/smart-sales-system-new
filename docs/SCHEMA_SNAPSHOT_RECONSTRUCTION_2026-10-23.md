@@ -47,7 +47,7 @@ Synthetic fixtures were run inside transactions that ended with `ROLLBACK`; no f
 ## Still unresolved
 
 1. The individual historical SQL sources for the missing migration-history entries have not been recovered. The current snapshot gives us a trustworthy rebuild of the present schema, not proof of each historical migration's provenance.
-2. Historical supplier-payment allocation discrepancies and the older sale-return line/header discrepancy remain unchanged in production pending source-document reconciliation.
+2. Historical supplier-payment allocation discrepancies remain unresolved. The sale-return line/header mismatch was already reconciled by the latest read-only production check (line allocation total 120 equals refund header 120); audit log ID 94 records the correction, with a null actor ID. This session did not perform that production update.
 3. The `supabase_admin` default ACL path in `public` remains a separate platform-permission issue; this work deliberately did not alter it.
 4. Full application acceptance still needs coverage for cancellation, customer payments, purchasing and inventory edge cases, reporting, and browser-level flows.
 
