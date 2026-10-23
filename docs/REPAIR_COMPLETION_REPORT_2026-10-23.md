@@ -37,9 +37,9 @@ The staging catalog also contains platform-managed default privileges for `supab
 
 ## Tests
 
-- GitHub CI passed on current PR head `3887070727f907edb4560f2836b492d373960b2f` ([CI run](https://github.com/sadamalaozali11226-code/smart-sales-system-new/actions/runs/39953031009)).
-- The disposable local Supabase sale-migration workflow passed on the same head ([local Supabase run](https://github.com/sadamalaozali11226-code/smart-sales-system-new/actions/runs/39953031083)).
-- Vercel Preview is READY at `smart-sales-system-abkqh1bet-my-project-3093.vercel.app` on documentation head `f01653351f116b83fa614fa8f256aa8b355f671d` (application code unchanged from the passing code head).
+- GitHub CI passed on code head `6feba313a1bd02d7d063c4825d89f7f646251f50` ([CI run](https://github.com/sadamalaozali11226-code/smart-sales-system-new/actions/runs/39971023530)), including the expanded 31-table TRUNCATE migration regression.
+- The disposable local Supabase sale-migration workflow passed on the same code head ([local Supabase run](https://github.com/sadamalaozali11226-code/smart-sales-system-new/actions/runs/39971023462)).
+- Vercel Preview was READY at `smart-sales-system-pdinv78dr-my-project-3093.vercel.app` on code head `6feba313a1bd02d7d063c4825d89f7f646251f50`.
 - Live preview HTTP smoke checks on that deployment: homepage returned 200; `/src/supabase-client.js` returned 200 and selected the staging project for the preview hostname; legacy `/api/products` returned 410 with the expected “Legacy API disabled” response. This verifies routing and the retired legacy endpoint only, not authenticated browser acceptance.
 - Staging SQL acceptance passed for sale idempotency (identical retry, changed-payload rejection, distinct request key, stock/audit invariants); valid/mismatched sale returns; paid sale cancellation with one refund and stock restoration; customer payment allocation and atomic overpayment rejection; supplier payment allocation and atomic incomplete-allocation rejection; tenant RLS isolation; current/future client TRUNCATE restrictions for the normal migration role; and hard-delete rejection across seven supplier purchase/return financial tables. All synthetic fixture writes were rolled back.
 - A new migration adds database hard-delete guards to `purchase_returns`, `purchase_return_items`, and `supplier_refunds`, reusing the existing guard function. Staging acceptance confirmed all seven purchase/payment/return/refund tables reject hard deletion.
