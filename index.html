@@ -5501,13 +5501,17 @@ if (!window.SmartSalesAPI) {
     async function confirmSaleReturn() {
       if (!selectedReturnInvoice) return;
       const inputs = [...document.querySelectorAll("[data-return-sale-item]")];
-      const items = inputs.map(input => ({
+      const selectedItems = inputs.map(input => ({
         sale_item_id: Number(input.dataset.returnSaleItem),
         quantity: Number(input.value || 0),
-        refund_amount: 0
+        input
       })).filter(item => item.quantity > 0);
-      if (!items.length) {
+      if (!selectedItems.length) {
         showMessage("أدخل كمية مرتجعة واحدة على الأقل.", true);
+        return;
+      }
+      if (selectedItems.some(item => !Number.isInteger(item.quantity) || item.quantity <= 0 || item.quantity > Number(item.input.max))) {
+        showMessage("تحقق من كميات المنتجات المرتجعة.", true);
         return;
       }
       const refundAmount = Number(document.getElementById("saleReturnRefundAmount").value || 0);
@@ -5515,6 +5519,34 @@ if (!window.SmartSalesAPI) {
         showMessage("مبلغ الاسترداد غير صحيح.", true);
         return;
       }
+
+      // Allocate the entered refund across selected sale lines proportionally.
+      // The final line receives the rounding remainder so allocations sum exactly
+      // to the refund amount required by the database invariant.
+      const saleItemsById = new Map((selectedReturnInvoice.items || []).map(item => [Number(item.id), item]));
+      const allocations = selectedItems.map(item => {
+        const saleItem = saleItemsById.get(item.sale_item_id);
+        const soldQuantity = Number(saleItem && saleItem.quantity || 0);
+        const lineTotal = Number(saleItem && saleItem.total || 0);
+        const unitLineValue = soldQuantity > 0 ? lineTotal / soldQuantity : 0;
+        return { ...item, weight: unitLineValue * item.quantity, refund_amount: 0 };
+      });
+      const totalWeight = allocations.reduce((sum, item) => sum + item.weight, 0);
+      if (refundAmount > 0 && totalWeight <= 0) {
+        showMessage("تعذر توزيع مبلغ الاسترداد على المنتجات المحددة.", true);
+        return;
+      }
+      let allocatedCents = 0;
+      allocations.forEach((item, index) => {
+        const cents = index === allocations.length - 1
+          ? Math.round(refundAmount * 100) - allocatedCents
+          : Math.round((totalWeight > 0 ? refundAmount * item.weight / totalWeight : 0) * 100);
+        item.refund_amount = cents / 100;
+        allocatedCents += cents;
+      });
+      const items = allocations.map(({ sale_item_id, quantity, refund_amount }) => ({
+        sale_item_id, quantity, refund_amount
+      }));
       const button = document.getElementById("confirmSaleReturnButton");
       button.disabled = true;
       try {
