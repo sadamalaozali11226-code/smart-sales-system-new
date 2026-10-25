@@ -97,6 +97,24 @@ test("exports every browser API method used by the UI, including purchase return
     "Purchase return submission must be exported");
 });
 
+test("purchase return history API and UI are wired for read-only return inspection", () => {
+  const root = path.join(__dirname, "..");
+  const apiSource = fs.readFileSync(path.join(root, "src", "commercial-api.js"), "utf8");
+  const htmlSource = fs.readFileSync(path.join(root, "index.html"), "utf8");
+  const exportMatch = apiSource.match(/window\\.SmartSalesAPI\\s*=\\s*Object\\.freeze\\(\\{([\\s\\S]*?)\\}\\);/);
+  assert.ok(exportMatch, "Expected the production browser API export to exist");
+  assert.match(apiSource, /async function purchaseReturnHistory\\(/);
+  assert.match(exportMatch[1], /^\\s*purchaseReturnHistory,?\\s*$/m);
+  assert.match(apiSource, /from\\("purchase_returns"\\)[\\s\\S]*?eq\\("organization_id", organization\\.id\\)[\\s\\S]*?eq\\("store_id", store\\.id\\)/,
+    "History queries must be scoped to the current organization and store");
+  assert.match(apiSource, /from\\("purchase_return_items"\\)/);
+  assert.match(htmlSource, /onclick="openPurchaseReturnHistory\\(\\+Number\\(p\\.id\\)\\+\\)"/);
+  assert.match(htmlSource, /id="purchaseReturnHistoryModal"/);
+  assert.match(htmlSource, /async function openPurchaseReturnHistory\\(id\\)/);
+  assert.match(htmlSource, /purchaseReturnHistoryEmpty/);
+  assert.match(htmlSource, /escapeHtml\\(item\\.productName \\|\\| "-")/);
+});
+
 test("keeps legacy business API disabled", async () => {
   for (const method of ["GET", "POST", "PUT", "DELETE"]) {
     const response = await fetch(`${baseUrl}/api/products`, { method });
