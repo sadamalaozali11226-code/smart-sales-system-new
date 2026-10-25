@@ -5,10 +5,10 @@
 do $migration$
 declare
   v_definition text;
-  v_old_fragment constant text := trim($old$
+  v_old_fragment constant text := btrim($old$, E' \\n\\r\\t'
 from (select si.product_id, max(si.product_name) product_name, sum(si.quantity) quantity, sum(si.total) sales_total from public.sale_items si join public.sales s on s.id=si.sale_id where s.organization_id=p_organization_id and (p_store_id is null or s.store_id=p_store_id) and s.status in ('completed','partially_returned','fully_returned') and (v_from is null or s.created_at >= v_from) and (v_to is null or s.created_at < v_to) group by si.product_id order by sum(si.total) desc limit 10) x)
 $old$);
-  v_new_fragment constant text := trim($new$
+  v_new_fragment constant text := btrim($new$, E' \\n\\r\\t'
 from (
   select
     si.product_id,
