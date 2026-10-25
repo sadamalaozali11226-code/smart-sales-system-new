@@ -2694,6 +2694,7 @@ if (!window.SmartSalesAPI) {
         purchaseReturnRefund: "مبلغ الاسترداد",
         purchaseReturnMethod: "طريقة الاسترداد",
         purchaseReturnReasonLabel: "السبب",
+        purchaseReturnStatus: "الحالة",
         purchaseReturnProduct: "الصنف",
         purchaseReturnQty: "الكمية",
         purchaseReturnUnitCost: "تكلفة الوحدة",
@@ -2931,6 +2932,7 @@ if (!window.SmartSalesAPI) {
         purchaseReturnRefund: "Refund Amount",
         purchaseReturnMethod: "Refund Method",
         purchaseReturnReasonLabel: "Reason",
+        purchaseReturnStatus: "Status",
         purchaseReturnProduct: "Product",
         purchaseReturnQty: "Quantity",
         purchaseReturnUnitCost: "Unit Cost",
@@ -3662,7 +3664,7 @@ if (!window.SmartSalesAPI) {
             '<div><strong>' + escapeHtml(t.purchaseReturnRefund) + ':</strong> ' + Number(returnRecord.refundAmount || 0).toFixed(2) + '</div>' +
             '<div><strong>' + escapeHtml(t.purchaseReturnMethod) + ':</strong> ' + escapeHtml(translatePaymentMethod(returnRecord.refundPaymentMethod)) + '</div>' +
             '<div><strong>' + escapeHtml(t.purchaseReturnReasonLabel) + ':</strong> ' + escapeHtml(returnRecord.reason || "-") + '</div>' +
-            '<div><strong>' + escapeHtml(t.statusCompleted || "Status") + ':</strong> ' + escapeHtml(statusLabel) + '</div>' +
+            '<div><strong>' + escapeHtml(t.purchaseReturnStatus) + ':</strong> ' + escapeHtml(statusLabel) + '</div>' +
             '<div style="overflow-x:auto;margin-top:8px"><table style="width:100%;border-collapse:collapse"><thead><tr>' +
             '<th>' + escapeHtml(t.purchaseReturnProduct) + '</th><th>' + escapeHtml(t.purchaseReturnQty) + '</th>' +
             '<th>' + escapeHtml(t.purchaseReturnUnitCost) + '</th><th>' + escapeHtml(t.purchaseReturnLineTotal) + '</th>' +
