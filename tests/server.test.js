@@ -175,6 +175,10 @@ test("purchase return history RPC enforces purchase-view permission and organiza
   assert.ok(migration.includes("id = p_purchase_receipt_id"));
   assert.ok(migration.includes("revoke execute on function public.purchase_return_history(uuid, uuid, bigint) from public, anon"));
   assert.ok(migration.includes("grant execute on function public.purchase_return_history(uuid, uuid, bigint) to authenticated"));
+  const helperMigration = fs.readFileSync(path.join(__dirname, "..", "supabase", "migrations",
+    "20261026123000_restrict_purchase_return_history_helper.sql"), "utf8");
+  assert.ok(helperMigration.includes("revoke execute on function private.purchase_return_history(uuid, uuid, bigint) from public, anon"));
+  assert.ok(helperMigration.includes("grant execute on function private.purchase_return_history(uuid, uuid, bigint) to authenticated"));
 });
 
 test("keeps legacy business API disabled", async () => {
