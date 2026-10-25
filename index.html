@@ -3475,7 +3475,7 @@ if (!window.SmartSalesAPI) {
       try {
         if(!body.name.trim()) return showMessage("اسم المورد مطلوب",true);
         if(editingSupplierId) await SmartSalesAPI.updateSupplier(editingSupplierId,body); else await SmartSalesAPI.createSupplier(body);
-        cancelSupplierEdit(); await loadSuppliers(); showMessage("تم حفظ المورد");
+        cancelSupplierEdit(); await loadSuppliers(); await refreshReportsAfterMutation(); showMessage("تم حفظ المورد");
       } catch(error) { console.error(error); showMessage(error.message||"تعذر حفظ المورد",true); }
     }
 
@@ -3530,6 +3530,7 @@ if (!window.SmartSalesAPI) {
         showMessage("تم حفظ فاتورة الشراء الداخلية: "+result.receipt_number+" | فاتورة المورد: "+(result.supplier_invoice_number||supplierInvoiceNumber));
         purchaseCart=[]; ["purchaseSupplierInvoiceNumber","purchaseReference","purchaseNotes","purchaseDueDate"].forEach(id=>document.getElementById(id).value=""); document.getElementById("purchasePaidAmount").value="0"; document.getElementById("purchaseDiscount").value="0"; document.getElementById("purchaseTax").value="0";
         renderPurchaseCart(); await Promise.all([loadProducts(),loadPurchases()]);
+         await refreshReportsAfterMutation();
       } catch(error) { console.error(error); showMessage(error.message||"تعذر حفظ فاتورة الشراء",true); }
     }
 
@@ -3609,6 +3610,7 @@ if (!window.SmartSalesAPI) {
         await SmartSalesAPI.returnPurchase({purchaseReceiptId:window._purchaseReturnId,items,reason,refundAmount,refundPaymentMethod:document.getElementById("purchaseReturnRefundMethod").value,refundReference:document.getElementById("purchaseReturnReference").value.trim()||null});
         closePurchaseReturnModal();
         await Promise.all([loadPurchases(),loadProducts()]);
+         await refreshReportsAfterMutation();
         showMessage("تم تسجيل مرتجع الشراء وعكس المخزون");
       } catch(error) { console.error(error); showMessage(error.message||"تعذر تسجيل مرتجع الشراء",true); }
     }
@@ -3631,6 +3633,7 @@ if (!window.SmartSalesAPI) {
         await SmartSalesAPI.cancelPurchase(window._purchaseCancellationId, reason);
         closePurchaseCancellationModal();
         await Promise.all([loadPurchases(), loadProducts()]);
+        await refreshReportsAfterMutation();
         showMessage("تم إلغاء فاتورة الشراء وعكس المخزون");
       } catch(error) {
         console.error(error);
@@ -3646,7 +3649,7 @@ if (!window.SmartSalesAPI) {
         const remaining=Math.max(Number(p.remaining_amount||0),0);
         if(amount>remaining) return showMessage("مبلغ السداد أكبر من المتبقي",true);
         await SmartSalesAPI.recordSupplierPayment({supplierId:Number(window._supplierPaymentSupplierId),amount,paymentMethod:document.getElementById("supplierPaymentMethod").value,reference:document.getElementById("supplierPaymentReference").value,notes:document.getElementById("supplierPaymentNotes").value,allocations:[{purchase_receipt_id:selectedSupplierPaymentPurchaseId,amount}]});
-        closeSupplierPaymentModal(); await loadPurchases(); showMessage("تم تسجيل سداد المورد");
+        closeSupplierPaymentModal(); await loadPurchases(); await refreshReportsAfterMutation(); showMessage("تم تسجيل سداد المورد");
       } catch(error) { console.error(error); showMessage(error.message||"تعذر تسجيل سداد المورد",true); }
     }
 
@@ -3782,6 +3785,7 @@ if (!window.SmartSalesAPI) {
         document.getElementById("productInitialCost").value = "";
         showMessage(t.added);
         await loadProducts();
+        await refreshReportsAfterMutation();
       } catch (error) {
         console.error(error);
         showMessage(error.message || t.connectionError, true);
@@ -4518,6 +4522,7 @@ if (!window.SmartSalesAPI) {
         await loadProducts();
         await loadSales();
         await loadSalesHistory();
+        await refreshReportsAfterMutation();
         showMessage(t.sold);
 
         if (data.saleId) {
@@ -4892,6 +4897,7 @@ if (!window.SmartSalesAPI) {
         closePaymentModal();
         await loadSalesHistory();
         await loadSales();
+        await refreshReportsAfterMutation();
         showMessage(t.paymentSuccess);
         await openInvoiceById(invoiceSaleId);
       } catch (error) {
@@ -5449,6 +5455,7 @@ if (!window.SmartSalesAPI) {
         await loadProducts();
         await loadSales();
         await loadSalesHistory();
+        await refreshReportsAfterMutation();
         showMessage(translations[currentLanguage].cancelSuccess);
         await openInvoiceById(saleId);
       } catch (error) {
@@ -5523,6 +5530,7 @@ if (!window.SmartSalesAPI) {
         await loadProducts();
         await loadSalesHistory();
         await loadSales();
+        await refreshReportsAfterMutation();
         showMessage(translations[currentLanguage].returnSuccess);
         await openInvoiceById(saleId);
       } catch (error) {
@@ -5858,6 +5866,7 @@ if (!window.SmartSalesAPI) {
         closeProductEditModal();
         showMessage(t.productUpdated);
         await loadSalesHistory();
+        await refreshReportsAfterMutation();
       } catch (error) {
         console.error(error);
         showMessage(error.message || t.productUpdateError, true);
@@ -5992,6 +6001,7 @@ if (!window.SmartSalesAPI) {
         closeCustomerPaymentModal();
         await loadCustomers();
         await loadSalesHistory();
+        await refreshReportsAfterMutation();
         showMessage("تم تسجيل سداد العميل");
       } catch (error) {
         console.error(error);
@@ -6122,6 +6132,7 @@ if (!window.SmartSalesAPI) {
         document.getElementById("expenseReference").value = "";
         document.getElementById("expenseNotes").value = "";
         await loadExpenses();
+        await refreshReportsAfterMutation();
         showMessage("تم تسجيل المصروف بنجاح.");
       } catch (error) {
         console.error(error);
@@ -6135,6 +6146,7 @@ if (!window.SmartSalesAPI) {
       try {
         await SmartSalesAPI.cancelExpense(id, reason.trim());
         await loadExpenses();
+        await refreshReportsAfterMutation();
         showMessage("تم إلغاء المصروف.");
       } catch (error) {
         console.error(error);
@@ -6418,6 +6430,15 @@ if (!window.SmartSalesAPI) {
       }
     }
 
+    // Refresh financial and commercial reports after successful data changes.
+    // Keep selected date filters; manual refresh buttons remain available.
+    async function refreshReportsAfterMutation() {
+      await Promise.allSettled([
+        loadProfitability(),
+        loadCommercialReports()
+      ]);
+    }
+
     let transferStores = [];
 
     async function loadTransferStores() {
@@ -6455,6 +6476,7 @@ if (!window.SmartSalesAPI) {
         document.getElementById("transferNotes").value = "";
         await loadProducts();
         await loadTransferStores();
+        await refreshReportsAfterMutation();
         showMessage("تم تحويل المخزون بنجاح");
       } catch (error) {
         console.error(error);
