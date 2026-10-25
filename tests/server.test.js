@@ -121,39 +121,22 @@ test("purchase return history API and UI are wired for read-only return inspecti
   assert.ok(htmlSource.includes('escapeHtml(item.productName || "-")'));
 });
 
-test("purchase return history reads only the selected receipt and maps its return items", async () => {
+test("purchase return history calls the scoped RPC and maps its return items", async () => {
   const apiSource = fs.readFileSync(path.join(__dirname, "..", "src", "commercial-api.js"), "utf8");
-  const queries = [];
-  const responseByTable = {
-    purchase_returns: {
-      data: [{
-        id: 12, return_number: "PR-000012", purchase_receipt_id: 5, total: "30.00",
-        refund_amount: "25.00", refund_payment_method: "cash", refund_reference: "RF-12",
-        reason: "Damaged goods", notes: null, status: "completed", created_at: "2026-10-26T10:00:00Z"
-      }],
-      error: null
-    },
-    purchase_return_items: {
-      data: [{
-        id: 31, purchase_return_id: 12, purchase_receipt_item_id: 9, product_id: 3,
-        quantity: 3, unit_cost: "10.00", total: "30.00"
-      }],
-      error: null
-    },
-    products: { data: [{ id: 3, name: "Test Product" }], error: null }
-  };
+  const calls = [];
+  const fakeHistory = [{
+    id: 12, returnNumber: "PR-000012", purchaseReceiptId: 5, total: 30,
+    refundAmount: 25, refundPaymentMethod: "cash", refundReference: "RF-12",
+    reason: "Damaged goods", notes: null, status: "completed", createdAt: "2026-10-26T10:00:00Z",
+    items: [{
+      id: 31, purchaseReceiptItemId: 9, productId: 3, productName: "Test Product",
+      quantity: 3, unitCost: 10, total: 30
+    }]
+  }];
   const fakeClient = {
-    from(table) {
-      const query = {
-        table,
-        select(columns) { this.columns = columns; return this; },
-        eq(column, value) { queries.push({ table, method: "eq", column, value }); return this; },
-        in(column, values) { queries.push({ table, method: "in", column, values }); return this; },
-        order(column, options) { queries.push({ table, method: "order", column, options }); return this; },
-        then(resolve, reject) { return Promise.resolve(responseByTable[table]).then(resolve, reject); }
-      };
-      queries.push({ table, method: "select", columns: null });
-      return query;
+    rpc(name, args) {
+      calls.push({ name, args });
+      return Promise.resolve({ data: fakeHistory, error: null });
     }
   };
   const window = {
@@ -165,6 +148,11 @@ test("purchase return history reads only the selected receipt and maps its retur
   vm.runInNewContext(apiSource, { window });
   const history = await window.SmartSalesAPI.purchaseReturnHistory(5);
 
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].name, "purchase_return_history");
+  assert.equal(calls[0].args.p_organization_id, "org-test");
+  assert.equal(calls[0].args.p_store_id, "store-test");
+  assert.equal(calls[0].args.p_purchase_receipt_id, 5);
   assert.equal(history.length, 1);
   assert.equal(history[0].returnNumber, "PR-000012");
   assert.equal(history[0].total, 30);
@@ -172,10 +160,19 @@ test("purchase return history reads only the selected receipt and maps its retur
   assert.equal(history[0].items.length, 1);
   assert.equal(history[0].items[0].productName, "Test Product");
   assert.equal(history[0].items[0].quantity, 3);
-  assert.ok(queries.some(q => q.table === "purchase_returns" && q.method === "eq" && q.column === "organization_id" && q.value === "org-test"));
-  assert.ok(queries.some(q => q.table === "purchase_returns" && q.method === "eq" && q.column === "store_id" && q.value === "store-test"));
-  assert.ok(queries.some(q => q.table === "purchase_returns" && q.method === "eq" && q.column === "purchase_receipt_id" && q.value === 5));
-  assert.ok(queries.some(q => q.table === "purchase_return_items" && q.method === "in" && q.column === "purchase_return_id" && q.values[0] === 12));
+});
+
+test("purchase return history RPC enforces purchase-view permission and organization/store scope", () => {
+  const migrationPath = path.join(__dirname, "..", "supabase", "migrations",
+    "20261026120000_add_purchase_return_history.sql");
+  const migration = fs.readFileSync(migrationPath, "utf8");
+  assert.match(migration, /private\\.purchase_return_history/);
+  assert.match(migration, /auth\\.uid\\(\\) is null/);
+  assert.match(migration, /private\\.is_org_store_member\\(p_organization_id, p_store_id\\)/);
+  assert.match(migration, /private\\.has_org_permission\\(p_organization_id, 'purchases\\.view'\\)/);
+  assert.match(migration, /organization_id = p_organization_id[\\s\\S]*?store_id = p_store_id[\\s\\S]*?id = p_purchase_receipt_id/);
+  assert.match(migration, /revoke execute on function public\\.purchase_return_history\\(uuid, uuid, bigint\\) from public, anon/i);
+  assert.match(migration, /grant execute on function public\\.purchase_return_history\\(uuid, uuid, bigint\\) to authenticated/i);
 });
 
 test("keeps legacy business API disabled", async () => {
