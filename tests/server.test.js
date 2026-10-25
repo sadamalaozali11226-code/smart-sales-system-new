@@ -166,13 +166,15 @@ test("purchase return history RPC enforces purchase-view permission and organiza
   const migrationPath = path.join(__dirname, "..", "supabase", "migrations",
     "20261026120000_add_purchase_return_history.sql");
   const migration = fs.readFileSync(migrationPath, "utf8");
-  assert.match(migration, /private\\.purchase_return_history/);
-  assert.match(migration, /auth\\.uid\\(\\) is null/);
-  assert.match(migration, /private\\.is_org_store_member\\(p_organization_id, p_store_id\\)/);
-  assert.match(migration, /private\\.has_org_permission\\(p_organization_id, 'purchases\\.view'\\)/);
-  assert.match(migration, /organization_id = p_organization_id[\\s\\S]*?store_id = p_store_id[\\s\\S]*?id = p_purchase_receipt_id/);
-  assert.match(migration, /revoke execute on function public\\.purchase_return_history\\(uuid, uuid, bigint\\) from public, anon/i);
-  assert.match(migration, /grant execute on function public\\.purchase_return_history\\(uuid, uuid, bigint\\) to authenticated/i);
+  assert.ok(migration.includes("private.purchase_return_history"));
+  assert.ok(migration.includes("auth.uid() is null"));
+  assert.ok(migration.includes("private.is_org_store_member(p_organization_id, p_store_id)"));
+  assert.ok(migration.includes("private.has_org_permission(p_organization_id, 'purchases.view')"));
+  assert.ok(migration.includes("organization_id = p_organization_id"));
+  assert.ok(migration.includes("store_id = p_store_id"));
+  assert.ok(migration.includes("id = p_purchase_receipt_id"));
+  assert.ok(migration.includes("revoke execute on function public.purchase_return_history(uuid, uuid, bigint) from public, anon"));
+  assert.ok(migration.includes("grant execute on function public.purchase_return_history(uuid, uuid, bigint) to authenticated"));
 });
 
 test("keeps legacy business API disabled", async () => {
