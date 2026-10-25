@@ -619,6 +619,17 @@
     return data;
   }
 
+  async function purchaseReturnDetails(purchaseReceiptId) {
+    const { organization, store } = context();
+    const { data, error } = await client().rpc("purchase_return_details", {
+      p_organization_id: organization.id,
+      p_store_id: store.id,
+      p_purchase_receipt_id: Number(purchaseReceiptId)
+    });
+    if (error) throw error;
+    return data;
+  }
+
   async function returnPurchase(body) {
     const { organization, store } = context();
     const items = Array.isArray(body.items) ? body.items : [];
@@ -753,6 +764,8 @@
     createSupplier,
     updateSupplier,
     createPurchase,
+    purchaseReturnDetails,
+    returnPurchase,
     recordSupplierPayment,
     cancelPurchase,
     purchases,
