@@ -36,7 +36,7 @@ declare
   having sum(si.quantity - coalesce(ri.quantity, 0)) > 0
   order by sum(si.total - coalesce(ri.refund_amount, 0)) desc
   limit 10
-) x$new$;
+) x)$new$;
   v_occurrences integer;
 begin
   select pg_get_functiondef(
