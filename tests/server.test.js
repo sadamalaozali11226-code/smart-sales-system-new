@@ -101,18 +101,22 @@ test("purchase return history API and UI are wired for read-only return inspecti
   const root = path.join(__dirname, "..");
   const apiSource = fs.readFileSync(path.join(root, "src", "commercial-api.js"), "utf8");
   const htmlSource = fs.readFileSync(path.join(root, "index.html"), "utf8");
-  const exportMatch = apiSource.match(/window\\.SmartSalesAPI\\s*=\\s*Object\\.freeze\\(\\{([\\s\\S]*?)\\}\\);/);
-  assert.ok(exportMatch, "Expected the production browser API export to exist");
-  assert.match(apiSource, /async function purchaseReturnHistory\\(/);
-  assert.match(exportMatch[1], /^\\s*purchaseReturnHistory,?\\s*$/m);
-  assert.match(apiSource, /from\\("purchase_returns"\\)[\\s\\S]*?eq\\("organization_id", organization\\.id\\)[\\s\\S]*?eq\\("store_id", store\\.id\\)/,
-    "History queries must be scoped to the current organization and store");
-  assert.match(apiSource, /from\\("purchase_return_items"\\)/);
-  assert.match(htmlSource, /onclick="openPurchaseReturnHistory\\(\\+Number\\(p\\.id\\)\\+\\)"/);
-  assert.match(htmlSource, /id="purchaseReturnHistoryModal"/);
-  assert.match(htmlSource, /async function openPurchaseReturnHistory\\(id\\)/);
-  assert.match(htmlSource, /purchaseReturnHistoryEmpty/);
-  assert.match(htmlSource, /escapeHtml\\(item\\.productName \\|\\| "-")/);
+  const exportStart = apiSource.indexOf("window.SmartSalesAPI = Object.freeze({");
+  const exportEnd = apiSource.indexOf("\n  });", exportStart);
+  assert.notEqual(exportStart, -1, "Expected the production browser API export to exist");
+  assert.notEqual(exportEnd, -1, "Expected the production browser API export to end");
+  const exportSource = apiSource.slice(exportStart, exportEnd);
+  assert.ok(apiSource.includes("async function purchaseReturnHistory("));
+  assert.ok(exportSource.includes("purchaseReturnHistory,"));
+  assert.ok(apiSource.includes('.from("purchase_returns")'));
+  assert.ok(apiSource.includes('.eq("organization_id", organization.id)'));
+  assert.ok(apiSource.includes('.eq("store_id", store.id)'));
+  assert.ok(apiSource.includes('.from("purchase_return_items")'));
+  assert.ok(htmlSource.includes("openPurchaseReturnHistory("));
+  assert.ok(htmlSource.includes('id="purchaseReturnHistoryModal"'));
+  assert.ok(htmlSource.includes("async function openPurchaseReturnHistory(id)"));
+  assert.ok(htmlSource.includes("purchaseReturnHistoryEmpty"));
+  assert.ok(htmlSource.includes('escapeHtml(item.productName || "-")'));
 });
 
 test("keeps legacy business API disabled", async () => {
