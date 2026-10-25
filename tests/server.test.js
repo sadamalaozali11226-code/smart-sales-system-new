@@ -75,25 +75,25 @@ test("exports every browser API method used by the UI, including purchase return
   const root = path.join(__dirname, "..");
   const apiSource = fs.readFileSync(path.join(root, "src", "commercial-api.js"), "utf8");
   const htmlSource = fs.readFileSync(path.join(root, "index.html"), "utf8");
-  const exportMatch = apiSource.match(/window\\.SmartSalesAPI\\s*=\\s*Object\\.freeze\\(\\{([\\s\\S]*?)\\}\\);/);
+  const exportMatch = apiSource.match(/window\.SmartSalesAPI\s*=\s*Object\.freeze\(\{([\s\S]*?)\}\);/);
   assert.ok(exportMatch, "Expected the production browser API export to exist");
 
   const exportedMethods = new Set(
-    [...exportMatch[1].matchAll(/^\\s*([A-Za-z_$][\\w$]*)\\s*,?\\s*$/gm)].map(match => match[1])
+    [...exportMatch[1].matchAll(/^\s*([A-Za-z_$][\w$]*)\s*,?\s*$/gm)].map(match => match[1])
   );
   const referencedMethods = new Set(
-    [...htmlSource.matchAll(/SmartSalesAPI\\.([A-Za-z_$][\\w$]*)/g)].map(match => match[1])
+    [...htmlSource.matchAll(/SmartSalesAPI\.([A-Za-z_$][\w$]*)/g)].map(match => match[1])
   );
   const missingMethods = [...referencedMethods].filter(method => !exportedMethods.has(method));
   assert.deepEqual(missingMethods, [], "Every method called by the UI must be exported");
 
-  assert.match(apiSource, /async function purchaseReturnDetails\\(/,
+  assert.match(apiSource, /async function purchaseReturnDetails\(/,
     "Purchase return details must be implemented in the shared API");
-  assert.match(exportMatch[1], /^\\s*purchaseReturnDetails,?\\s*$/m,
+  assert.match(exportMatch[1], /^\s*purchaseReturnDetails,?\s*$/m,
     "Purchase return details must be exported");
-  assert.match(apiSource, /async function returnPurchase\\(/,
+  assert.match(apiSource, /async function returnPurchase\(/,
     "Purchase return submission must be implemented in the shared API");
-  assert.match(exportMatch[1], /^\\s*returnPurchase,?\\s*$/m,
+  assert.match(exportMatch[1], /^\s*returnPurchase,?\s*$/m,
     "Purchase return submission must be exported");
 });
 
