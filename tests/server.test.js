@@ -119,6 +119,63 @@ test("purchase return history API and UI are wired for read-only return inspecti
   assert.ok(htmlSource.includes('escapeHtml(item.productName || "-")'));
 });
 
+test("purchase return history reads only the selected receipt and maps its return items", async () => {
+  const apiSource = fs.readFileSync(path.join(__dirname, "..", "src", "commercial-api.js"), "utf8");
+  const queries = [];
+  const responseByTable = {
+    purchase_returns: {
+      data: [{
+        id: 12, return_number: "PR-000012", purchase_receipt_id: 5, total: "30.00",
+        refund_amount: "25.00", refund_payment_method: "cash", refund_reference: "RF-12",
+        reason: "Damaged goods", notes: null, status: "completed", created_at: "2026-10-26T10:00:00Z"
+      }],
+      error: null
+    },
+    purchase_return_items: {
+      data: [{
+        id: 31, purchase_return_id: 12, purchase_receipt_item_id: 9, product_id: 3,
+        quantity: 3, unit_cost: "10.00", total: "30.00"
+      }],
+      error: null
+    },
+    products: { data: [{ id: 3, name: "Test Product" }], error: null }
+  };
+  const fakeClient = {
+    from(table) {
+      const query = {
+        table,
+        select(columns) { this.columns = columns; return this; },
+        eq(column, value) { queries.push({ table, method: "eq", column, value }); return this; },
+        in(column, values) { queries.push({ table, method: "in", column, values }); return this; },
+        order(column, options) { queries.push({ table, method: "order", column, options }); return this; },
+        then(resolve, reject) { return Promise.resolve(responseByTable[table]).then(resolve, reject); }
+      };
+      queries.push({ table, method: "select", columns: null });
+      return query;
+    }
+  };
+  const window = {
+    SmartSalesAuth: {
+      getClient: () => fakeClient,
+      getContext: () => ({ organization: { id: "org-test" }, store: { id: "store-test" } })
+    }
+  };
+  vm.runInNewContext(apiSource, { window });
+  const history = await window.SmartSalesAPI.purchaseReturnHistory(5);
+
+  assert.equal(history.length, 1);
+  assert.equal(history[0].returnNumber, "PR-000012");
+  assert.equal(history[0].total, 30);
+  assert.equal(history[0].refundAmount, 25);
+  assert.equal(history[0].items.length, 1);
+  assert.equal(history[0].items[0].productName, "Test Product");
+  assert.equal(history[0].items[0].quantity, 3);
+  assert.ok(queries.some(q => q.table === "purchase_returns" && q.method === "eq" && q.column === "organization_id" && q.value === "org-test"));
+  assert.ok(queries.some(q => q.table === "purchase_returns" && q.method === "eq" && q.column === "store_id" && q.value === "store-test"));
+  assert.ok(queries.some(q => q.table === "purchase_returns" && q.method === "eq" && q.column === "purchase_receipt_id" && q.value === 5));
+  assert.ok(queries.some(q => q.table === "purchase_return_items" && q.method === "in" && q.column === "purchase_return_id" && q.values[0] === 12));
+});
+
 test("keeps legacy business API disabled", async () => {
   for (const method of ["GET", "POST", "PUT", "DELETE"]) {
     const response = await fetch(`${baseUrl}/api/products`, { method });
