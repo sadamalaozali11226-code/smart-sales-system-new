@@ -1443,25 +1443,30 @@ if (!window.SmartSalesAPI) {
     >
 
     <input
-      type="number"
+      type="text"
+      inputmode="decimal"
+      dir="ltr"
+      autocomplete="off"
       id="productPrice"
       placeholder="السعر"
-      min="0"
     >
 
     <input
-      type="number"
+      type="text"
+      inputmode="numeric"
+      dir="ltr"
+      autocomplete="off"
       id="productQuantity"
       placeholder="الكمية"
-      min="0"
     >
 
     <input
-      type="number"
+      type="text"
+      inputmode="decimal"
+      dir="ltr"
+      autocomplete="off"
       id="productInitialCost"
       placeholder="تكلفة الوحدة الافتتاحية (اختياري)"
-      min="0"
-      step="0.01"
     >
 
     <button
@@ -3727,18 +3732,35 @@ if (!window.SmartSalesAPI) {
       const initialUnitCost = initialCostText === "" ? null : Number(initialCostText);
       const t = translations[currentLanguage];
 
-      if (
-        !name ||
-        priceText === "" ||
+      let validationError = null;
+      if (!name) {
+        validationError = currentLanguage === "ar"
+          ? "يرجى إدخال اسم المنتج."
+          : "Please enter a product name.";
+      } else if (priceText === "" || !Number.isFinite(price) || price < 0) {
+        validationError = currentLanguage === "ar"
+          ? "يرجى إدخال سعر صحيح يساوي صفرًا أو أكثر."
+          : "Enter a valid price of zero or greater.";
+      } else if (
         quantityText === "" ||
-        !Number.isFinite(price) ||
         !Number.isFinite(quantity) ||
-        price < 0 ||
         quantity < 0 ||
-        !Number.isInteger(quantity) ||
-        (initialUnitCost !== null && (!Number.isFinite(initialUnitCost) || initialUnitCost < 0))
+        !Number.isInteger(quantity)
       ) {
-        showMessage(t.invalid, true);
+        validationError = currentLanguage === "ar"
+          ? "يرجى إدخال كمية صحيحة كعدد صحيح يساوي صفرًا أو أكثر."
+          : "Enter a valid whole-number quantity of zero or greater.";
+      } else if (
+        initialCostText !== "" &&
+        (!Number.isFinite(initialUnitCost) || initialUnitCost < 0)
+      ) {
+        validationError = currentLanguage === "ar"
+          ? "تكلفة الوحدة الافتتاحية يجب أن تكون رقمًا يساوي صفرًا أو أكثر، أو تُترك فارغة."
+          : "Opening unit cost must be a number of zero or greater, or left blank.";
+      }
+
+      if (validationError) {
+        showMessage(validationError, true);
         return;
       }
 
