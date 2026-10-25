@@ -630,6 +630,72 @@
     return data;
   }
 
+  async function purchaseReturnHistory(purchaseReceiptId) {
+    const { organization, store } = context();
+    const receiptId = Number(purchaseReceiptId);
+    if (!Number.isInteger(receiptId) || receiptId <= 0) {
+      throw new Error("Purchase receipt is required.");
+    }
+
+    const supabase = client();
+    const { data: returns, error: returnsError } = await supabase
+      .from("purchase_returns")
+      .select("id,return_number,purchase_receipt_id,total,refund_amount,refund_payment_method,refund_reference,reason,notes,status,created_at")
+      .eq("organization_id", organization.id)
+      .eq("store_id", store.id)
+      .eq("purchase_receipt_id", receiptId)
+      .order("created_at", { ascending: false })
+      .order("id", { ascending: false });
+    if (returnsError) throw returnsError;
+    if (!returns || returns.length === 0) return [];
+
+    const returnIds = returns.map(item => Number(item.id));
+    const { data: returnItems, error: itemsError } = await supabase
+      .from("purchase_return_items")
+      .select("id,purchase_return_id,purchase_receipt_item_id,product_id,quantity,unit_cost,total")
+      .in("purchase_return_id", returnIds)
+      .order("id", { ascending: true });
+    if (itemsError) throw itemsError;
+
+    const itemRows = returnItems || [];
+    const productIds = [...new Set(itemRows.map(item => Number(item.product_id)))];
+    let productNames = new Map();
+    if (productIds.length > 0) {
+      const { data: productRows, error: productsError } = await supabase
+        .from("products")
+        .select("id,name")
+        .eq("organization_id", organization.id)
+        .in("id", productIds);
+      if (productsError) throw productsError;
+      productNames = new Map((productRows || []).map(item => [Number(item.id), item.name || ""]));
+    }
+
+    return returns.map(item => ({
+      id: Number(item.id),
+      returnNumber: item.return_number || "",
+      purchaseReceiptId: Number(item.purchase_receipt_id),
+      total: Number(item.total || 0),
+      refundAmount: Number(item.refund_amount || 0),
+      refundPaymentMethod: item.refund_payment_method || null,
+      refundReference: item.refund_reference || null,
+      reason: item.reason || null,
+      notes: item.notes || null,
+      status: item.status || "",
+      createdAt: item.created_at || null,
+      items: itemRows
+        .filter(row => Number(row.purchase_return_id) === Number(item.id))
+        .map(row => ({
+          id: Number(row.id),
+          purchaseReceiptItemId: Number(row.purchase_receipt_item_id),
+          productId: Number(row.product_id),
+          productName: productNames.get(Number(row.product_id)) || "",
+          quantity: Number(row.quantity || 0),
+          unitCost: Number(row.unit_cost || 0),
+          total: Number(row.total || 0)
+        }))
+    }));
+  }
+
   async function returnPurchase(body) {
     const { organization, store } = context();
     const items = Array.isArray(body.items) ? body.items : [];
@@ -765,6 +831,7 @@
     updateSupplier,
     createPurchase,
     purchaseReturnDetails,
+    purchaseReturnHistory,
     returnPurchase,
     recordSupplierPayment,
     cancelPurchase,
