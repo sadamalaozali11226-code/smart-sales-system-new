@@ -112,6 +112,8 @@ test("purchase return history API and UI are wired for read-only return inspecti
   assert.ok(apiSource.includes('.eq("organization_id", organization.id)'));
   assert.ok(apiSource.includes('.eq("store_id", store.id)'));
   assert.ok(apiSource.includes('.from("purchase_return_items")'));
+  assert.ok(htmlSource.includes("async function purchaseReturnHistory("), "The inline fallback API must also implement purchase return history");
+  assert.ok(htmlSource.includes("purchaseReturnHistory,"), "The inline fallback API must export purchase return history");
   assert.ok(htmlSource.includes("openPurchaseReturnHistory("));
   assert.ok(htmlSource.includes('id="purchaseReturnHistoryModal"'));
   assert.ok(htmlSource.includes("async function openPurchaseReturnHistory(id)"));
