@@ -477,7 +477,7 @@ test("sale payment retries reuse an authenticated idempotency key and replay the
   const apiSource = fs.readFileSync(path.join(root, "src", "commercial-api.js"), "utf8");
   const htmlSource = fs.readFileSync(path.join(root, "index.html"), "utf8");
   const migrationPath = path.join(root, "supabase", "migrations",
-    "20261026150000_add_sale_payment_idempotency.sql");
+    "20261026093725_add_sale_payment_idempotency.sql");
   const migration = fs.readFileSync(migrationPath, "utf8");
 
   assert.match(apiSource, /rpc\("record_sale_payment_idempotent"/,
