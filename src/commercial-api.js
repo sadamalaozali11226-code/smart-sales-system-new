@@ -437,11 +437,16 @@
   }
 
   async function payment(body) {
-    const { data, error } = await client().rpc("record_sale_payment", {
+    const idempotencyKey = String(body.idempotencyKey || "").trim();
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(idempotencyKey)) {
+      throw new Error("A valid payment idempotency key is required.");
+    }
+    const { data, error } = await client().rpc("record_sale_payment_idempotent", {
       p_sale_id: Number(body.saleId),
       p_amount: Number(body.amount),
       p_payment_method: body.paymentMethod ? String(body.paymentMethod) : "cash",
-      p_reference: body.reference ? String(body.reference) : null
+      p_reference: body.reference ? String(body.reference) : null,
+      p_idempotency_key: idempotencyKey
     });
 
     if (error) throw error;
