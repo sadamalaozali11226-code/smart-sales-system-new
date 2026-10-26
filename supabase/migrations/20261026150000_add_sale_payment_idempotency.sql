@@ -12,6 +12,8 @@ create table if not exists private.idempotency_requests (
   primary key (user_id, operation, idempotency_key)
 );
 
+alter table private.idempotency_requests enable row level security;
+
 revoke all on table private.idempotency_requests from public, anon, authenticated;
 
 create or replace function private.record_sale_payment_idempotent(
