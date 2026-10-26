@@ -479,7 +479,7 @@ test("sale creation and payment retries use authenticated idempotency keys", () 
   const paymentMigration = fs.readFileSync(path.join(root, "supabase", "migrations",
     "20261026093725_add_sale_payment_idempotency.sql"), "utf8");
   const saleMigration = fs.readFileSync(path.join(root, "supabase", "migrations",
-    "20261026094500_add_sale_creation_idempotency_rpc.sql"), "utf8");
+    "20261026094612_add_sale_creation_idempotency_rpc.sql"), "utf8");
 
   assert.match(apiSource, /rpc\("record_sale_payment_idempotent"/,
     "The shared API must call the idempotent payment RPC");
