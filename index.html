@@ -2482,13 +2482,15 @@ if (!window.SmartSalesAPI) {
     let currentPaymentRemaining = 0;
     let pendingPaymentIdempotencyKey = null;
     let pendingPaymentFingerprint = null;
+    let pendingSaleIdempotencyKey = null;
+    let pendingSaleFingerprint = null;
     let selectedReturnInvoice = null;
 
-    function createPaymentIdempotencyKey() {
+    function createIdempotencyKey() {
       if (window.crypto && typeof window.crypto.randomUUID === "function") {
         return window.crypto.randomUUID();
       }
-      throw new Error("Secure payment request key generation is unavailable; payment was not submitted.");
+      throw new Error("Secure request key generation is unavailable; the operation was not submitted.");
     }
     let selectedCancelInvoice = null;
 
@@ -4622,7 +4624,7 @@ if (!window.SmartSalesAPI) {
       button.disabled = true;
 
       try {
-        const data = await SmartSalesAPI.createSale({
+        const saleRequest = {
           items: saleCart.map(item => ({
             product_id: Number(item.productId),
             quantity: Number(item.quantity),
@@ -4635,7 +4637,18 @@ if (!window.SmartSalesAPI) {
           paidAmount,
           paymentMethod,
           reference: reference || null
+        };
+        const requestFingerprint = JSON.stringify(saleRequest);
+        if (!pendingSaleIdempotencyKey || pendingSaleFingerprint !== requestFingerprint) {
+          pendingSaleIdempotencyKey = createIdempotencyKey();
+          pendingSaleFingerprint = requestFingerprint;
+        }
+        const data = await SmartSalesAPI.createSale({
+          ...saleRequest,
+          idempotencyKey: pendingSaleIdempotencyKey
         });
+        pendingSaleIdempotencyKey = null;
+        pendingSaleFingerprint = null;
 
         closeSaleModal();
         await loadProducts();
@@ -5014,7 +5027,7 @@ if (!window.SmartSalesAPI) {
         };
         const requestFingerprint = JSON.stringify(paymentRequest);
         if (!pendingPaymentIdempotencyKey || pendingPaymentFingerprint !== requestFingerprint) {
-          pendingPaymentIdempotencyKey = createPaymentIdempotencyKey();
+          pendingPaymentIdempotencyKey = createIdempotencyKey();
           pendingPaymentFingerprint = requestFingerprint;
         }
         await SmartSalesAPI.payment({
