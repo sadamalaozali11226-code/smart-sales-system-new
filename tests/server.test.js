@@ -470,3 +470,40 @@ test("invitation handlers check write failures and never activate a non-invited 
   assert.match(source, /Failed to restore pending invitation after acceptance failure/,
     "Acceptance must attempt to restore pending status when activation fails");
 });
+
+
+test("sale payment retries reuse an authenticated idempotency key and replay the original response", () => {
+  const root = path.join(__dirname, "..");
+  const apiSource = fs.readFileSync(path.join(root, "src", "commercial-api.js"), "utf8");
+  const htmlSource = fs.readFileSync(path.join(root, "index.html"), "utf8");
+  const migrationPath = path.join(root, "supabase", "migrations",
+    "20261026150000_add_sale_payment_idempotency.sql");
+  const migration = fs.readFileSync(migrationPath, "utf8");
+
+  assert.match(apiSource, /rpc\("record_sale_payment_idempotent"/,
+    "The shared API must call the idempotent RPC");
+  assert.match(apiSource, /p_idempotency_key:\s*idempotencyKey/,
+    "The request key must be sent to the database");
+  assert.match(apiSource, /A valid payment idempotency key is required/,
+    "The shared API must reject missing or malformed keys");
+
+  assert.match(htmlSource, /pendingPaymentIdempotencyKey/,
+    "The UI must keep the key available across a failed network attempt");
+  assert.match(htmlSource, /pendingPaymentFingerprint !== requestFingerprint/,
+    "Changing payment details must start a new logical request");
+  assert.match(htmlSource, /idempotencyKey:\s*pendingPaymentIdempotencyKey/,
+    "The payment UI must pass the retained key into the API");
+
+  assert.match(migration, /primary key \(user_id, operation, idempotency_key\)/i,
+    "The database must enforce uniqueness per authenticated user and operation");
+  assert.match(migration, /on conflict \(user_id, operation, idempotency_key\) do nothing/i,
+    "Concurrent duplicate requests must converge on one idempotency record");
+  assert.match(migration, /v_existing_payload <> v_payload/,
+    "Reusing a key with different payment data must be rejected");
+  assert.match(migration, /return v_existing_response/,
+    "A duplicate request must replay the first successful response");
+  assert.match(migration, /grant execute on function public\.record_sale_payment_idempotent\([^;]+ to authenticated/i,
+    "The public RPC must be granted only to authenticated users");
+  assert.match(migration, /revoke all on table private\.idempotency_requests from public, anon, authenticated/i,
+    "The idempotency table must not be directly accessible to clients");
+});
