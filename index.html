@@ -2480,7 +2480,16 @@ if (!window.SmartSalesAPI) {
     let selectedPaymentSaleId = null;
     let selectedPaymentInvoice = null;
     let currentPaymentRemaining = 0;
+    let pendingPaymentIdempotencyKey = null;
+    let pendingPaymentFingerprint = null;
     let selectedReturnInvoice = null;
+
+    function createPaymentIdempotencyKey() {
+      if (window.crypto && typeof window.crypto.randomUUID === "function") {
+        return window.crypto.randomUUID();
+      }
+      throw new Error("Secure payment request key generation is unavailable; payment was not submitted.");
+    }
     let selectedCancelInvoice = null;
 
     const translations = {
@@ -4997,12 +5006,23 @@ if (!window.SmartSalesAPI) {
       button.disabled = true;
       try {
         const invoiceSaleId = Number(selectedPaymentSaleId);
-        await SmartSalesAPI.payment({
+        const paymentRequest = {
           saleId: invoiceSaleId,
           amount: Number(amount.toFixed(2)),
           paymentMethod,
           reference: reference || null
+        };
+        const requestFingerprint = JSON.stringify(paymentRequest);
+        if (!pendingPaymentIdempotencyKey || pendingPaymentFingerprint !== requestFingerprint) {
+          pendingPaymentIdempotencyKey = createPaymentIdempotencyKey();
+          pendingPaymentFingerprint = requestFingerprint;
+        }
+        await SmartSalesAPI.payment({
+          ...paymentRequest,
+          idempotencyKey: pendingPaymentIdempotencyKey
         });
+        pendingPaymentIdempotencyKey = null;
+        pendingPaymentFingerprint = null;
 
         closePaymentModal();
         await loadSalesHistory();
