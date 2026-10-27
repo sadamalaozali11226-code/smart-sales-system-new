@@ -517,3 +517,33 @@ test("sale creation and payment retries use authenticated idempotency keys", () 
   assert.match(saleMigration, /grant execute on function public\.create_sale_transaction_idempotent\([^;]+ to authenticated/i);
   assert.match(saleMigration, /revoke all on table private\.sale_idempotency_requests from public, anon, authenticated/i);
 });
+
+
+test("profitability report values returned goods using the same invoice allocation as sale returns", () => {
+  const root = path.join(__dirname, "..");
+  const reportMigration = fs.readFileSync(path.join(root, "supabase", "migrations",
+    "20261027190000_fix_sales_return_profitability.sql"), "utf8");
+  const returnMigration = fs.readFileSync(path.join(root, "supabase", "migrations",
+    "20261006234000_correct_profitability_revenue.sql"), "utf8");
+
+  assert.match(reportMigration, /status in \('completed', 'partially_returned', 'fully_returned'\)/i,
+    "Returned sales must remain included in the sales denominator");
+  assert.match(reportMigration, /sr\.status\s*=\s*'completed'/i,
+    "Only completed return records may reduce reported revenue");
+  assert.match(reportMigration, /sum\(sri\.quantity\) over\s*\([\s\S]*?partition by sri\.sale_item_id[\s\S]*?order by sri\.return_id/i,
+    "Partial returns must use cumulative quantities in a stable order");
+  assert.match(reportMigration, /sale_item_total\s*\*\s*rr\.sale_total\s*\/\s*rr\.sale_subtotal/i,
+    "Returned value must apply the invoice total-to-subtotal allocation");
+  assert.match(reportMigration, /cumulative_returned_quantity\s*-\s*rr\.quantity/i,
+    "Each partial return must subtract the previously allocated rounded value");
+  assert.match(reportMigration, /sum\(return_value\) from returned/i,
+    "Sales returns must sum allocated returned-goods value");
+  assert.doesNotMatch(reportMigration, /sum\(refund_amount\) from returned/i,
+    "Cash refund amount must not be mistaken for returned-goods revenue");
+  assert.match(reportMigration, /sum\(si\.unit_cost\s*\*\s*r\.quantity\)/i,
+    "Returned cost of goods must still be deducted from COGS");
+  assert.match(reportMigration, /Reports permission required/);
+  assert.match(reportMigration, /Organization-wide report access denied/);
+  assert.match(returnMigration, /v_item_return_value\s*:=\s*round\(\(\(v_sale_item\.total\s*\*\s*v_sale\.total\s*\/\s*v_sale\.subtotal\)/i,
+    "The report allocation must match the sale-return transaction's valuation rule");
+});
