@@ -524,7 +524,7 @@ test("profitability report values returned goods using the same invoice allocati
   const reportMigration = fs.readFileSync(path.join(root, "supabase", "migrations",
     "20261027190000_fix_sales_return_profitability.sql"), "utf8");
   const returnMigration = fs.readFileSync(path.join(root, "supabase", "migrations",
-    "20261006234000_correct_profitability_revenue.sql"), "utf8");
+    "20261010093246_harden_return_financial_invariants.sql"), "utf8");
 
   assert.match(reportMigration, /status in \('completed', 'partially_returned', 'fully_returned'\)/i,
     "Returned sales must remain included in the sales denominator");
